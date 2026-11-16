@@ -26,8 +26,23 @@ import com.metrolist.shared.generated.resources.xmb_cat_search
 import com.metrolist.shared.generated.resources.xmb_cat_settings
 import com.metrolist.shared.generated.resources.xmb_cat_users
 import com.metrolist.shared.generated.resources.xmb_cat_video
+import com.metrolist.shared.generated.resources.xmb_item_playlist
+import com.metrolist.shared.model.AlbumTiny
+import com.metrolist.shared.model.ArtistTiny
+import com.metrolist.shared.model.HomeSection
+import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.ui.playback.PlaybackController
+import com.metrolist.shared.ui.playback.PlaybackUiState
+import com.metrolist.shared.xmb.adapters.XmbList
+import com.metrolist.shared.xmb.adapters.XmbListState
+import com.metrolist.shared.xmb.adapters.XmbMusicSource
+import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.nav.XmbCategoryId
+import com.metrolist.shared.xmb.nav.XmbIcon
+import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.theme.XmbIcons
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Assume.assumeTrue
@@ -41,6 +56,15 @@ import kotlin.test.Test
  */
 class XmbSnapshotCapture {
     private val output = System.getenv("XMB_SNAP_OUT")?.let(::File)
+
+    /** A local image standing in for album art, so captures need no network. */
+    private val artworkFile =
+        generateSequence(File("").absoluteFile) { it.parentFile }
+            .firstOrNull { File(it, "settings.gradle.kts").isFile }
+            ?.let { File(it, "fastlane/metadata/android/en-US/images/icon.png") }
+            ?.takeIf(File::isFile)
+            ?.toURI()
+            ?.toString()
     private val only = System.getenv("XMB_SNAP")?.takeIf { it.isNotBlank() && it != "all" }
 
     @Test
@@ -59,6 +83,28 @@ class XmbSnapshotCapture {
                     XmbApp({}, time = { day.copy(month = 8) }, animate = false, initialCategory = XmbCategoryId.VISUALIZER)
                 },
                 Screen("small-window", 960, 600) { XmbApp({}, time = { day }, animate = false) },
+                Screen("music-home") {
+                    XmbApp({}, services = demoServices, time = { day }, animate = false, initialLevels = listOf(homeLevel))
+                },
+                Screen("music-section") {
+                    XmbApp(
+                        {},
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialLevels = listOf(homeLevel.copy(focus = 1), sectionLevel.copy(focus = 2)),
+                    )
+                },
+                Screen("music-options") {
+                    XmbApp(
+                        {},
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialLevels = listOf(homeLevel.copy(focus = 1), sectionLevel.copy(focus = 2)),
+                        initialOptions = true,
+                    )
+                },
             )
         for (screen in screens) {
             if (only != null && screen.name != only) continue
@@ -66,7 +112,11 @@ class XmbSnapshotCapture {
             val scene = ImageComposeScene(screen.width, screen.height, Density(density), content = screen.content)
             try {
                 var image = scene.render(0)
-                for (frame in 1..10) image = scene.render(frame * 50_000_000L)
+                for (frame in 1..10) {
+                    // Artwork decodes off the render thread; give it a moment between frames.
+                    Thread.sleep(40)
+                    image = scene.render(frame * 50_000_000L)
+                }
                 File(out, "${screen.name}.png").writeBytes(checkNotNull(image.encodeToData(EncodedImageFormat.PNG)).bytes)
             } finally {
                 scene.close()
@@ -74,6 +124,82 @@ class XmbSnapshotCapture {
             println("XMB snapshot: ${File(out, "${screen.name}.png")}")
         }
     }
+
+    private val demoSongs =
+        listOf(
+            "Midnight Drive" to "Neon Coast",
+            "Paper Lanterns" to "Saltwater Sky",
+            "Cold Harbor" to "The Northern Lines",
+            "Afterglow" to "Mira Vale",
+            "Slow Satellites" to "Echo Garden",
+            "Glass Rivers" to "Neon Coast",
+            "Weekend Static" to "The Low Tides",
+        ).mapIndexed { index, (title, artist) ->
+            SongItem(
+                id = "demo$index",
+                title = title,
+                thumbnail = artworkFile.takeIf { index == 2 },
+                artists = listOf(ArtistTiny("UCdemo$index", artist)),
+                album = AlbumTiny("MPREbdemo$index", "$title (Single)"),
+                duration = 215,
+            )
+        }
+    private val sections =
+        listOf(
+            HomeSection("Quick picks", demoSongs),
+            HomeSection("Listen again", demoSongs.reversed()),
+            HomeSection("New releases", demoSongs.take(4)),
+            HomeSection("From your library", demoSongs.drop(2)),
+        )
+    private val homeLevel = XmbLevel(XmbList.Home, "Home", XmbIcon.Drawable(Res.drawable.xmb_item_playlist))
+    private val sectionLevel =
+        XmbLevel(XmbList.Section(sections[1], 1), sections[1].title, XmbIcon.Drawable(Res.drawable.xmb_item_playlist))
+    private val demoServices =
+        XmbServices(
+            playback =
+                object : PlaybackController {
+                    override val state =
+                        MutableStateFlow(
+                            PlaybackUiState(currentSong = demoSongs[2], isPlaying = true, positionMs = 83_000, durationMs = 215_000),
+                        )
+
+                    override fun play(
+                        song: SongItem,
+                        queue: List<SongItem>,
+                        songsOnly: Boolean,
+                    ) = Unit
+
+                    override fun shuffleQueue(
+                        songs: List<SongItem>,
+                        queueTitle: String?,
+                        songsOnly: Boolean,
+                    ) = Unit
+
+                    override fun togglePlayPause() = Unit
+
+                    override fun seekTo(positionMs: Long) = Unit
+
+                    override fun skipToNext() = Unit
+
+                    override fun skipToPrevious() = Unit
+
+                    override fun setPlaybackSpeed(speed: Float) = Unit
+
+                    override fun startRadio(song: SongItem) = Unit
+
+                    override fun playNext(songs: List<SongItem>) = Unit
+
+                    override fun addToQueue(songs: List<SongItem>) = Unit
+                },
+            music =
+                XmbMusicSource { list ->
+                    when (list) {
+                        XmbList.Home -> flowOf(XmbListState.loaded(sections.mapIndexed { index, section -> section.toXmbEntry(index) }))
+                        is XmbList.Section -> flowOf(XmbListState.loaded(list.section.items.map { it.toXmbEntry() }))
+                        else -> flowOf(XmbListState.loaded(emptyList()))
+                    }
+                },
+        )
 
     private class Screen(
         val name: String,

@@ -1,5 +1,7 @@
 package com.metrolist.shared.xmb
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
@@ -13,10 +15,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
@@ -39,17 +43,23 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.xmb_ui_clock
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.visualizer.background.XmbBackground
+import com.metrolist.shared.xmb.adapters.XmbListState
 import com.metrolist.shared.xmb.bar.XmbBar
 import com.metrolist.shared.xmb.bar.XmbBarGeometry
+import com.metrolist.shared.xmb.bar.XmbLevelView
 import com.metrolist.shared.xmb.nav.XmbAction
 import com.metrolist.shared.xmb.nav.XmbCategoryId
 import com.metrolist.shared.xmb.nav.XmbFeedback
 import com.metrolist.shared.xmb.nav.XmbItemAction
+import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
+import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.xmbActionFor
 import com.metrolist.shared.xmb.nav.xmbActionForScroll
 import com.metrolist.shared.xmb.nav.xmbCategories
+import com.metrolist.shared.xmb.screens.XmbNowPlaying
+import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.sound
 import com.metrolist.shared.xmb.theme.XmbMetrics
@@ -58,10 +68,12 @@ import com.metrolist.shared.xmb.theme.XmbPalette
 import com.metrolist.shared.xmb.theme.rememberXmbFontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.time.Clock
@@ -87,41 +99,112 @@ data class XmbTime(
 }
 
 /**
- * The XMB front end: background, category row with item columns, and the clock. [onSwitchToStock]
- * switches the interface style back to the stock screens. [time] and [animate] exist so dev
- * snapshots render a fixed scene.
+ * The XMB front end: background, category row with item columns, drill-down levels, the △
+ * options panel, now-playing info and the clock. [onSwitchToStock] switches the interface style
+ * back to the stock screens. Without [services] the Music lists stay closed (dev snapshots).
+ * [time], [animate] and the initial position exist so dev snapshots render a fixed scene.
  */
 @Composable
 fun XmbApp(
     onSwitchToStock: () -> Unit,
     modifier: Modifier = Modifier,
+    services: XmbServices? = null,
     time: (() -> XmbTime)? = null,
     animate: Boolean = true,
     initialCategory: XmbCategoryId = XmbCategoryId.MUSIC,
     initialItem: Int = 0,
+    initialLevels: List<XmbLevel> = emptyList(),
+    initialOptions: Boolean = false,
 ) {
     val categories = remember { xmbCategories() }
     val itemCounts = remember(categories) { categories.map { it.items.size } }
+    val itemTitles = categories.map { category -> category.items.map { stringResource(it.title) } }
     var navigation by remember {
         val start = XmbNavigation.initial(itemCounts, initialCategory.ordinal)
         val item = initialItem.coerceIn(0, (itemCounts[start.category] - 1).coerceAtLeast(0))
-        mutableStateOf(start.copy(items = start.items.toMutableList().also { it[start.category] = item }))
+        mutableStateOf(start.copy(items = start.items.toMutableList().also { it[start.category] = item }, stack = initialLevels))
     }
+    var options by remember { mutableStateOf<XmbOptionsPanel?>(null) }
     val sounds = LocalXmbSoundPlayer.current
     val switchToStock by rememberUpdatedState(onSwitchToStock)
     val now = rememberXmbTime(time)
     val fontFamily = rememberXmbFontFamily()
     val seconds = rememberAnimationSeconds(animate)
     val focusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
+    val actions = remember(services, scope) { services?.let { XmbActions(it, scope) } }
+    val level = navigation.level
+    val listState by remember(level?.list?.key, services) {
+        val list = level?.list
+        if (list == null || services == null) flowOf(XmbListState.loaded(emptyList())) else services.music.open(list)
+    }.collectAsState(XmbListState())
+    val drill by animateFloatAsState(if (navigation.stack.isEmpty()) 0f else 1f, tween(XmbMotion.FADE_MS))
+
+    LaunchedEffect(level?.list?.key, listState.entries.size, listState.isLoading) {
+        if (!listState.isLoading) navigation = navigation.clampLevel(listState.entries.size)
+        if (initialOptions && options == null && actions != null) {
+            val entry = listState.entries.getOrNull(navigation.level?.focus ?: -1)
+            if (entry != null) options = XmbOptionsPanel(entry, actions.options(entry))
+        }
+    }
 
     fun dispatch(action: XmbAction) {
-        val step = navigation.reduce(action, itemCounts)
+        val playback = services?.playback
+        when (action) {
+            XmbAction.PLAY_PAUSE -> return run { playback?.togglePlayPause() }
+            XmbAction.NEXT_TRACK -> return run { playback?.skipToNext() }
+            XmbAction.PREVIOUS_TRACK -> return run { playback?.skipToPrevious() }
+            else -> Unit
+        }
+        val entries = listState.entries
+        val panel = options
+        if (panel != null) {
+            val step = panel.reduce(action)
+            options = step.panel
+            step.chosen?.let { chosen ->
+                actions?.run(chosen, entries, navigation.level?.focus ?: -1)?.let { navigation = navigation.push(it) }
+            }
+            step.feedback.sound()?.let(sounds::play)
+            return
+        }
+        val step = navigation.reduce(action, itemCounts, levelSize = entries.size)
         navigation = step.navigation
         var feedback = step.feedback
+        if (step.optionsRequested) {
+            val entry = entries.getOrNull(navigation.level?.focus ?: -1)
+            val choices = entry?.let { actions?.options(it) }.orEmpty()
+            if (entry != null && choices.isNotEmpty()) {
+                options = XmbOptionsPanel(entry, choices)
+                feedback = XmbFeedback.SELECT
+            } else {
+                feedback = XmbFeedback.ERROR
+            }
+        }
         step.selected?.let { selection ->
-            when (categories[selection.category].items[selection.item].action) {
-                XmbItemAction.NONE -> feedback = XmbFeedback.ERROR
-                XmbItemAction.SWITCH_TO_METROLIST -> switchToStock()
+            if (selection.depth == 0) {
+                val item = categories[selection.category].items[selection.item]
+                val list = item.list
+                when {
+                    list != null && actions != null -> {
+                        navigation = navigation.push(XmbLevel(list, itemTitles[selection.category][selection.item], item.icon))
+                    }
+
+                    item.action == XmbItemAction.SWITCH_TO_METROLIST -> {
+                        switchToStock()
+                    }
+
+                    else -> {
+                        feedback = XmbFeedback.ERROR
+                    }
+                }
+            } else {
+                val entry = entries.getOrNull(selection.item)
+                val opened = entry?.toLevel()
+                when {
+                    opened != null -> navigation = navigation.push(opened)
+                    actions?.playFrom(entries, selection.item) == true -> Unit
+                    else -> feedback = XmbFeedback.ERROR
+                }
             }
         }
         feedback.sound()?.let(sounds::play)
@@ -166,24 +249,42 @@ fun XmbApp(
                     focusedItemOffset = metrics.focusedItemOffset.toPx(),
                     itemsAboveGap = metrics.itemsAboveGap.toPx(),
                     width = maxWidth.toPx(),
+                    levelFocusY = maxHeight.toPx() * XmbMetrics.LEVEL_FOCUS_Y,
+                    parentOffset = metrics.parentOffset.toPx(),
                 )
             }
+        val glow = { glowStrength(seconds.floatValue) }
         XmbBackground(
             colors = XmbPalette.backgroundColors(now.month, now.hourOfDay),
             modifier = Modifier.fillMaxSize(),
             seconds = { seconds.floatValue },
         )
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - drill }) {
             XmbBar(
                 categories = categories,
                 navigation = navigation,
                 metrics = metrics,
                 geometry = geometry,
                 fontFamily = fontFamily,
-                glow = { glowStrength(seconds.floatValue) },
+                glow = glow,
+                listsEnabled = services != null,
+            )
+        }
+        if (level != null) {
+            Box(Modifier.fillMaxSize()) {
+                XmbLevelView(level, listState, metrics, geometry, fontFamily, glow, visible = { drill })
+            }
+        }
+        services?.playback?.let { playback ->
+            XmbNowPlaying(
+                playback,
+                metrics,
+                fontFamily,
+                Modifier.align(Alignment.BottomEnd).padding(end = metrics.edgeMargin, bottom = metrics.edgeMargin),
             )
         }
         XmbClock(now, metrics, fontFamily, Modifier.align(Alignment.TopEnd).padding(top = metrics.edgeMargin, end = metrics.edgeMargin))
+        XmbOptionsPanelView(options, metrics, fontFamily)
     }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }

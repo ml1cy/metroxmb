@@ -3,13 +3,15 @@
 package com.metrolist.shared.xmb.nav
 
 import com.metrolist.shared.generated.resources.*
+import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.theme.XmbIcons
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 
 /**
- * The XMB's categories and their items. In M1 most items are placeholders for the screens later
- * milestones wire up (PLAN.md); the Metrolist interface item switches back to the stock screens.
+ * The XMB's categories and their items. Music items open drill-down lists (M2); the rest are
+ * placeholders for later milestones (PLAN.md). The Metrolist interface item switches back to the
+ * stock screens.
  */
 fun xmbCategories(): List<XmbCategory> =
     listOf(
@@ -43,14 +45,14 @@ fun xmbCategories(): List<XmbCategory> =
             XmbCategoryId.MUSIC,
             Res.string.xmb_category_music,
             drawable(Res.drawable.xmb_cat_music),
-            item("home", Res.string.home, Res.drawable.xmb_item_playlist),
-            item("quick_picks", Res.string.quick_picks, Res.drawable.xmb_item_song),
-            item("liked", Res.string.liked_songs, Res.drawable.xmb_item_liked),
-            item("playlists", Res.string.playlists, Res.drawable.xmb_item_playlist),
-            item("albums", Res.string.albums, Res.drawable.xmb_item_album),
-            item("artists", Res.string.artists, Res.drawable.xmb_item_artist),
-            item("history", Res.string.menu_history, Res.drawable.xmb_item_history),
-            item("downloads", Res.string.downloads, Res.drawable.xmb_item_playlist),
+            item("home", Res.string.home, Res.drawable.xmb_item_playlist, XmbList.Home),
+            item("quick_picks", Res.string.quick_picks, Res.drawable.xmb_item_song, XmbList.QuickPicks),
+            item("liked", Res.string.liked_songs, Res.drawable.xmb_item_liked, XmbList.Liked),
+            item("playlists", Res.string.playlists, Res.drawable.xmb_item_playlist, XmbList.Playlists),
+            item("albums", Res.string.albums, Res.drawable.xmb_item_album, XmbList.Albums),
+            item("artists", Res.string.artists, Res.drawable.xmb_item_artist, XmbList.Artists),
+            item("history", Res.string.menu_history, Res.drawable.xmb_item_history, XmbList.History),
+            item("downloads", Res.string.downloads, Res.drawable.xmb_item_playlist, XmbList.Downloads),
         ),
         category(
             XmbCategoryId.SEARCH,
@@ -104,7 +106,8 @@ private fun item(
     id: String,
     title: StringResource,
     icon: DrawableResource,
-) = XmbItem(id, title, drawable(icon))
+    list: XmbList? = null,
+) = XmbItem(id, title, drawable(icon), list = list)
 
 private fun visualizer(
     id: String,

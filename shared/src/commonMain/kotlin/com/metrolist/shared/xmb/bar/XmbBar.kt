@@ -55,6 +55,8 @@ internal class XmbBarGeometry(
     val focusedItemOffset: Float,
     val itemsAboveGap: Float,
     val width: Float,
+    val levelFocusY: Float = barY + focusedItemOffset,
+    val parentOffset: Float = itemIcon * 2f,
 ) {
     fun categoryX(offset: Float): Float = anchorX + offset * categorySpacing
 
@@ -83,6 +85,7 @@ internal fun XmbBar(
     geometry: XmbBarGeometry,
     fontFamily: FontFamily,
     glow: () -> Float,
+    listsEnabled: Boolean = false,
 ) {
     val categoryPosition = remember { Animatable(navigation.category.toFloat()) }
     LaunchedEffect(navigation.category) {
@@ -132,6 +135,7 @@ internal fun XmbBar(
                     geometry = geometry,
                     fontFamily = fontFamily,
                     glow = glow,
+                    listsEnabled = listsEnabled,
                 )
             }
         }
@@ -176,6 +180,7 @@ private fun ItemColumn(
     geometry: XmbBarGeometry,
     fontFamily: FontFamily,
     glow: () -> Float,
+    listsEnabled: Boolean,
 ) {
     val density = LocalDensity.current
     val titleSize = with(density) { metrics.itemTitleSize.toSp() }
@@ -220,7 +225,8 @@ private fun ItemColumn(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    val subtitle = item.subtitle ?: Res.string.xmb_item_unavailable.takeIf { item.action == XmbItemAction.NONE }
+                    val available = item.action != XmbItemAction.NONE || (item.list != null && listsEnabled)
+                    val subtitle = item.subtitle ?: Res.string.xmb_item_unavailable.takeIf { !available }
                     if (focused && subtitle != null) {
                         BasicText(
                             text = stringResource(subtitle),
@@ -257,7 +263,7 @@ internal fun XmbIconImage(
 }
 
 /** A soft white halo behind focused icons; [strength] is read at draw time. */
-private fun Modifier.focusGlow(strength: () -> Float): Modifier =
+internal fun Modifier.focusGlow(strength: () -> Float): Modifier =
     drawBehind {
         val alpha = strength()
         if (alpha <= 0f) return@drawBehind
@@ -277,7 +283,7 @@ private fun Modifier.focusGlow(strength: () -> Float): Modifier =
  * Places content so its point at ([alignX], [alignY]) of its own size lands on [anchor] (pixels,
  * relative to the parent). The anchor is read during placement only.
  */
-private fun Modifier.placeAt(
+internal fun Modifier.placeAt(
     alignX: Float = 0f,
     alignY: Float = 0f,
     anchor: () -> Offset,
@@ -293,7 +299,7 @@ private fun Modifier.placeAt(
         }
     }
 
-private fun lerp(
+internal fun lerp(
     from: Float,
     to: Float,
     fraction: Float,

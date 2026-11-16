@@ -41,12 +41,18 @@ class XmbMetrics(
     val clockSize = unit * 16
     val edgeMargin = unit * 32
 
+    /** How far left of the list an opened level's parent icon sits. */
+    val parentOffset = unit * 130
+
     companion object {
         /** Horizontal position of the focused category, as a fraction of the window width. */
         const val ANCHOR_X = 0.22f
 
         /** Vertical position of the category row, as a fraction of the window height. */
         const val BAR_Y = 0.30f
+
+        /** Vertical position of an opened level's focused row, as a fraction of the window height. */
+        const val LEVEL_FOCUS_Y = 0.42f
 
         fun forSize(
             width: Dp,

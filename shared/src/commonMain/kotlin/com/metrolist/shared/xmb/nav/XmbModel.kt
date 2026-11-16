@@ -1,6 +1,7 @@
 package com.metrolist.shared.xmb.nav
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.metrolist.shared.xmb.adapters.XmbList
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 
@@ -26,7 +27,10 @@ sealed interface XmbIcon {
     ) : XmbIcon
 }
 
-/** What selecting an item does. Items without an action yet play the error sound. */
+/**
+ * What selecting an item does besides opening its [XmbItem.list]. Items with neither play the
+ * error sound.
+ */
 enum class XmbItemAction {
     NONE,
     SWITCH_TO_METROLIST,
@@ -38,7 +42,10 @@ data class XmbItem(
     val icon: XmbIcon,
     val subtitle: StringResource? = null,
     val action: XmbItemAction = XmbItemAction.NONE,
-)
+    val list: XmbList? = null,
+) {
+    val isAvailable: Boolean get() = action != XmbItemAction.NONE || list != null
+}
 
 data class XmbCategory(
     val id: XmbCategoryId,

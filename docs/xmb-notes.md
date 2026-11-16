@@ -50,6 +50,37 @@ narrower than 4:3, so the XMB keeps its proportions at any size.
 | Wave | 3 translucent ribbons around 60–66% of the height, 0.05–0.11 cycles/s, 16% peak alpha, 1.2-unit crest line | Simple stand-in until M4's Waves shader |
 | Animation | One frame clock in `XmbApp`, paused while `LocalVisualWorkActive` is false | Hidden windows do no animation work (docs/rendering.md); frames redraw without recomposing |
 
+## Drill-down levels (`xmb/bar/XmbLevelView.kt`, M2)
+
+| Constant | Value | Reason |
+|---|---|---|
+| `LEVEL_FOCUS_Y` | 0.42 of height | With the category row faded out, an opened list centers a little above the middle, leaving room below for now-playing |
+| `parentOffset` | 130 units left of the list | The parent row's icon sits to the left of the list like the console's folder navigation; only the immediate parent shows |
+| Rows shown | 7 above, 10 below the focus | Fills a 16:9 window; the rest aren't composed |
+| Level transition | category row fades out over `FADE_MS`; rows slide in from 40 units right | Opening reads as moving into the folder |
+| Artwork | album art or photo cropped square, 6% corner radius; the XMB icon shows until it loads or if it fails | Album art replaces item icons, as the manifest notes |
+| History list | latest 200 plays, one row per song | Enough to scroll; paging can come later |
+
+## Options panel (`xmb/screens/XmbOptionsPanelView.kt`, M2)
+
+| Constant | Value | Reason |
+|---|---|---|
+| Width | 360 units, right edge | A side panel that leaves the list visible |
+| Background | horizontal black gradient, 35% to 65% alpha | Darkens toward the edge so the options read over any month's color |
+| Option spacing | 22 units | Roomy list like the console's option menu |
+| Slide | `FADE_MS` with the scroll easing | Matches the level transition |
+
+## Now playing (`xmb/screens/XmbNowPlaying.kt`, M2)
+
+| Constant | Value | Reason |
+|---|---|---|
+| Position | bottom right, `edgeMargin` from the edges | PLAN.md: track info in the bottom right |
+| Artwork | 56 units | Same as a focused item icon |
+| Text column | 280 units wide; title 16, artist and times 13 units | Small enough not to compete with the menu |
+| Progress bar | 3 units, white over 25% white | Thin, like the console's |
+| Paused | whole panel at 70% alpha | Shows the state without another icon |
+| Position polling | every 500 ms while playing, never while paused | Smooth enough for a seconds display without per-frame work |
+
 ## Status
 
 | Constant | Value | Reason |

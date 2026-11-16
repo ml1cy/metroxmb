@@ -5498,4 +5498,5 @@
     <string name="xmb_visualizer_gaia">Gaia</string>
     <string name="xmb_visualizer_random">Random</string>
     <string name="xmb_visualizer_auto_cycle">Auto-cycle</string>
+    <string name="xmb_list_error">Couldn't load this list</string>
 </resources>

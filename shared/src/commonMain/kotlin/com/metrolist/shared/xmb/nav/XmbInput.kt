@@ -5,7 +5,8 @@ import androidx.compose.ui.input.key.Key
 /**
  * Maps keyboard, controller and remote keys to XMB actions. Enter, numpad Enter, the D-pad center
  * and the controller's south button select (✕); Escape, Backspace, Back and the east button go
- * back (○); Tab, Menu and the north button open options (△).
+ * back (○); Tab, Menu and the north button open options (△). Space and the media keys control
+ * playback.
  */
 fun xmbActionFor(key: Key): XmbAction? =
     when (key) {
@@ -16,6 +17,9 @@ fun xmbActionFor(key: Key): XmbAction? =
         Key.Enter, Key.NumPadEnter, Key.DirectionCenter, Key.ButtonA -> XmbAction.SELECT
         Key.Escape, Key.Backspace, Key.Back, Key.ButtonB -> XmbAction.BACK
         Key.Tab, Key.Menu, Key.ButtonY -> XmbAction.OPTIONS
+        Key.Spacebar, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> XmbAction.PLAY_PAUSE
+        Key.MediaNext -> XmbAction.NEXT_TRACK
+        Key.MediaPrevious -> XmbAction.PREVIOUS_TRACK
         else -> null
     }
 
