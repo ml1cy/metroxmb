@@ -155,6 +155,8 @@ import com.metrolist.desktop.window.WindowVisibility
 import com.metrolist.desktop.window.findSkiaLayer
 import com.metrolist.desktop.window.restoreWindowPosition
 import com.metrolist.desktop.window.setWindowPlacement
+import com.metrolist.desktop.xmb.XmbDesktopHost
+import com.metrolist.desktop.xmb.showsXmb
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
 import com.metrolist.shared.BuildConfig
@@ -275,7 +277,11 @@ fun WindowScope.App(
         LocalMouseScrollFactors provides desktopMouseScrollFactors(LocalDensity.current),
         desktopScrollConfig(),
     ) {
-        AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux, integrationsReady)
+        if (showsXmb()) {
+            XmbDesktopHost(checkDarkMode)
+        } else {
+            AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux, integrationsReady)
+        }
     }
 }
 

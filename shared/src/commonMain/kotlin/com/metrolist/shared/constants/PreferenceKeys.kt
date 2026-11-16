@@ -223,3 +223,6 @@ val PersistentPlaybackPositionKey = "persistentPlaybackPosition"
 val AndroidLastStorageAuditKey = "androidLastStorageAudit"
 val AndroidStorageAuditLocationKey = "androidStorageAuditLocation"
 val AndroidLastTrackedPlaylistSyncKey = "androidLastTrackedPlaylistSync"
+
+// XMB Music project keys (see UPSTREAM_TOUCHPOINTS.md)
+val InterfaceStyleKey = "interfaceStyle"

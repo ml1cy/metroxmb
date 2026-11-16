@@ -5476,4 +5476,26 @@
     <string name="ai_setup_privacy_settings">Open privacy settings</string>
     <string name="ai_setup_sign_in_again">Sign in again</string>
     <string name="ai_setup_key_limits">Review key limits</string>
+    <!-- XMB Music project strings (see UPSTREAM_TOUCHPOINTS.md) -->
+    <string name="xmb_category_users">Users</string>
+    <string name="xmb_category_music">Music</string>
+    <string name="xmb_category_friends">Friends</string>
+    <string name="xmb_category_visualizer">Visualizer</string>
+    <string name="xmb_interface_group">Interface</string>
+    <string name="xmb_interface_style">Interface style</string>
+    <string name="xmb_interface_style_description">XMB shows the PlayStation-style menu. Metrolist shows the standard screens.</string>
+    <string name="xmb_interface_style_xmb">XMB</string>
+    <string name="xmb_interface_style_metrolist">Metrolist</string>
+    <string name="xmb_switch_to_metrolist">Metrolist interface</string>
+    <string name="xmb_switch_to_metrolist_description">Switch to the standard Metrolist screens</string>
+    <string name="xmb_item_unavailable">Not available yet</string>
+    <string name="xmb_item_subscriptions">Subscriptions</string>
+    <string name="xmb_item_music_videos">Music videos</string>
+    <string name="xmb_item_live">Live</string>
+    <string name="xmb_item_lastfm_friends">Last.fm friends</string>
+    <string name="xmb_visualizer_waves">Waves</string>
+    <string name="xmb_visualizer_valley">Valley</string>
+    <string name="xmb_visualizer_gaia">Gaia</string>
+    <string name="xmb_visualizer_random">Random</string>
+    <string name="xmb_visualizer_auto_cycle">Auto-cycle</string>
 </resources>
