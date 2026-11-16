@@ -6,7 +6,10 @@ as of that base and will drift with upstream merges; the symbol names are the st
 
 ## 1. Build status
 
-See [§12](#12-m0-build-log) for what was built in M0, the commands, and what blocked.
+Desktop compiles, and the shared desktop tests pass except for 18 failures caused by the build
+container (no IPv6, running as root). The Android debug APK builds and all 872 Android unit
+tests pass. iOS wasn't built (needs macOS). Details, setup and upstream tooling issues are in
+[§14](#14-m0-build-log).
 
 ## 2. UI entry points
 
@@ -247,4 +250,68 @@ Notes:
 
 ## 14. M0 build log
 
-See the commit that adds this file for the environment used.
+Environment: Linux x64 cloud container, 4 cores, 15 GB RAM, running as root, no IPv6.
+
+**Setup used** (local only, nothing committed):
+
+- Temurin 25.0.5+8 from Adoptium's GitHub release, checksum-verified, in `/opt/jdks`;
+  `~/.gradle/gradle.properties` points `org.gradle.java.installations.paths` at it with
+  auto-download off. The build's toolchains require vendor `ADOPTIUM` and version 25.
+- Android SDK in `/opt/android-sdk`: command-line tools 16111833, `platform-tools`,
+  `build-tools;36.0.0`, `platforms;android-35`, `platforms;android-37.1`, plus `sdk.dir` in
+  the untracked `local.properties`.
+- Submodules `metroproto` and `libopus` initialized.
+
+**Upstream tooling issues found** (left unchanged; they're upstream files):
+
+- `scripts/deps.sh` checks `java -version | head -n1` for version 25. When `JAVA_TOOL_OPTIONS`
+  is set, the first line is the JVM's "Picked up JAVA_TOOL_OPTIONS" notice, so the check fails
+  and the script tries to install SDKMAN.
+- `scripts/deps.sh` installs `platforms;android-37`, but `compileSdk` is
+  `release(37) { minorApiLevel = 1 }`, which needs `platforms;android-37.1`.
+- `docs/checks.md` lists `scripts/test_tester_release_version.py`, which doesn't exist.
+
+**Maven Central rate limits.** With the project's `org.gradle.parallel=true` and
+configuration cache, the first resolution sends bursts that Maven Central answers with HTTP 429
+from this network (6 of 40 concurrent requests in a probe; sequential requests all succeed).
+A cold cache needed one pass with `--max-workers=1 --no-parallel --no-configuration-cache`.
+Warm builds run normally.
+
+**Desktop**
+
+| Command | Result |
+|---|---|
+| `./gradlew :desktopApp:compileKotlinJvm` | Passed |
+| `./gradlew :shared:desktopTest -x :shared:testServerWithoutReflection` | 3,589 tests, 9 failed, 5 skipped. All 9 are environmental, see below |
+| `./gradlew :shared:testServerWithoutReflection` | 78 tests, 9 failed, 1 skipped. All environmental |
+| Repository scripts from `docs/checks.md` (escapes, translation mechanics, hooks, iOS/AppImage/DMG/distribution/AltStore/metromem/APK collection/Android strings tests) | All passed |
+
+Environmental failures:
+
+- `LocalDeviceServerTest`, `DeviceConnectManagerIntegrationTest`,
+  `DeviceConnectManagerShutdownTest`: `LocalDeviceServer` binds `::` (dual-stack), and this
+  container's kernel has no IPv6 (`UnsupportedAddressTypeException`, "Address family not
+  supported"). Expected to pass on a normal desktop.
+- `DesktopSettingsCorruptionTest` (2): makes files unreadable with POSIX permissions, which root
+  bypasses. Expected to pass as a normal user.
+
+**Android**
+
+| Command | Result |
+|---|---|
+| `./gradlew :androidApp:assembleDebug` | Passed: `androidApp-debug.apk` (47 MB). The first run installed NDK 30.0.16248370 and CMake 4.1.2 for `opusDecoder`'s `buildOpusJni` |
+| `./gradlew :androidApp:testDebugUnitTest` | 872 tests, all passed |
+
+Robolectric's `nativeruntime-dist-compat` jar is redirected by Maven Central to
+`gcp.mirrors.maven.org`, so that host must be reachable as well as `repo.maven.apache.org`.
+
+**Network hosts the build needs** beyond the default package registries: `dl.google.com`
+(Google Maven, Android SDK), `jitpack.io` (InnerTubeX, QuackJS), `jogamp.org`,
+`maven.firstdark.dev`, `maven.aliyun.com` (declared in `settings.gradle.kts`),
+`gcp.mirrors.maven.org` (Central's redirect target) and `github.com` (Temurin download,
+submodules). The owner's `metroxmb` cloud environment allows these and has a setup script that
+installs the JDK and SDK as above.
+
+**Not built in M0:** iOS (needs macOS and Xcode), release/packaging tasks, and the
+desktop app launch (no display in this container; `scripts/xmb/snap.sh` in M1 needs a virtual
+display).
