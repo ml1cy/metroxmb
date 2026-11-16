@@ -30,6 +30,11 @@ sealed interface XmbIcon {
     ) : XmbIcon
 }
 
+/** The visualizers the Visualizer column opens full screen. Valley and Gaia arrive in M5. */
+enum class XmbVisualizerKind {
+    WAVES,
+}
+
 /** Text from the string catalog, or plain text from data (settings titles, queries, account names). */
 sealed interface XmbText {
     data class Resource(
@@ -63,6 +68,11 @@ sealed interface XmbItemAction {
     data object SwitchChannel : XmbItemAction
 
     data object SignOut : XmbItemAction
+
+    /** Shows a visualizer full screen, hiding the XMB. */
+    data class OpenVisualizer(
+        val kind: XmbVisualizerKind,
+    ) : XmbItemAction
 
     /** A settings page the XMB doesn't draw itself; the host shows its stock screen. */
     data class StockSettings(

@@ -378,3 +378,13 @@ integration code. Android keeps its stock UI until M7; the shared `ui/` code it 
 The iOS app, its source sets and Gradle targets, and the iOS scripts are deleted; common
 expect/actual plumbing named after iOS stays because desktop and Android implement it.
 
+## 17. M4: the Waves visualizer
+
+`visualizer/VisualizerAudio.kt` turns `AudioSpectrumMeter`'s bands into bass, mid, treble,
+energy, a beat pulse and a flow clock (pure, tested). `rememberVisualizerAudio` registers a meter
+consumer only while a visualizer is full screen and polls `levels()` off the main thread; the
+XMB's frame loop steps it with the background wave. `visualizer/waves/WavesVisualizer.kt` draws
+the ribbons through `PlatformWavesCanvas` (SkSL on desktop, the canvas fallback on Android until
+M7) and the bokeh on top. The MetroEQ page is unchanged: both read the same smoothed levels, so a
+second consumer doesn't take frames from it. The home-screen wave stays navigation-driven.
+

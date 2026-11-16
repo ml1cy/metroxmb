@@ -37,6 +37,8 @@ import com.metrolist.shared.ui.playback.PlaybackUiState
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
+import com.metrolist.shared.visualizer.VisualizerAudio
+import com.metrolist.shared.visualizer.waves.WavesVisualizer
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.adapters.XmbListState
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
@@ -46,7 +48,9 @@ import com.metrolist.shared.xmb.nav.XmbIcon
 import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbPicker
+import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.theme.XmbIcons
+import com.metrolist.shared.xmb.theme.XmbPalette
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.resources.painterResource
@@ -146,6 +150,21 @@ class XmbSnapshotCapture {
                 },
                 Screen("users") {
                     XmbApp(services = demoServices, time = { day }, animate = false, initialCategory = XmbCategoryId.USERS)
+                },
+                Screen("visualizer-waves") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day.copy(month = 9) },
+                        animate = false,
+                        initialVisualizer = XmbVisualizerKind.WAVES,
+                    )
+                },
+                Screen("waves-loud") {
+                    val loud =
+                        VisualizerAudio().apply {
+                            repeat(12) { update(FloatArray(18) { band -> if (band < 4) 0.95f else 0.75f }, 1f / 60f) }
+                        }
+                    WavesVisualizer(XmbPalette.backgroundColors(9, 14f), { 3f }, loud, Modifier.fillMaxSize())
                 },
                 Screen("music-options") {
                     XmbApp(

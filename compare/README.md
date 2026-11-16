@@ -22,6 +22,9 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `settings-picker.png` | A value picker open beside the focused row |
 | `search-keyboard.png` | The on-screen keyboard with typed text and suggestions |
 | `users.png` | Users signed out: Log in |
+| `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the track overlay |
+| `waves-loud.png` | Waves with loud fake meter levels just after a beat: wider ribbons, brighter edges, bigger bokeh |
+| `reference-vs-waves.png` | `reference/waves/waves-purple-720p.jpg` (left) next to `waves-loud.png` (right) |
 | `live-desktop-xmb.png` | The real desktop app (Linux, virtual display, 1080×720 window) right after onboarding: the XMB replaces the stock screens |
 | `live-desktop-interface-setting.png` | The stock Settings → Appearance page with the new Interface style choice (before it moved to the top of the page) |
 
@@ -47,6 +50,8 @@ text sizes, the clock box, and no halo on focused icons. Still different:
   shader is the place to match it
 - **Sparkle motion, wave reactions and every timing** need video frames at 2 fps or more
 - The on-screen keyboard and value pickers have no reference frames yet
+- **Waves** is a first pass from one still (`reference/waves/waves-purple-720p.jpg`): the ribbon
+  count, twist, edge brightness and how it moves with the music need video frames
 
 ## Remaining differences (M2)
 

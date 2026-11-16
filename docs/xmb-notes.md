@@ -84,6 +84,25 @@ job (owner's call). All reactions settle within about two seconds.
 | Artwork | album art or photo cropped square, 6% corner radius; the XMB icon shows until it loads or if it fails | Album art replaces item icons, as the manifest notes |
 | History list | latest 200 plays, one row per song | Enough to scroll; paging can come later |
 
+## Waves visualizer (M4, first pass; `visualizer/`)
+
+From one reference frame (`reference/waves/waves-purple-720p.jpg`); motion and reactivity need
+video frames.
+
+| Constant | Value | Reason |
+|---|---|---|
+| Band groups | bass = meter bands 0–3 (45–125 Hz), mid = 4–10 (180 Hz–1.4 kHz), treble = 11–17 (2–15 kHz) | The meter's 18 bands split into what moves the ribbons, spreads them and lights them |
+| Level shaping | (level − 0.35) / 0.55, clamped | The meter maps −60..0 dB to 0..1 and music mostly sits above 0.35, so this uses the whole 0..1 range |
+| Smoothing | attack 18/s, release 4/s | Reacts within a few frames, falls back gently |
+| Beat | bass at least 0.08 above its 0.6 s average and above 0.2, at most every 0.18 s; decays at 5/s | Bass onsets, not held notes |
+| Flow | time × (1 + 1.5 × energy) | The ribbons travel faster when the music is louder |
+| Polling | `AudioSpectrumMeter.levels()` every 33 ms off the main thread, only while full screen | The meter only captures while it has consumers (CLAUDE.md) |
+| Ribbons | 5 twisting ribbons around a center line low on the left; half-width 0.028 + 0.035 × mid of the height, narrowing to 30% where a ribbon turns edge-on; bright edges, translucent faces, folds brighter; amplitude 0.035 + 0.05 × bass; edges sharpen with treble and flare on beats | The reference's layered strands with bright edges |
+| Background | the month's color at 12% in the corners rising to 67% around the band | The reference's dark vignette around a lit band |
+| Bokeh | 160 dots clustered around the band, 1–6 units, soft halos on the big ones; brighter with treble, swell on beats, drift with the flow | The reference's sparkles of mixed sizes |
+| Full screen | fades in and out over 600 ms; the track info shows for 4 s after opening or any key, fading over 0.6 s; ○ returns to the XMB | The console hides its menu while a visualizer plays |
+| Rendering | SkSL runtime shader on desktop (like `PlatformLiquidBackgroundCanvas`); Android draws a canvas fallback until M7 adds `RuntimeShader` | Shader code is API-gated on Android |
+
 ## Settings, value picker and keyboard (M3)
 
 | Constant | Value | Reason |

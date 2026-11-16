@@ -36,7 +36,7 @@ it. iOS was removed.
 | M1 | XMB shell on desktop: category row, item columns, focus motion, monthly background, wave, sounds, Rodin font, interface-style switch | ✅ Done |
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
-| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Next |
+| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | In progress: first pass |
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Planned |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | Planned |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Planned |
@@ -69,6 +69,9 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   songs, albums, artists...). Recent searches are listed under New search.
 - **Users.** Log in when signed out; when signed in, your account (select it to switch channel)
   and Log out, after a Yes/No.
+- **Visualizer (first pass).** Visualizer > Waves plays full screen: twisting ribbons and bokeh
+  that move with the music (bass, mids, treble and beats from the audio meter). ○ returns to the
+  XMB; any other key shows the track for a few seconds. Valley and Gaia come in M5.
 - **Now playing.** Artwork, title, artist and progress in the bottom right.
 - **Look and sound.** Layout measured from console frames: category row, item spacing, title
   placement, the clock box. The PS3 monthly background colors, dimmed in the evening; a silk wave

@@ -63,9 +63,12 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.rememberMetrolistSettingsRegistry
+import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.background.XmbBackground
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.background.XmbWaveNudge
+import com.metrolist.shared.visualizer.rememberVisualizerAudio
+import com.metrolist.shared.visualizer.waves.WavesVisualizer
 import com.metrolist.shared.xmb.adapters.XmbEntryKind
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.adapters.XmbListState
@@ -89,6 +92,7 @@ import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
+import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
 import com.metrolist.shared.xmb.nav.xmbActionFor
@@ -163,12 +167,17 @@ fun XmbApp(
     initialOptions: Boolean = false,
     initialPicker: XmbPicker? = null,
     initialKeyboard: XmbKeyboard? = null,
+    initialVisualizer: XmbVisualizerKind? = null,
 ) {
     val sounds = LocalXmbSoundPlayer.current
     val now = rememberXmbTime(time)
     val fontFamily = rememberXmbFontFamily()
     val motion = remember { XmbWaveMotion() }
-    val seconds = rememberAnimationSeconds(animate, motion)
+    var visualizer by remember { mutableStateOf(initialVisualizer) }
+    val audio = rememberVisualizerAudio(active = visualizer != null && animate)
+    val seconds = rememberAnimationSeconds(animate, motion, audio)
+    // The full-screen visualizer's track overlay shows until this time, then fades.
+    var overlayUntil by remember { mutableFloatStateOf(VISUALIZER_OVERLAY_SECONDS) }
     val focusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     val actions = remember(services, scope) { services?.let { XmbActions(it, scope) } }
@@ -240,6 +249,7 @@ fun XmbApp(
     val drill by animateFloatAsState(if (navigation.stack.isEmpty()) 0f else 1f, tween(XmbMotion.FADE_MS))
     val pickerShown by animateFloatAsState(if (picker != null) 1f else 0f, tween(XmbMotion.FADE_MS))
     val keyboardShown by animateFloatAsState(if (keyboard != null) 1f else 0f, tween(XmbMotion.FADE_MS))
+    val visualizerShown by animateFloatAsState(if (visualizer != null) 1f else 0f, tween(VISUALIZER_FADE_MS))
 
     LaunchedEffect(level?.list?.key, listState.entries.size, listState.isLoading) {
         if (!listState.isLoading) navigation = navigation.clampLevel(listState.entries.size)
@@ -324,6 +334,11 @@ fun XmbApp(
             XmbItemAction.SignOut -> {
                 val signOut = services?.account ?: return XmbFeedback.ERROR
                 picker = XmbPicker.Choice(signOutQuestion, listOf(labels.yes, labels.no), focus = 1) { if (it == 0) signOut.signOut() }
+            }
+
+            is XmbItemAction.OpenVisualizer -> {
+                visualizer = action.kind
+                overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
             }
 
             is XmbItemAction.StockSettings -> {
@@ -496,6 +511,25 @@ fun XmbApp(
             .focusable()
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || suspended) return@onKeyEvent false
+                if (visualizer != null) {
+                    // Full screen: ○ goes back to the XMB, media keys still work, anything else shows the track.
+                    when (val action = xmbActionFor(event.key)) {
+                        XmbAction.BACK -> {
+                            visualizer = null
+                            feedback(action, XmbFeedback.BACK)
+                        }
+
+                        XmbAction.PLAY_PAUSE, XmbAction.NEXT_TRACK, XmbAction.PREVIOUS_TRACK -> {
+                            dispatch(action)
+                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                        }
+
+                        else -> {
+                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                        }
+                    }
+                    return@onKeyEvent true
+                }
                 if (keyboard != null) return@onKeyEvent keyboardKey(event)
                 val action = xmbActionFor(event.key) ?: return@onKeyEvent false
                 dispatch(action)
@@ -534,13 +568,25 @@ fun XmbApp(
                 )
             }
         val styles = rememberXmbRowStyles(metrics, fontFamily)
-        XmbBackground(
-            colors = XmbPalette.backgroundColors(now.month, now.hourOfDay),
-            modifier = Modifier.fillMaxSize(),
-            seconds = { seconds.floatValue },
-            motion = motion,
-        )
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - drill) * (1f - KEYBOARD_FADE * keyboardShown) }) {
+        val backgroundColors = XmbPalette.backgroundColors(now.month, now.hourOfDay)
+        if (visualizerShown < 1f) {
+            XmbBackground(
+                colors = backgroundColors,
+                modifier = Modifier.fillMaxSize(),
+                seconds = { seconds.floatValue },
+                motion = motion,
+            )
+        }
+        if (visualizer != null || visualizerShown > 0f) {
+            WavesVisualizer(
+                colors = backgroundColors,
+                seconds = { seconds.floatValue },
+                audio = audio,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
+            )
+        }
+        val menuAlpha = { 1f - visualizerShown }
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - drill) * (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
             XmbBar(
                 categories = categories,
                 navigation = navigation,
@@ -551,7 +597,7 @@ fun XmbApp(
             )
         }
         if (level != null) {
-            Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - KEYBOARD_FADE * keyboardShown }) {
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
                 XmbLevelView(level, listState, metrics, geometry, styles, visible = { drill }, dim = { pickerShown })
             }
         }
@@ -560,10 +606,25 @@ fun XmbApp(
                 playback,
                 metrics,
                 fontFamily,
-                Modifier.align(Alignment.BottomEnd).padding(end = metrics.edgeMargin, bottom = metrics.edgeMargin),
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = metrics.edgeMargin, bottom = metrics.edgeMargin)
+                    .graphicsLayer {
+                        // Full screen, the track shows after each key press and fades out.
+                        val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
+                        alpha = menuAlpha() + visualizerShown * overlay
+                    },
             )
         }
-        XmbClock(now, metrics, fontFamily, Modifier.align(Alignment.TopEnd).padding(top = metrics.clockBoxTop))
+        XmbClock(
+            now,
+            metrics,
+            fontFamily,
+            Modifier.align(Alignment.TopEnd).padding(top = metrics.clockBoxTop).graphicsLayer {
+                alpha =
+                    menuAlpha()
+            },
+        )
         XmbOptionsPanelView(options, metrics, fontFamily)
         picker?.let { current ->
             val rowTitle =
@@ -654,12 +715,13 @@ private fun rememberXmbTime(source: (() -> XmbTime)?): XmbTime {
 
 /**
  * Seconds since the XMB appeared, advanced once per frame while the window is visible, along
- * with the wave's [motion]. Readers use them in draw lambdas, so frames don't recompose.
+ * with the wave's [motion] and the visualizer's [audio]. Readers use them in draw lambdas, so frames don't recompose.
  */
 @Composable
 private fun rememberAnimationSeconds(
     animate: Boolean,
     motion: XmbWaveMotion,
+    audio: VisualizerAudio,
 ): MutableFloatState {
     val seconds = remember { mutableFloatStateOf(0f) }
     val visibility = LocalVisualWorkActive.current
@@ -672,6 +734,7 @@ private fun rememberAnimationSeconds(
                 withFrameMillis {
                     val next = (it - origin) / 1000f
                     motion.advance(next - seconds.floatValue)
+                    audio.step(next - seconds.floatValue)
                     seconds.floatValue = next
                 }
             }
@@ -679,6 +742,11 @@ private fun rememberAnimationSeconds(
     }
     return seconds
 }
+
+/** Full-screen visualizer: fade in or out, and how long the track overlay stays after a key. */
+private const val VISUALIZER_FADE_MS = 600
+private const val VISUALIZER_OVERLAY_SECONDS = 4f
+private const val VISUALIZER_OVERLAY_FADE = 0.6f
 
 /** How far the menu fades behind the on-screen keyboard. */
 private const val KEYBOARD_FADE = 0.8f
