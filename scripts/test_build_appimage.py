@@ -10,50 +10,11 @@ import unittest
 
 
 class AppImageBuildTest(unittest.TestCase):
-    def test_ci_uses_x64_and_manual_builds_keep_arm64(self):
-        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
-        verify = (workflows / "reusable-desktop-verify.yml").read_text()
-        release = (workflows / "reusable-desktop-linux.yml").read_text()
-        self.assertIn(":shared:desktopTest :desktopApp:jvmTest :desktopApp:ktlintCheck", verify)
-        self.assertIn("tasks+=(:desktopApp:compileKotlinJvm)", verify)
-        self.assertIn("include-arm64: true", (workflows / "build-desktop.yml").read_text())
-        self.assertNotIn("include-arm64: true", (workflows / "ci.yml").read_text())
-        self.assertNotIn("./scripts/build_appimage.sh", verify)
-        self.assertIn("./scripts/build_appimage.sh", release)
-        self.assertIn("Expected aarch64 AppImage", release)
+    def test_builder_keeps_caches_and_skips_configuration_cache(self):
         builder = (Path(__file__).with_name("build_appimage.sh")).read_text()
         self.assertNotIn(":desktopApp:clean", builder)
         self.assertNotIn("--no-build-cache", builder)
         self.assertIn("--no-configuration-cache", builder)
-        for workflow in ["reusable-desktop-macos.yml", "reusable-desktop-windows.yml"]:
-            package = (workflows / workflow).read_text()
-            self.assertNotIn(":desktopApp:clean", package)
-            self.assertNotIn("--no-build-cache", package)
-            self.assertIn("--no-configuration-cache", package)
-            self.assertIn("-Pmetrolist.debug=false", package)
-            self.assertIn("persist-configuration-cache: 'false'", package)
-
-    def test_webview_cache_is_shared_but_pull_requests_cannot_write(self):
-        github = Path(__file__).resolve().parents[1] / ".github"
-        action = (github / "actions/prepare-linux-webview/action.yml").read_text()
-        read_only = action.split("    - name: Restore WebView compilation (read-only)\n", 1)[1].split("    - name:", 1)[0]
-        writable = action.split("    - name: Cache WebView compilation\n", 1)[1]
-        self.assertIn("if: inputs.cache-read-only == 'true'", read_only)
-        self.assertIn("uses: actions/cache/restore@", read_only)
-        self.assertIn("if: inputs.cache-read-only != 'true'", writable)
-        self.assertIn("uses: actions/cache@", writable)
-        for cache in [read_only, writable]:
-            self.assertIn("~/.cargo/registry", cache)
-            self.assertIn("desktopApp/build/linux-webview/target", cache)
-            self.assertIn("steps.toolchain.outputs.libraries", cache)
-            self.assertNotIn("restore-keys:", cache)
-        self.assertEqual(read_only.split("key: ")[1].strip(), writable.split("key: ")[1].strip())
-        for workflow in ["reusable-desktop-verify.yml", "reusable-desktop-linux.yml"]:
-            text = (github / "workflows" / workflow).read_text()
-            preparation = text.split("      - name: Prepare ARM64 WebView build\n", 1)[1].split("      - name:", 1)[0]
-            self.assertIn("if: matrix.arch == 'arm64'", preparation)
-            self.assertIn("uses: ./.github/actions/prepare-linux-webview", preparation)
-            self.assertIn("cache-read-only: ${{ inputs.cache-read-only }}", preparation)
 
     def run_builder(self, architecture, cached=False):
         with tempfile.TemporaryDirectory() as temporary:

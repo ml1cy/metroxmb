@@ -5,7 +5,6 @@ from contextlib import redirect_stderr, nullcontext
 import io
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 import tempfile
@@ -277,25 +276,6 @@ while True:
                 self.assertEqual(["taskkill", "/PID", "123", "/T", "/F"], run.call_args.args[0])
                 if trace:
                     self.assertIn("Get-Process -Id 123", run.call_args_list[0].args[0][-1])
-
-    def test_script_changes_trigger_x64_self_check_without_new_runners(self):
-        sys.path.insert(0, str(ROOT / ".github/scripts"))
-        from ci_paths import classify
-        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-        for event in ("push", "pull_request"):
-            block = re.search(rf"(?ms)^  {event}:\n(.*?)(?=^  \w|^\w|\Z)", workflow)[1]
-            self.assertNotIn("paths:", block)
-            for path in ("scripts/desktop_smoke.py", "scripts/test_desktop_smoke.py"):
-                self.assertTrue(classify([path])["desktop"], path)
-        verify = (ROOT / ".github/workflows/reusable-desktop-verify.yml").read_text()
-        step = verify.split("      - name: Check local CI scripts\n")[1].split("      - name:")[0]
-        self.assertIn("if: matrix.arch == 'x64'", step)
-        self.assertIn("python3 scripts/test_desktop_smoke.py", step)
-        for system in ("linux", "windows", "macos"):
-            package = (ROOT / f".github/workflows/reusable-desktop-{system}.yml").read_text()
-            self.assertIn("timeout-minutes: 3", package)
-            self.assertIn("scripts/desktop_smoke.py", package)
-            self.assertIn("if: always() && steps.smoke.outcome != 'skipped'", package)
 
 
 if __name__ == "__main__":

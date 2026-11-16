@@ -26,9 +26,16 @@ repo goes back to MetrolistGroup. The work plan is in [PLAN.md](PLAN.md).
   force pushing.
 - **Keep `origin` private.** The repo contains Sony PS3 assets (font, sounds) for personal use.
   Never make it public or share builds that include them.
-- Upstream's GitHub Actions workflows (`.github/workflows/`) are for their infrastructure
-  (Blacksmith runners, signing secrets, release publishing). Don't rely on them and don't edit
-  them. The owner keeps Actions disabled in the repo settings.
+- **No GitHub Actions.** Upstream's workflows, composite actions and CI-only scripts/tests
+  (`.github/workflows/`, `.github/actions/`, `.github/scripts/`, `.github/tests/`,
+  `.github/actionlint.yaml`) are deleted: they need upstream's runners and secrets. Don't add
+  workflows back. On upstream merges, resolve modify/delete conflicts there by keeping the
+  files deleted, and delete any new files upstream adds under those paths. Run checks locally.
+- Metrolist's docs still describe their CI (`docs/checks.md` "CI path selection",
+  `docs/releasing.md`, `docs/build-performance.md`, `docs/distribution.md`,
+  `docs/desktop-native-image.md`, `docs/install/README.md`). Those parts don't apply here, nor
+  do the `actionlint`, `node --test .github/scripts/*.test.cjs` and
+  `python3 -m unittest discover -s .github/tests` commands. The Gradle and `scripts/` checks do.
 
 ## Technical facts to respect
 These come from how the code actually works, not from upstream policy:
