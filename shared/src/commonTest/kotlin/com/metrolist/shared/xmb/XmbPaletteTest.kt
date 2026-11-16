@@ -35,10 +35,10 @@ class XmbPaletteTest {
     }
 
     @Test
-    fun backgroundIsLighterAtTheTopAndDarkerAtNight() {
+    fun backgroundIsDarkerAtTheTopLikeRetroArchsRibbonAndDarkerAtNight() {
         val day = XmbPalette.backgroundColors(month = 8, hour = 12f)
         val night = XmbPalette.backgroundColors(month = 8, hour = 23f)
-        assertTrue(day.top.luminance() > day.bottom.luminance())
+        assertTrue(day.top.luminance() < day.bottom.luminance())
         assertTrue(day.top.luminance() > night.top.luminance())
         assertTrue(day.bottom.luminance() > night.bottom.luminance())
     }

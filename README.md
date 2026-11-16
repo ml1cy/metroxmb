@@ -69,14 +69,17 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   songs, albums, artists...). Recent searches are listed under New search.
 - **Users.** Log in when signed out; when signed in, your account (select it to switch channel)
   and Log out, after a Yes/No.
-- **Visualizer (first pass).** Visualizer > Waves plays full screen: twisting ribbons and bokeh
-  that move with the music (bass, mids, treble and beats from the audio meter). ○ returns to the
+- **Visualizer (first pass).** Visualizer > Waves plays full screen: the ribbon over the month's
+  color fading to navy, moving with the music (bass, mids, treble and beats from the audio meter),
+  with the console's track overlay (artwork, title, artist / album, queue position, time, progress
+  and codec). ○ returns to the
   XMB; any other key shows the track for a few seconds. Valley and Gaia come in M5.
 - **Now playing.** Artwork, title, artist and progress in the bottom right.
 - **Look and sound.** Layout measured from console frames: category row, item spacing, title
-  placement, the clock box. The PS3 monthly background colors, dimmed in the evening; a silk wave
-  of crossing strands with drifting, twinkling sparkles that reacts to navigation (moving pushes
-  it sideways or lifts it, ✕ sends a pulse along it); album art in lists; the Rodin font with normal
+  placement, the clock box. The PS3 monthly background colors, dark at the top and bright at the
+  bottom, dimmed in the evening; the XMB ribbon with drifting, twinkling particles (a port of
+  RetroArch's ribbon), reacting to navigation (moving pushes it sideways or lifts it, ✕ brightens
+  it); album art in lists; the Rodin font with normal
   fallback for non-Latin text; navigation sounds.
 - Placeholders in the other categories show "Not available yet" and play the error sound.
 
@@ -176,4 +179,5 @@ GPL-3.0, like Metrolist. Based on [Metrolist](https://github.com/MetrolistGroup/
 MetrolistGroup and its contributors; see [LICENSE](LICENSE). This project isn't affiliated with
 MetrolistGroup, YouTube or Sony. PlayStation, XMB and the PS3 system assets are Sony's; they're
 included only for personal use. The Podcasts and Visualizer category icons were drawn for this
-project.
+project. The XMB ribbon and its particles are ported from [tsbehlman/xmb](https://github.com/tsbehlman/xmb),
+itself adapted from [RetroArch](https://github.com/libretro/RetroArch)'s XMB ribbon shader (both GPL-3.0).

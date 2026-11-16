@@ -22,9 +22,9 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `settings-picker.png` | A value picker open beside the focused row |
 | `search-keyboard.png` | The on-screen keyboard with typed text and suggestions |
 | `users.png` | Users signed out: Log in |
-| `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the track overlay |
-| `waves-loud.png` | Waves with loud fake meter levels just after a beat: wider ribbons, brighter edges, bigger bokeh |
-| `reference-vs-waves.png` | `reference/waves/waves-purple-720p.jpg` (left) next to `waves-loud.png` (right) |
+| `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the PS3-style track overlay |
+| `waves-loud.png` | Waves with loud fake meter levels just after a beat: deeper folds, a brighter sheet and particles |
+| `reference-vs-waves.png` | The owner's console photo `reference/waves/ps3-waves-photo-nujabes.jpg` (left) next to `visualizer-waves.png` (right) |
 | `live-desktop-xmb.png` | The real desktop app (Linux, virtual display, 1080×720 window) right after onboarding: the XMB replaces the stock screens |
 | `live-desktop-interface-setting.png` | The stock Settings → Appearance page with the new Interface style choice (before it moved to the top of the page) |
 
@@ -34,7 +34,11 @@ From the owner, in `reference/`: `xmb/settings-red-1080p.png` and `xmb/game-purp
 (1080p screenshots, used for every layout measurement in `docs/xmb-notes.md`),
 `xmb/music-green-small.jpg`, `xmb/users-blue-photo.jpg` and `xmb/network-pink-photo.jpg`
 (small or photographed, for general look only), `waves/waves-purple-720p.jpg` (the Waves
-visualizer, for M4), and `xmb/bg_sample.png` (a flat December-red tile).
+visualizer, for M4; looks fan-made next to the console photos), `waves/ps3-waves-photo-linkin.jpg` and
+`waves/ps3-waves-photo-nujabes.jpg` (photos of a TV playing music on the console: the Waves look
+and the track overlay), and `xmb/bg_sample.png` (a flat December-red tile). The ribbon and
+background follow https://github.com/tsbehlman/xmb, a GPL-3.0 WebGL port of RetroArch's XMB
+ribbon, which the owner pointed to.
 
 ## Remaining differences
 
@@ -42,16 +46,13 @@ Matched to the 1080p frames: category row position and spacing, icon sizes, labe
 item focus position, row pitch and gaps above and below the focus, title and subtitle placement,
 text sizes, the clock box, and no halo on focused icons. Still different:
 
-- **Background gradient.** The red frame runs from dark at the top (124, 0, 0) to bright at the
-  bottom (255, 81, 100); the purple frame is lighter at the top right. The monthly palette here is
-  lighter at the top. The two frames disagree (a custom color or a different time of day may
-  explain the red one), so the palette is unchanged until more frames show the pattern
-- **Wave brightness.** The red frame's band is brighter and smoother than the strands here; M4's
-  shader is the place to match it
+- **Background gradient.** Now dark at the top and bright at the bottom like the red frame and
+  RetroArch; the purple frame is lighter at the top right, which may be a theme or time-of-day
+  difference
 - **Sparkle motion, wave reactions and every timing** need video frames at 2 fps or more
 - The on-screen keyboard and value pickers have no reference frames yet
-- **Waves** is a first pass from one still (`reference/waves/waves-purple-720p.jpg`): the ribbon
-  count, twist, edge brightness and how it moves with the music need video frames
+- **Waves**: the photos' band is broader and whiter at its left end than the idle ribbon here;
+  how it moves with the music needs video frames
 
 ## Remaining differences (M2)
 

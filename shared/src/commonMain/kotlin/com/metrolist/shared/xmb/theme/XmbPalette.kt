@@ -3,11 +3,14 @@ package com.metrolist.shared.xmb.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
-/** Colors the background is drawn from: a vertical gradient plus a soft highlight. */
+/**
+ * Colors the background is drawn from: a vertical gradient from [top] to [bottom], and the month's
+ * [base] color at the time of day's brightness (the visualizer's gradient starts from it).
+ */
 data class XmbBackgroundColors(
     val top: Color,
     val bottom: Color,
-    val highlight: Color,
+    val base: Color,
 )
 
 /**
@@ -32,6 +35,8 @@ object XmbPalette {
             Color(0xFFE3412A), // December: red
         )
 
+    const val TOP_FACTOR = 0.375f
+    const val BOTTOM_FACTOR = 1.625f
     const val NIGHT_BRIGHTNESS = 0.42f
     const val DAY_BRIGHTNESS = 1f
 
@@ -64,10 +69,11 @@ object XmbPalette {
     ): XmbBackgroundColors {
         val base = monthColor(month)
         val light = brightness(hour)
+        // RetroArch's ribbon background: the color at 0.375 at the top rising to 1.625 at the bottom.
         return XmbBackgroundColors(
-            top = lerp(base, Color.White, 0.12f).scaled(light * 0.92f),
-            bottom = base.scaled(light * 0.6f),
-            highlight = Color.White.copy(alpha = 0.10f + 0.08f * light),
+            top = base.scaled(light * TOP_FACTOR),
+            bottom = base.scaled(light * BOTTOM_FACTOR),
+            base = base.scaled(light),
         )
     }
 

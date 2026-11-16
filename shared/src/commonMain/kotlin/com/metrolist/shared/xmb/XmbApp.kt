@@ -105,6 +105,7 @@ import com.metrolist.shared.xmb.screens.XmbKeyboardView
 import com.metrolist.shared.xmb.screens.XmbNowPlaying
 import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.screens.XmbPickerView
+import com.metrolist.shared.xmb.screens.XmbVisualizerOverlay
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.sound
 import com.metrolist.shared.xmb.theme.XmbMetrics
@@ -580,7 +581,6 @@ fun XmbApp(
         if (visualizer != null || visualizerShown > 0f) {
             WavesVisualizer(
                 colors = backgroundColors,
-                seconds = { seconds.floatValue },
                 audio = audio,
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
             )
@@ -609,12 +609,20 @@ fun XmbApp(
                 Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = metrics.edgeMargin, bottom = metrics.edgeMargin)
-                    .graphicsLayer {
-                        // Full screen, the track shows after each key press and fades out.
-                        val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
-                        alpha = menuAlpha() + visualizerShown * overlay
-                    },
+                    .graphicsLayer { alpha = menuAlpha() },
             )
+            if (visualizerShown > 0f) {
+                XmbVisualizerOverlay(
+                    playback,
+                    metrics,
+                    fontFamily,
+                    Modifier.graphicsLayer {
+                        // Full screen, the track shows after opening and each key press, then fades out.
+                        val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
+                        alpha = visualizerShown * overlay
+                    },
+                )
+            }
         }
         XmbClock(
             now,

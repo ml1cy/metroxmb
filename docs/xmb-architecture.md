@@ -383,8 +383,11 @@ expect/actual plumbing named after iOS stays because desktop and Android impleme
 `visualizer/VisualizerAudio.kt` turns `AudioSpectrumMeter`'s bands into bass, mid, treble,
 energy, a beat pulse and a flow clock (pure, tested). `rememberVisualizerAudio` registers a meter
 consumer only while a visualizer is full screen and polls `levels()` off the main thread; the
-XMB's frame loop steps it with the background wave. `visualizer/waves/WavesVisualizer.kt` draws
-the ribbons through `PlatformWavesCanvas` (SkSL on desktop, the canvas fallback on Android until
-M7) and the bokeh on top. The MetroEQ page is unchanged: both read the same smoothed levels, so a
-second consumer doesn't take frames from it. The home-screen wave stays navigation-driven.
-
+XMB's frame loop steps it with the background wave. Both the home background and Waves draw the
+XMB ribbon from `visualizer/background/XmbRibbon.kt`, a port of RetroArch's ribbon (via
+tsbehlman/xmb, GPL-3.0): a folded sheet drawn as a `drawVertices` mesh with additive blending,
+plus particles. It's common Compose code, so it needs no shader and no per-platform code; the
+SkSL first pass was dropped. `visualizer/waves/WavesVisualizer.kt` sets the gradient and drives
+the ribbon from the audio; `screens/XmbVisualizerOverlay.kt` is the track overlay. The MetroEQ
+page is unchanged: both read the same smoothed levels, so a second consumer doesn't take frames
+from it. The home-screen ribbon stays navigation-driven.

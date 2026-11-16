@@ -50,12 +50,9 @@ narrower than 4:3, so the XMB keeps its proportions at any size.
 |---|---|---|
 | Monthly colors | Jan `#CBCBCB` silver, Feb `#D8BF1A` gold, Mar `#6DB217` lime, Apr `#E17E9A` pink, May `#088B01` green, Jun `#9A61C8` purple, Jul `#02CDC7` cyan, Aug `#0C76C0` blue, Sep `#B444C0` magenta, Oct `#E5A708` amber, Nov `#875B1E` brown, Dec `#E3412A` red | The console's documented monthly theme colors |
 | Brightness | 1.0 from 08:00 to 17:00, 0.42 from 22:00 to 05:00, smoothstep ramps between | The console dims its background in the evening; checked continuous to under 1% per minute |
-| Gradient top | base lightened 12% toward white, × 0.92 × brightness | Lighter top like the console |
-| Gradient bottom | base × 0.6 × brightness | Started at 0.38, softened after comparing with `reference/xmb/bg_sample.png` (a December-red tile only ~10% darker at the bottom). Needs real console frames to settle |
-| Highlight | white radial at (0.2 W, 0.08 H), radius 0.75 × the longer side, 10% + 8% × brightness alpha | Soft sheen in the upper left |
-| Wave | A center line low on the left (64% of the height) rising to the right (47%); 7 silk strands crossing it, 3 translucent sheets between strand pairs, and a glow band stroked along the center (4 widths, 32% down to 6% of the height, 5–9% alpha). Strand spread is widest on the left | The red frame's broad band sweeping up to the right, made of crossing strands with bright edges. Canvas paths, so it runs everywhere without shader gating; M4's Waves shader replaces it |
-| Strand glints | brightness varies along each strand (17 gradient stops) and drifts with the flow | The console's strands catch light unevenly |
-| Sparkles | 260 points, seeded so every run looks the same: 80% clustered around the wave, 20% anywhere; 0.5–1.5 units, 8% bigger ones (1.8–2.6 units) with a soft radial halo; each twinkles at its own rate and bobs a few units | The small specks around the band in both frames; flat discs looked like bubbles, so big ones fade out |
+| Gradient | month color × brightness × 0.375 at the top rising to × 1.625 at the bottom | RetroArch's ribbon background (via tsbehlman/xmb); matches the red frame's dark top and bright bottom (was lighter at the top) |
+| Ribbon | RetroArch's XMB ribbon, ported from tsbehlman/xmb (GPL-3.0): a 50 × 50 sheet folded by cosines and value noise, drawn as a triangle mesh with `drawVertices`; each vertex's brightness is how edge-on the sheet is there, (1 − cos(e²)) × 0.75, added onto the background, so overlapping folds make the bright edges and silk lines. Its clock runs at 0.25 × real time and starts a quarter turn in, so it first rises from the lower left | Matches both 1080p frames and needs no shader, so it runs the same on every platform |
+| Particles | 400 soft points from the same port: they drift both ways along the ribbon at their own speeds, bob around it, twinkle, and are 3 px mostly (a few up to 11 px at 1080p); added onto the background | The specks around the band in the frames |
 | Animation | One frame clock in `XmbApp`, paused while `LocalVisualWorkActive` is false | Hidden windows do no animation work (docs/rendering.md); frames redraw without recomposing |
 
 ## Wave reactions (`visualizer/background/XmbWaveMotion.kt`)
@@ -65,9 +62,9 @@ job (owner's call). All reactions settle within about two seconds.
 
 | Input | Reaction | Constants |
 |---|---|---|
-| Left / Right across categories | The wave's flow and the sparkles get a sideways push opposite to the move (moving right slides the scene left); repeated presses build up | kick 1, max 3, flow × (1 − 1.6 × push), sparkle drift + 0.07 widths/s per unit, decays at 2.4/s |
+| Left / Right across categories | The ribbon's flow and the particles get a sideways push opposite to the move (moving right slides the scene left); repeated presses build up | kick 1, max 3, flow × (1 − 1.6 × push), sparkle drift + 0.07 widths/s per unit, decays at 2.4/s |
 | Up / Down through items | The wave and sparkles lift (Down) or dip (Up) on a spring with a slight overshoot | kick 1.4, stiffness 32, damping 7 (about 8% overshoot), 6% of the height per unit |
-| ✕ select | A bright pulse runs out along the strands from the focused column, the strands spread and the sparkles flash | flash 1 decaying at 2.6/s, swell + 0.6 decaying at 1.6/s, pulse 0.9 widths/s |
+| ✕ select | The ribbon brightens (opacity × 1.7 at the peak), its folds deepen and the particles flash | flash 1 decaying at 2.6/s, swell + 0.6 decaying at 1.6/s (folds × 1 + 0.9 × swell) |
 | ○ back | A softer pulse | flash 0.4, swell + 0.25 |
 | Error sound | A quick shiver | decays at 5/s |
 | Hidden window | No frames, no motion; a long gap counts as one 0.1 s step | `MAX_STEP` |
@@ -86,22 +83,22 @@ job (owner's call). All reactions settle within about two seconds.
 
 ## Waves visualizer (M4, first pass; `visualizer/`)
 
-From one reference frame (`reference/waves/waves-purple-720p.jpg`); motion and reactivity need
-video frames.
+From the owner's photos of the console (`reference/waves/ps3-waves-photo-*.jpg`) and the ribbon
+port; motion and reactivity still need video frames.
 
 | Constant | Value | Reason |
 |---|---|---|
-| Band groups | bass = meter bands 0–3 (45–125 Hz), mid = 4–10 (180 Hz–1.4 kHz), treble = 11–17 (2–15 kHz) | The meter's 18 bands split into what moves the ribbons, spreads them and lights them |
+| Band groups | bass = meter bands 0–3 (45–125 Hz), mid = 4–10 (180 Hz–1.4 kHz), treble = 11–17 (2–15 kHz) | The meter's 18 bands split into what moves the ribbon and lights it |
 | Level shaping | (level − 0.35) / 0.55, clamped | The meter maps −60..0 dB to 0..1 and music mostly sits above 0.35, so this uses the whole 0..1 range |
 | Smoothing | attack 18/s, release 4/s | Reacts within a few frames, falls back gently |
 | Beat | bass at least 0.08 above its 0.6 s average and above 0.2, at most every 0.18 s; decays at 5/s | Bass onsets, not held notes |
-| Flow | time × (1 + 1.5 × energy) | The ribbons travel faster when the music is louder |
+| Flow | time × (1 + 1.5 × energy); the ribbon's clock is 0.35 × flow | The ribbon travels faster when the music is louder |
 | Polling | `AudioSpectrumMeter.levels()` every 33 ms off the main thread, only while full screen | The meter only captures while it has consumers (CLAUDE.md) |
-| Ribbons | 5 twisting ribbons around a center line low on the left; half-width 0.028 + 0.035 × mid of the height, narrowing to 30% where a ribbon turns edge-on; bright edges, translucent faces, folds brighter; amplitude 0.035 + 0.05 × bass; edges sharpen with treble and flare on beats | The reference's layered strands with bright edges |
-| Background | the month's color at 12% in the corners rising to 67% around the band | The reference's dark vignette around a lit band |
-| Bokeh | 160 dots clustered around the band, 1–6 units, soft halos on the big ones; brighter with treble, swell on beats, drift with the flow | The reference's sparkles of mixed sizes |
-| Full screen | fades in and out over 600 ms; the track info shows for 4 s after opening or any key, fading over 0.6 s; ○ returns to the XMB | The console hides its menu while a visualizer plays |
-| Rendering | SkSL runtime shader on desktop (like `PlatformLiquidBackgroundCanvas`); Android draws a canvas fallback until M7 adds `RuntimeShader` | Shader code is API-gated on Android |
+| Background | the month's color at the top, navy (0.06, 0.08, 0.24) from 75% down, deeper navy at the bottom | Both photos: violet at the top, navy (14, 19, 59) at the bottom |
+| Ribbon | the home ribbon raised by 15% of the height; folds × (1 + bass); opacity 0.75 × (1.1 + 0.5 × energy + 0.7 × beat) | The photos' bright band across the upper middle |
+| Particles | opacity 0.75 × (0.7 + 0.8 × treble + 0.8 × beat) | Specks that light up with the highs and the beat |
+| Track overlay | bottom left: artwork, title, "artist / album"; bottom right: queue position "3/10", "00:01:50 / 00:03:51", a green-on-blue progress bar and the stream's codec (OPUS, AAC...) in a blue badge; shows for 4 s after opening or any key, fading over 0.6 s | The console's music player overlay in the Linkin Park photo |
+| Full screen | fades in and out over 600 ms; ○ returns to the XMB | The console hides its menu while a visualizer plays |
 
 ## Settings, value picker and keyboard (M3)
 
