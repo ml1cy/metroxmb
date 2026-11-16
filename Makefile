@@ -32,9 +32,6 @@ help:
 	@echo "  android-debug-clean   Clean and assemble Android debug APK"
 	@echo "  android-release       Assemble Android release APK"
 	@echo "  android-release-clean Clean and assemble Android release APK"
-	@echo "  ios-build             Validate and build iOS framework & Swift files"
-	@echo "  ios-test              Run iOS Swift static analysis & syntax verification"
-	@echo "  ios-clean             Clean iOS build artifacts"
 	@echo "  test                  Run all unit tests"
 	@echo "  test-desktop          Run desktop and shared unit tests"
 	@echo "  lint                  Run ktlint checks"
@@ -112,28 +109,6 @@ android-release:
 android-release-clean:
 	./gradlew clean :androidApp:assembleRelease
 
-.PHONY: ios-project ios-build ios-ipa ios-sim-run ios-test ios-clean
-ios-project:
-	@echo "Checking Xcode project structure..."
-	test -f iosApp/iosApp.xcodeproj/project.pbxproj && echo "✅ iosApp.xcodeproj is ready."
-
-ios-build:
-	./scripts/build_ios.sh --sim
-
-ios-ipa:
-	./scripts/build_ios.sh --ipa
-
-ios-sim-run:
-	./scripts/build_ios.sh --sim --run
-
-ios-test:
-	@echo "Testing iOS App Swift syntax integrity..."
-	find iosApp -name "*.swift" -print0 | xargs -0 xcrun --sdk iphonesimulator swiftc -target arm64-apple-ios17.0-simulator -parse
-	@echo "All iOS Swift files verified successfully."
-
-ios-clean:
-	./scripts/build_ios.sh --clean
-
 .PHONY: test test-desktop lint format
 test:
 	./gradlew test
@@ -153,4 +128,4 @@ clean:
 
 clean-all:
 	./gradlew clean
-	rm -rf build/ dist/ .flatpak-builder $(FLATPAK_APP_ID).flatpak iosApp/build
+	rm -rf build/ dist/ .flatpak-builder $(FLATPAK_APP_ID).flatpak

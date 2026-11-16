@@ -47,8 +47,6 @@ metro-wv2-helper/tests/obj/
 
 # iOS / Xcode
 DerivedData/
-iosApp/DerivedData/
-iosApp/build/
 project.xcworkspace/
 xcuserdata/
 *.xcuserstate

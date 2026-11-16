@@ -226,43 +226,6 @@ abstract class VerifyKuromojiPackagingTask : DefaultTask() {
     }
 }
 
-abstract class VerifyIosKuromojiPackagingTask : DefaultTask() {
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val resourceDirectory: DirectoryProperty
-
-    @get:InputFile
-    @get:PathSensitive(PathSensitivity.NONE)
-    abstract val xcodeProject: RegularFileProperty
-
-    @TaskAction
-    fun verifyPackaging() {
-        val resources = resourceDirectory.get().asFile
-        val engine = File(resources, "kuromoji.js")
-        val bootstrap = File(resources, "kuromoji-bootstrap.js")
-
-        fun sha256(file: File): String =
-            MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") {
-                (it.toInt() and 0xff).toString(16).padStart(2, '0')
-            }
-
-        check(sha256(engine) == "ab0ac10f1c4a9b5e246e63e57b04ba14d3a6148cd7e8d62cb97a960d4f85a3e6")
-        check(sha256(bootstrap) == "3a2f75400ef6f04301408701c2a2dbe23e614561df4aea3ab36504e9cca4ceb9")
-        check(File(resources, "kuromoji-LICENSE-2.0.txt").isFile)
-        check(File(resources, "kuromoji-NOTICE.md").isFile)
-        check(resources.listFiles().orEmpty().none { it.name.endsWith(".dat.gz") })
-        val project = xcodeProject.get().asFile.readText()
-        check(
-            listOf(
-                "kuromoji.js in Resources",
-                "kuromoji-bootstrap.js in Resources",
-                "kuromoji-LICENSE-2.0.txt in Resources",
-                "kuromoji-NOTICE.md in Resources",
-            ).all { it in project },
-        )
-    }
-}
-
 val kuromojiIpadicArtifact =
     configurations.create("kuromojiIpadicArtifact") {
         isCanBeConsumed = false
@@ -283,19 +246,8 @@ val verifyKuromojiPackaging =
         engineJar.set(kuromojiCodeOnlyJar)
     }
 
-val verifyIosKuromojiPackaging =
-    tasks.register<VerifyIosKuromojiPackagingTask>("verifyIosKuromojiPackaging") {
-        resourceDirectory.set(layout.projectDirectory.dir("src/iosMain/resources"))
-        xcodeProject.set(layout.projectDirectory.file("../iosApp/iosApp.xcodeproj/project.pbxproj"))
-    }
-
-val runPackagingVerification = providers.gradleProperty("metrolist.verifyPackaging").map(String::toBooleanStrict).getOrElse(true)
-tasks.matching { it.name.startsWith("compileKotlinIos") }.configureEach {
-    if (runPackagingVerification) dependsOn(verifyIosKuromojiPackaging)
-}
-
 tasks.named("check") {
-    dependsOn(verifyKuromojiPackaging, verifyIosKuromojiPackaging)
+    dependsOn(verifyKuromojiPackaging)
 }
 
 abstract class GenerateRoomMigrationTestSchemas : DefaultTask() {
@@ -411,20 +363,6 @@ kotlin {
 
     jvm("desktop") {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
-    }
-
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64(),
-    ).forEach { iosTarget ->
-        iosTarget.compilations.getByName("main").cinterops.create("playbackObservation") {
-            definitionFile.set(project.file("src/iosMain/cinterop/playbackObservation.def"))
-        }
-        iosTarget.binaries.framework {
-            baseName = "Shared"
-            isStatic = true
-            freeCompilerArgs += "-Xadd-light-debug=enable"
-        }
     }
 
     jvmToolchain {
@@ -567,16 +505,6 @@ kotlin {
                 implementation(libs.junit4)
                 implementation(libs.ktor.client.cio)
                 runtimeOnly(libs.kuromoji.ipadic)
-            }
-        }
-        getByName("iosMain") {
-            dependencies {
-                implementation("io.coil-kt.coil3:coil-network-ktor3:${libs.versions.coil.get()}") {
-                    exclude(group = "org.jetbrains.skiko", module = "skiko")
-                }
-                implementation(libs.ktor.client.darwin)
-                implementation(libs.sqlite.bundled)
-                implementation("no.synth:kmp-zip:2.1.0")
             }
         }
     }
@@ -777,8 +705,6 @@ dependencies {
     add("androidRuntimeClasspath", libs.ui.tooling)
     add("kspAndroid", libs.room.compiler)
     add("kspDesktop", libs.room.compiler)
-    add("kspIosArm64", libs.room.compiler)
-    add("kspIosSimulatorArm64", libs.room.compiler)
 }
 
 class RoomSchemaArgProvider(
