@@ -1,305 +1,153 @@
-<div style="display: flex; gap: 1rem;">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" alt="Metrolist app icon" width="200" height="200" />
-  <div>
-      <h1>Metrolist</h1>
-      <h3>A Material Design YouTube Music client for Android, iOS and desktop</h3>
-      <div style="display: flex; gap: 1rem;">
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases"><img src="https://img.shields.io/github/v/release/MetrolistGroup/Metrolist?style=for-the-badge&labelColor=0d1117" alt="Latest release" /></a>
-        <a href="https://github.com/MetrolistGroup/Metrolist/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MetrolistGroup/metrolist?style=for-the-badge&labelColor=0d1117" alt="License" /></a>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases"><img src="https://img.shields.io/github/downloads/MetrolistGroup/Metrolist/total?style=for-the-badge&labelColor=0d1117" alt="Downloads" /></a>
-      </div>
-  </div>
-</div>
+# XMB Music
 
-<br>
+A YouTube Music player with a PlayStation 3 XrossMediaBar (XMB) front end, built on
+[Metrolist-KMP](https://github.com/MetrolistGroup/Metrolist)'s source code. Metrolist's backend
+(streaming, playback, library, lyrics, casting, MetroEQ, Listen Together) is kept as is; this
+project adds an XMB interface and, later, live replicas of the PS3's music visualizers as the
+background. The stock Metrolist interface stays available as a selectable interface style.
 
-<div style="display: flex; gap: 0.5rem; align-items: center;">
-  <a href="https://www.blacksmith.sh"><img src="assets/blacksmith-powered.svg" alt="CI powered by Blacksmith" height="32" /></a>
-  <a href="https://dsc.gg/metrolist"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" height="32" /></a>
-  <a href="https://t.me/metrolistapp"><img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram" height="32" /></a>
-</div>
-
-<br>
+> [!IMPORTANT]
+> **Private project.** The repository and its builds contain Sony PS3 assets (the Rodin font and
+> system sounds) for personal use. Keep the repository private and don't share builds.
 
 > [!WARNING]
-> <details>
->   <summary>The use of Metrolist to access YouTube Music may violate YouTube's Terms of Service.</summary>
->   <p>You use Metrolist at your own risk. You are solely responsible for any consequences. Metrolist's contributors are not liable for damages, claims or actions against your account. We have received no reports of bans or restrictions for using Metrolist, but that does not guarantee your account's safety.</p>
-> </details>
->
-> YouTube Music is region-restricted. If the service is unavailable in your region, you need a [VPN or proxy in a supported region](https://one.one.one.one/) to use the app. [Changing your DNS](https://developers.cloudflare.com/1.1.1.1/setup/) can bypass some blocks.
+> Using a third-party client to access YouTube Music may violate YouTube's Terms of Service. You
+> use it at your own risk.
 
-<!---
+| The XMB | A music folder with the △ options panel |
+|---|---|
+| ![XMB shell](compare/shell.png) | ![Options panel](compare/music-options.png) |
 
-DO NOT REMOVE THIS SECTION, I WANT TO ADD IT LATER!!!
----
-<div align="center">
+<sub>Rendered with `scripts/xmb/snap.sh`; the music captures use demo data.</sub>
 
-<h1><a id="screenshots"></a>Screenshots</h1>
+## Status
 
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_1.png" alt="Home screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_2.png" alt="Artist screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_3.png" alt="Recognize music screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_4.png" alt="Listen together screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_5.png" alt="Player screen" width="30%" />
-<img src="fastlane/metadata/android/en-US/images/screenshots/screenshot_6.png" alt="Player lyrics screen" width="30%" />
+**Current milestone: M2 done (desktop).** The XMB runs on desktop (Windows, macOS, Linux) and
+plays your music. Android and iOS keep the stock Metrolist interface until M7 and M8.
 
-</div>
--->
+| | Milestone | Status |
+|---|---|---|
+| M0 | Map the codebase: entry points, data sources, touchpoints ([docs/xmb-architecture.md](docs/xmb-architecture.md)) | ✅ Done |
+| M1 | XMB shell on desktop: category row, item columns, focus motion, monthly background, wave, sounds, Rodin font, interface-style switch | ✅ Done |
+| M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
+| M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in | Next |
+| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Planned |
+| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Planned |
+| M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | Planned |
+| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings | Planned |
+| M8 | iOS | Planned |
 
-<div align="center">
-<h1>Features</h1>
-</div>
+**After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
+waves, beat-synced colors, party mode, shared visualizers in Listen Together rooms, gamepad-driven
+sparkles, a desktop wallpaper mode, importable XMB themes, more visualizers, and a TV mode that
+boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
 
-- YouTube Music playback with or without signing in
-- Android 7+, iOS 17+, Windows 10+, macOS 15+ and Linux support
-- Material 3 Expressive design
-- Discord Rich Presence and scrobbling through Last.fm and ListenBrainz
-- No ads
-- Listen Together for shared playback online
-- Casting to Google Cast, F-Cast and SONOS devices, and over DLNA (Android and desktop)
-- Backup and playlist imports from 30+ clients and 6 services
-- Music recognition through Shazam
-- Lyrics with translation and romanization
-- Translations in over 15 languages
-- Video playback (Android and desktop)
-- Content filters for AI-generated content, explicit-only playback and SFW-only playback
-- Canvas from Apple Music, Spotify and YouTube Music
-- Player, thumbnail, miniplayer and background styles
-- Custom fonts and app icons
+## What works now
 
-> [!TIP]
-> <p>See the <a href="https://metrolist.cc/#faq">FAQ</a> for common questions.</p>
+- **Interface switch.** The XMB is the default after first-run setup. Settings > **Metrolist
+  interface** in the XMB switches to the stock screens; stock Settings > Appearance > **Interface
+  style** switches back.
+- **Menu.** Eight categories (Users, Settings, Music, Search, Podcasts, Video, Friends,
+  Visualizer) with the console's focus behavior: the focused icon grows and glows, labels fade,
+  lists scroll with easing, items above the focus jump over the category row, and each category
+  remembers its position.
+- **Music.** Home (each shelf opens as a folder), Quick picks, Liked songs, Playlists, Albums,
+  Artists, History and Downloads. Albums, playlists and artists open further levels. Selecting a
+  song plays its list from that song.
+- **△ options.** Play, Shuffle, Play next, Add to queue, Start radio, Like/Unlike,
+  Download/Remove download, View album, View artist.
+- **Now playing.** Artwork, title, artist and progress in the bottom right.
+- **Look and sound.** The PS3 monthly background colors, dimmed in the evening; a simple animated
+  wave (until M4); album art in lists; the Rodin font with normal fallback for non-Latin text;
+  navigation sounds.
+- Placeholders in the other categories show "Not available yet" and play the error sound.
 
-<br>
+### Controls
 
-<div align="center">
+| Key | Action |
+|---|---|
+| Arrow keys | Move |
+| Enter | Select (✕) |
+| Esc, Backspace | Back (○); also Left inside a folder |
+| Tab | Options (△) |
+| Space, media keys | Play/pause, next, previous |
+| Mouse wheel | Move up and down |
 
-<h1><a id="download-now"></a>Download now</h1>
+Controllers work on Android (M7); on desktop the UI toolkit has no gamepad input yet.
 
-<p>Install Metrolist: <a href="docs/install/android.md">Android</a>, <a href="docs/install/ios.md">iOS</a>, <a href="docs/install/windows.md">Windows</a>, <a href="docs/install/macos.md">macOS</a> or <a href="docs/install/linux.md">Linux</a>. Check <a href="docs/install/README.md#get-the-package">download availability</a> before choosing a package.</p>
+## Getting it
 
-<p>
-  <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest">Choose a release for your device</a>
-</p>
+### Windows (portable)
 
-<table>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <h2>Windows</h2>
-      <p>Windows 10+ · pick your chip</p>
-      <p><sub>x64 · installer and portable</sub></p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest">
-          <img alt="Download the Windows installer (.exe)" src="assets/badges/platform/windows-installer.svg">
-        </a>
-      </p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/Metrolist-Desktop-windows.zip"><img alt="Download the portable Windows x64 package (.zip)" src="assets/badges/platform/windows-portable.svg"></a>
-      </p>
-      <p><sub>ARM64 · portable only</sub></p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the portable Windows ARM64 package (.zip)" src="assets/badges/platform/windows-portable.svg"></a>
-      </p>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <h2>macOS</h2>
-      <p>macOS 15+ · pick your chip</p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest">
-          <img alt="Download Metrolist for macOS on Apple silicon (.dmg)" src="assets/badges/platform/macos-apple-silicon.svg">
-        </a>
-      </p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest">
-          <img alt="Download Metrolist for macOS on Intel (.dmg)" src="assets/badges/platform/macos-intel.svg">
-        </a>
-      </p>
-      <p><sub>Unsigned app, you need to trust it first</sub></p>
-      <p><sub>Or install with <a href="docs/install/macos.md#homebrew">Homebrew</a></sub></p>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <h2>iOS</h2>
-      <p>iPhone &amp; iPad · iOS 17+</p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/Metrolist.ipa">
-          <img alt="Download the iOS IPA package" src="assets/badges/platform/ios-ipa.svg">
-        </a>
-      </p>
-      <p><sub>AltStore, SideStore, TrollStore or Sideloadly</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <h2>Android</h2>
-      <p>Android 7+</p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest/download/Metrolist.apk">
-          <img alt="Download the stable Android APK" src="assets/badges/platform/android-stable.svg">
-        </a>
-      </p>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <h2>Linux</h2>
-      <p>glibc · pick your chip</p>
-      <p><sub>x86_64 · AppImage or packages</sub></p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the x86_64 Linux AppImage" src="assets/badges/platform/linux-appimage.svg"></a>
-      </p>
-      <p>
-        <a href="https://aur.archlinux.org/packages/metrolist-desktop-bin"><img alt="Get the AUR PKGBUILD for Metrolist" src="assets/badges/platform/linux-aur.svg"></a>
-      </p>
-      <p>
-        <a href="docs/install/linux.md#nix"><img alt="Get the Nix flake" src="assets/badges/platform/linux-nix.svg"></a>
-      </p>
-      <p><sub>ARM64 · AppImage or Nix</sub></p>
-      <p>
-        <a href="https://github.com/MetrolistGroup/Metrolist/releases/latest"><img alt="Download the ARM64 Linux AppImage" src="assets/badges/platform/linux-appimage.svg"></a>
-      </p>
-      <p>
-        <a href="docs/install/linux.md#nix"><img alt="Get the Nix flake" src="assets/badges/platform/linux-nix.svg"></a>
-      </p>
-      <p><sub>Or install with <a href="docs/install/linux.md#homebrew">Homebrew</a></sub></p>
-    </td>
-    <td align="center" valign="top" width="33%">
-      <h2>Android stores</h2>
-      <p>The app already has a built-in updater.</p>
-      <p>
-        <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/MetrolistGroup/Metrolist/">
-          <img alt="Add the Metrolist repository to Obtainium" src="assets/badges/platform/store-obtainium.svg">
-        </a>
-      </p>
-      <p>
-        <a href="https://apt.izzysoft.de/fdroid/index/apk/com.metrolist.music">
-          <img alt="Find Metrolist in the IzzyOnDroid F-Droid repository" src="assets/badges/platform/store-izzyondroid.svg">
-        </a>
-      </p>
-      <p>
-        <a href="https://www.openapk.net/metrolist/com.metrolist.music/">
-          <img alt="Find the Metrolist APK on OpenAPK" src="assets/badges/platform/store-openapk.svg">
-        </a>
-      </p>
-    </td>
-  </tr>
-</table>
+`scripts/xmb/package_windows_portable.sh` builds a portable Windows x64 ZIP from Linux: unzip it
+and run `Metrolist.cmd`. It bundles its own Java runtime. The ZIP's `README.txt` lists what that
+build lacks (no YouTube sign-in helper, a `.cmd` launcher instead of an `.exe`).
 
-</div>
+### From source
 
-<br>
+Needs JDK 25 (Eclipse Temurin; the build requires the Adoptium vendor) and, for Android, the
+Android SDK with `platforms;android-37.1`. See [docs/development.md](docs/development.md).
 
-<div align="center">
-
-<h1><a id="support-the-project"></a>Support the project</h1>
-
-Metrolist is free and open-source. Donations support its development.
-
-<p>
-  <a href="https://github.com/sponsors/nyxiereal">
-    <img src="https://img.shields.io/badge/Sponsor-nyxiereal-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor nyxiereal" />
-  </a>
-  <a href="https://www.buymeacoffee.com/mostafaalagamy">
-    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-mostafaalagamy-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee" />
-  </a>
-  <a href="https://github.com/sponsors/l6t9">
-    <img src="https://img.shields.io/badge/Sponsor-l6t9-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor l6t9" />
-  </a>
-  <a href="https://github.com/sponsors/adrielggmotion">
-    <img src="https://img.shields.io/badge/Sponsor-adrielggmotion-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor adrielggmotion" />
-  </a>
-</p>
-
-<details>
-  <summary>Donate Monero to Mostafa Alagamy</summary>
-  <p>
-    <img src="assets/XMR.png" alt="Monero QR code" width="150" />
-  </p>
-
-```text
-44XjSELSWcgJTZiCKzjpCQWyXhokrH9RqH3rpp35FkSKi57T25hniHWHQNhLeXyFn3DDYqufmfRB1iEtENerZpJc7xJCcqt
+```bash
+git submodule update --init --recursive
+./gradlew :desktopApp:run                  # desktop
+./gradlew :androidApp:assembleDebug        # Android (stock interface until M7)
 ```
 
-</details>
-</div>
+A cold Gradle cache can hit Maven Central rate limits (HTTP 429); a first run with
+`--max-workers=1 --no-parallel --no-configuration-cache` gets past them.
 
-<br>
+## Project layout
 
-<div align="center">
+XMB code lives in the shared module; platform glue sits in each app.
 
-<h1>Special thanks</h1>
+| Path | What |
+|---|---|
+| `shared/.../shared/xmb/` | `XmbApp` (root), `nav/` (categories, navigation, input, options), `bar/` (category row, item columns, folder levels), `adapters/` (music lists from the shared ViewModels and database), `screens/` (options panel, now playing), `sound/`, `theme/` (palette, layout, motion, icons) |
+| `shared/.../shared/visualizer/` | Background and, from M4, the visualizers |
+| `shared/src/commonMain/composeResources/` | `drawable/xmb_*`, `font/xmb_rodin_latin_regular.ttf`, `files/xmb/sounds/` |
+| `desktopApp/.../desktop/xmb/` | Desktop host: playback, downloads, image loading, sounds |
+| `scripts/xmb/` | Snapshot capture and Windows packaging |
+| `reference/`, `compare/` | Console reference frames and the XMB captures to compare against them |
 
-Metrolist uses these projects and services.
+## Documentation
 
-<table>
-  <thead>
-    <tr>
-      <th align="center">Project</th>
-      <th align="center">Contribution</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><a href="https://github.com/aleksey-saenko/MusicRecognizer">MusicRecognizer</a></td>
-      <td>Music recognition through the Shazam API</td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://github.com/MetrolistGroup/innertubex">InnerTubeX</a></td>
-      <td>YouTube streaming engine, developed with help from <a href="https://github.com/ZemerTeam/">ZemerTeam</a></td>
-    </tr>
-    <tr>
-      <td align="center">Lyprio</td>
-      <td>Lyrics provider</td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://github.com/MetrolistGroup/metroserver">metroserver</a></td>
-      <td>Listen Together real-time synchronization backend</td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://www.blacksmith.sh">Blacksmith</a></td>
-      <td>GitHub Actions runners for CI</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+| Document | Contents |
+|---|---|
+| [PLAN.md](PLAN.md) | Goals, XMB layout, milestones and extras |
+| [CLAUDE.md](CLAUDE.md) | Project rules: git, technical constraints, code location, tests |
+| [docs/xmb-architecture.md](docs/xmb-architecture.md) | How the XMB plugs into Metrolist: entry points, data, playback, settings, menus, audio meter, shaders, input |
+| [docs/xmb-assets.md](docs/xmb-assets.md) | The PS3 asset manifest (checked by a test) |
+| [docs/xmb-notes.md](docs/xmb-notes.md) | Every tuned constant and why |
+| [compare/README.md](compare/README.md) | What each capture shows and what still differs from the console |
+| [UPSTREAM_TOUCHPOINTS.md](UPSTREAM_TOUCHPOINTS.md) | Every edit to an upstream Metrolist file |
+| [docs/](docs/README.md) | Metrolist's own documentation (build, playback, rendering, strings, checks) |
 
-<br>
+## Development
 
-<div align="center">
+- One branch per milestone (`feat/xmb-m<N>-<name>`), merged into `main` when done. GitHub Actions
+  are removed; checks run locally.
+- XMB tests: `./gradlew :shared:desktopTest -x :shared:testServerWithoutReflection --tests
+  'com.metrolist.shared.xmb.*'`. They cover navigation, input, palette, catalog, the asset
+  manifest, sound decoding, the music lists and the options.
+- Captures: `scripts/xmb/snap.sh [screen]` renders the XMB headlessly into `compare/`.
+- Format changed Kotlin with the module's `ktlint…Format` tasks.
+- Pulling a new Metrolist release: merge `upstream`, keep this README and `CLAUDE.md`, keep the
+  GitHub Actions files deleted, and check each file listed in `UPSTREAM_TOUCHPOINTS.md`.
 
-<h1><a id="translations"></a>Translations</h1>
+## Known limits
 
-[![Translation status](https://img.shields.io/weblate/progress/metrolist?style=for-the-badge&labelColor=0d1117)](https://hosted.weblate.org/engage/metrolist/)
+- Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
+  yet; iOS can't play Ogg Vorbis and needs converted sounds (M8).
+- The Windows portable build was assembled on Linux and hasn't been run on Windows yet.
+- `users.png` and `artist.png` are 68×68 and look soft when enlarged.
+- Layout, timing and colors are first passes until console reference frames are added to
+  `reference/` ([compare/README.md](compare/README.md) lists what to check).
 
-<p>We use Weblate to translate Metrolist. <a href="https://hosted.weblate.org/projects/Metrolist/">Contribute a translation</a>.</p>
+## License and credits
 
-<a href="https://hosted.weblate.org/projects/Metrolist/">
-  <img src="https://hosted.weblate.org/widget/Metrolist/horizontal-auto.svg" alt="Translation status" />
-</a>
-</div>
-
-<br>
-
-<div align="center">
-<h1>Contributors</h1>
-<p>To contribute code, start with the <a href="docs/README.md">developer docs</a>.</p>
-<a href="https://github.com/MetrolistGroup/Metrolist/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=MetrolistGroup/Metrolist" alt="Contributors" />
-</a>
-</div>
-
-<br>
-
-> [!WARNING]
-> <h2>Legal disclaimer</h2>
-> <p>This project is not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, MetroList MLS, or their affiliates and subsidiaries.</p>
->
-> <p>All trademarks, service marks, and intellectual property rights referenced in this project belong to their respective owners.</p>
-
-<br/>
-
-<div align="center">
-
-**Developed by [the Metrolist development team](https://github.com/MetrolistGroup)**
-
-**This project stands with Palestine 🇵🇸**
-
-</div>
+GPL-3.0, like Metrolist. Based on [Metrolist](https://github.com/MetrolistGroup/Metrolist) by
+MetrolistGroup and its contributors; see [LICENSE](LICENSE). This project isn't affiliated with
+MetrolistGroup, YouTube or Sony. PlayStation, XMB and the PS3 system assets are Sony's; they're
+included only for personal use. The Podcasts and Visualizer category icons were drawn for this
+project.
