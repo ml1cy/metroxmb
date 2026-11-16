@@ -177,7 +177,13 @@ a gradient fallback on older Android (minSdk is 24).
 - Android TV: D-pad and Back. The stock app requires a double Back to exit from the start
   destination; the XMB keeps that rule at the top level.
 
-## 11. Proposed upstream touchpoints (awaiting the owner's OK)
+## 11. Upstream touchpoints (approved)
+
+Approved by the owner. M1 landed 1, 2, 3, 5 and 7, plus a one-word addition to
+`SettingsOrdering.kt` so the interface group sits at the top of Appearance. Android (4) and iOS
+(6) switch over in M7 and M8, once the XMB handles touch there; until then
+`xmbPlatforms` lists only desktop, so those platforms neither show the setting nor switch.
+`UPSTREAM_TOUCHPOINTS.md` is the log of what actually changed.
 
 The XMB sits beside the stock UI. Each platform switches at the point where its shared locals
 already exist, so the XMB reuses the platform's `PlaybackController`, player session, Listen
