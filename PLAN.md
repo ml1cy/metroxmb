@@ -130,6 +130,8 @@ long-press = options.
 - Account sign-in through the existing flow
 
 ### M4: Waves for real
+- The home-screen wave (M3) reacts to navigation, not music; music reactivity belongs to the
+  visualizers (owner's decision). The owner adds Waves reference frames when this starts
 - `VisualizerAudio` consumes `AudioSpectrumMeter` only while visible; extend the meter in shared
   code (with tests) if more data is needed, keeping MetroEQ's page unchanged
 - Full Waves shader: layered translucent ribbons, soft edges, glossy crests, drifting sparkles,

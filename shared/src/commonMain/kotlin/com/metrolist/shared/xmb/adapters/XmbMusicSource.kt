@@ -46,12 +46,14 @@ fun interface XmbMusicSource {
 /**
  * The real source: the shared Home and Library ViewModels (created on first use, so the XMB costs
  * nothing until a list opens), the database for liked songs, downloads, local playlists and
- * history, and the YouTube repository for albums, artists and remote playlists.
+ * history, the YouTube repository for albums, artists and remote playlists, and [search] for
+ * search results.
  */
 class DefaultXmbMusicSource(
     private val database: MusicDatabase,
     private val scope: CoroutineScope,
     private val downloadedSongIds: Flow<Set<String>> = flowOf(emptySet()),
+    private val search: XmbSearch? = null,
     private val loadSongs: suspend (YTItem) -> List<SongItem> = ::loadMediaItemSongs,
 ) : XmbMusicSource {
     private val home by lazy { HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
@@ -136,6 +138,19 @@ class DefaultXmbMusicSource(
 
             is XmbList.Playlist -> {
                 playlist(list.playlist)
+            }
+
+            is XmbList.SearchResults -> {
+                search?.results(list.query) ?: flowOf(XmbListState.failed)
+            }
+
+            is XmbList.SearchSection -> {
+                flowOf(XmbListState.loaded(list.summary.items.map(YTItem::toXmbEntry)))
+            }
+
+            // Settings rows come from the settings registry, which XmbApp builds in composition.
+            is XmbList.SettingsPage -> {
+                flowOf(XmbListState.loaded(emptyList()))
             }
         }.catch { error ->
             if (error is CancellationException) throw error

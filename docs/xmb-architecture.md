@@ -322,3 +322,41 @@ installs the JDK and SDK as above.
 **Not built in M0:** iOS (needs macOS and Xcode), release/packaging tasks, and the
 desktop app launch (no display in this container; `scripts/xmb/snap.sh` in M1 needs a virtual
 display).
+
+## 15. M3: Settings, Search and Users
+
+The three columns take their items from live data (`xmbSettingsItems`, `xmbSearchItems`,
+`xmbUserItems` in `nav/XmbCatalog.kt`); the host passes what they need in `XmbServices`.
+
+- **Settings.** `XmbSettingsHost` carries the platform's `SharedSettingsHost` and a way to show
+  a stock settings page. `XmbApp` builds the registry with `rememberMetrolistSettingsRegistry`,
+  exactly as the stock screen does, and rebuilds it after each change (a revision counter, like
+  `SharedSettingsRegistryScreen`). Root pages become column items; a page opens as a level whose
+  rows are its items (`adapters/XmbSettings.kt`). Selecting a row goes through `xmbSettingStep`:
+  switches and choices open a value list, sliders a slider, text the on-screen keyboard, actions
+  run (after a Yes/No when the registry asks for confirmation), and navigation rows open the next
+  registry page. Custom pages (storage, backup, updates, about, devtools, MetroEQ), custom rows
+  and pages the registry doesn't build (fonts) open the stock screen over the XMB. The registry's
+  own callbacks write the settings and fire the host's change effects, so behaviour matches the
+  stock screen.
+- **Desktop settings host.** `desktop/xmb/DesktopXmbSettings.kt` mirrors the registry-facing
+  parts of the stock `SettingsOverlay` host (language, country and artist-source choices, change
+  effects, the Listen Together speed lock, home sections). It's a copy rather than a refactor of
+  the overlay, so upstream merges don't conflict there; its `when`s over `SettingsChangeEffect`
+  and `SettingsHostChoice` are exhaustive, so an enum value added upstream fails to compile and
+  can't be missed. Check the overlay's host when merging a new Metrolist release.
+- **Stock screens over the XMB.** The desktop host draws `SettingsOverlay` (opened at a page
+  through `UiState.selectedSettingsPage`) and the sign-in `LoginDialog` itself, since the stock
+  content that normally draws them isn't composed. While either is open `XmbApp` is `suspended`
+  and leaves keys alone; focus returns when they close.
+- **Search.** `adapters/XmbSearch.kt` uses the shared `SearchViewModel` for recent searches
+  (`Settings.shared.searchHistory`) and suggestions, and the repository's search summary for
+  results, filtered for blocked content like the stock screen. Results open as one folder per shelf.
+  The XMB's view model is its own instance, so the stock search screen sees new history after a
+  restart, not live.
+- **Users.** The account comes from `Settings.shared` (name, email, picture, cookie), which is
+  snapshot state, so signing in or out updates the column. `XmbAccount` supplies the platform's
+  flows: on desktop, the stock sign-in and channel dialogs and `AuthState.signOut()`.
+- **Wave.** The background wave and sparkles react to navigation through `XmbWaveMotion`
+  (`docs/xmb-notes.md`), not to audio; the meter stays for the visualizers.
+

@@ -5499,4 +5499,21 @@
     <string name="xmb_visualizer_random">Random</string>
     <string name="xmb_visualizer_auto_cycle">Auto-cycle</string>
     <string name="xmb_list_error">Couldn't load this list</string>
+    <string name="xmb_value_on">On</string>
+    <string name="xmb_value_off">Off</string>
+    <string name="xmb_users_sign_in_description">Sign in to your YouTube Music account</string>
+    <string name="xmb_users_signed_in">Signed in</string>
+    <string name="xmb_users_switch_channel">Switch channel</string>
+    <string name="xmb_users_switch_channel_description">Use another channel of this account</string>
+    <string name="xmb_users_sign_out_description">Sign out of this account on this device</string>
+    <string name="xmb_users_sign_out_confirm">Log out of this account?</string>
+    <string name="xmb_search_new">New search</string>
+    <string name="xmb_search_new_description">Type with the on-screen keyboard or your own keyboard</string>
+    <string name="xmb_search_recent">Recent search</string>
+    <string name="xmb_keyboard_space">Space</string>
+    <string name="xmb_keyboard_delete">Delete</string>
+    <string name="xmb_keyboard_shift">Shift</string>
+    <string name="xmb_keyboard_done">Done</string>
+    <string name="xmb_keyboard_suggestions">Suggestions</string>
+    <string name="xmb_settings_stock_page">Opens the standard Metrolist settings page</string>
 </resources>

@@ -72,6 +72,12 @@ data class XmbNavigation(
         return if (focus == top.focus) this else copy(stack = stack.dropLast(1) + top.copy(focus = focus))
     }
 
+    /** Keeps each category's focused item inside lists whose size changed (search history, account rows). */
+    fun clampItems(itemCounts: List<Int>): XmbNavigation {
+        val clamped = items.mapIndexed { index, item -> item.coerceIn(0, (itemCounts.getOrElse(index) { 0 } - 1).coerceAtLeast(0)) }
+        return if (clamped == items) this else copy(items = clamped)
+    }
+
     companion object {
         fun initial(
             itemCounts: List<Int>,

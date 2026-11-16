@@ -4,7 +4,9 @@
 #
 #   scripts/xmb/snap.sh            # every screen
 #   scripts/xmb/snap.sh shell      # one screen: icons, shell, shell-night, music-scrolled,
-#                                  # settings, visualizer-august, small-window
+#                                  # settings, visualizer-august, small-window, music-home,
+#                                  # music-section, settings-december, settings-page,
+#                                  # settings-picker, search-keyboard, users, music-options
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export XMB_SNAP_OUT="$PWD/compare"

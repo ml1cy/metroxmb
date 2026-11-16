@@ -16,24 +16,37 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `music-home.png` | Music > Home opened (demo data): home shelves as folders, the parent icon on the left, now-playing in the bottom right |
 | `music-section.png` | A home shelf opened: songs, the focused one with its artist and album, artwork where available |
 | `music-options.png` | The △ options panel for the focused song |
+| `settings-december.png` | Settings column in December's red with the registry's pages, for comparing with `reference/xmb/settings-red-1080p.png` |
+| `reference-vs-settings-december.png` | That reference frame (left) next to `settings-december.png` (right) |
+| `settings-page.png` | The Player and audio page as XMB rows, current values in the right-hand column |
+| `settings-picker.png` | A value picker open beside the focused row |
+| `search-keyboard.png` | The on-screen keyboard with typed text and suggestions |
+| `users.png` | Users signed out: Log in |
 | `live-desktop-xmb.png` | The real desktop app (Linux, virtual display, 1080×720 window) right after onboarding: the XMB replaces the stock screens |
 | `live-desktop-interface-setting.png` | The stock Settings → Appearance page with the new Interface style choice (before it moved to the top of the page) |
 
-## Remaining differences (M1)
+## Reference frames
 
-Only one reference exists so far: `reference/xmb/bg_sample.png`, a flat December-red tile. Its
-top color (190, 80, 69) is close to the December gradient's top here; its bottom is only ~10%
-darker, so the gradient's bottom factor was softened from 0.38 to 0.6. Everything else needs
-console frames in `reference/xmb/` to compare against:
+From the owner, in `reference/`: `xmb/settings-red-1080p.png` and `xmb/game-purple-1080p.jpg`
+(1080p screenshots, used for every layout measurement in `docs/xmb-notes.md`),
+`xmb/music-green-small.jpg`, `xmb/users-blue-photo.jpg` and `xmb/network-pink-photo.jpg`
+(small or photographed, for general look only), `waves/waves-purple-720p.jpg` (the Waves
+visualizer, for M4), and `xmb/bg_sample.png` (a flat December-red tile).
 
-- Category spacing, icon sizes and the row's vertical position
-- Item pitch, focus scale, and how far items above the focus sit from the row
-- Glow shape: here a radial halo; the console's follows the glyph outline
-- Text sizes, the focused title's glow, and subtitle placement
-- Monthly colors under the console's own gradient and brightness curve
-- The wave: a simple three-ribbon stand-in until M4's Waves shader
-- Clock format and placement (the console adds a line under the clock)
-- Motion timings (240 ms across, 180 ms down) need video frames at 2 fps or more
+## Remaining differences
+
+Matched to the 1080p frames: category row position and spacing, icon sizes, label placement,
+item focus position, row pitch and gaps above and below the focus, title and subtitle placement,
+text sizes, the clock box, and no halo on focused icons. Still different:
+
+- **Background gradient.** The red frame runs from dark at the top (124, 0, 0) to bright at the
+  bottom (255, 81, 100); the purple frame is lighter at the top right. The monthly palette here is
+  lighter at the top. The two frames disagree (a custom color or a different time of day may
+  explain the red one), so the palette is unchanged until more frames show the pattern
+- **Wave brightness.** The red frame's band is brighter and smoother than the strands here; M4's
+  shader is the place to match it
+- **Sparkle motion, wave reactions and every timing** need video frames at 2 fps or more
+- The on-screen keyboard and value pickers have no reference frames yet
 
 ## Remaining differences (M2)
 

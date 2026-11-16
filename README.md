@@ -14,16 +14,19 @@ background. The stock Metrolist interface stays available as a selectable interf
 > Using a third-party client to access YouTube Music may violate YouTube's Terms of Service. You
 > use it at your own risk.
 
-| The XMB | A music folder with the △ options panel |
+| The XMB | A setting's value picker |
 |---|---|
-| ![XMB shell](compare/shell.png) | ![Options panel](compare/music-options.png) |
+| ![XMB shell](compare/shell.png) | ![Value picker](compare/settings-picker.png) |
 
-<sub>Rendered with `scripts/xmb/snap.sh`; the music captures use demo data.</sub>
+![A console frame next to the XMB in December](compare/reference-vs-settings-december.png)
+
+<sub>Rendered with `scripts/xmb/snap.sh`; music captures use demo data. Bottom: a PS3 frame (left)
+next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M2 done (desktop).** The XMB runs on desktop (Windows, macOS, Linux) and
-plays your music. Android keeps the stock Metrolist interface until M7. iOS isn't a target and
+**Current milestone: M3 done (desktop).** The XMB runs on desktop (Windows, macOS, Linux), plays
+your music, searches, and has every setting and sign-in in its own columns. Android keeps the stock Metrolist interface until M7. iOS isn't a target and
 keeps the stock interface.
 
 | | Milestone | Status |
@@ -31,8 +34,8 @@ keeps the stock interface.
 | M0 | Map the codebase: entry points, data sources, touchpoints ([docs/xmb-architecture.md](docs/xmb-architecture.md)) | ✅ Done |
 | M1 | XMB shell on desktop: category row, item columns, focus motion, monthly background, wave, sounds, Rodin font, interface-style switch | ✅ Done |
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
-| M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in | Next |
-| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Planned |
+| M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
+| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Next |
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Planned |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | Planned |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings | Planned |
@@ -56,10 +59,21 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   song plays its list from that song.
 - **△ options.** Play, Shuffle, Play next, Add to queue, Start radio, Like/Unlike,
   Download/Remove download, View album, View artist.
+- **Settings.** Every page of Metrolist's settings as XMB lists with the current value on the
+  right. Switches and choices open a value list, sliders a slider, text the on-screen keyboard;
+  nothing changes until ✕ confirms. Pages with their own screens (storage, backup, updates, about,
+  MetroEQ, fonts) open the standard settings window over the XMB.
+- **Search.** New search opens the on-screen keyboard: type on your keyboard or pick keys with
+  the arrows, with suggestions in a column on the right. Results open as folders (top result,
+  songs, albums, artists...). Recent searches are listed under New search.
+- **Users.** Log in when signed out; when signed in, your account (select it to switch channel)
+  and Log out, after a Yes/No.
 - **Now playing.** Artwork, title, artist and progress in the bottom right.
-- **Look and sound.** The PS3 monthly background colors, dimmed in the evening; a simple animated
-  wave (until M4); album art in lists; the Rodin font with normal fallback for non-Latin text;
-  navigation sounds.
+- **Look and sound.** Layout measured from console frames: category row, item spacing, title
+  placement, the clock box. The PS3 monthly background colors, dimmed in the evening; a silk wave
+  of crossing strands with drifting, twinkling sparkles that reacts to navigation (moving pushes
+  it sideways or lifts it, ✕ sends a pulse along it); album art in lists; the Rodin font with normal
+  fallback for non-Latin text; navigation sounds.
 - Placeholders in the other categories show "Not available yet" and play the error sound.
 
 ### Controls
@@ -72,6 +86,7 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
 | Tab | Options (△) |
 | Space, media keys | Play/pause, next, previous |
 | Mouse wheel | Move up and down |
+| Typing (keyboard open) | Letters go straight into the text, Backspace deletes, Enter submits, Esc cancels |
 
 Controllers work on Android (M7); on desktop the UI toolkit has no gamepad input yet.
 
@@ -129,7 +144,8 @@ XMB code lives in the shared module; platform glue sits in each app.
   are removed; checks run locally.
 - XMB tests: `./gradlew :shared:desktopTest -x :shared:testServerWithoutReflection --tests
   'com.metrolist.shared.xmb.*'`. They cover navigation, input, palette, catalog, the asset
-  manifest, sound decoding, the music lists and the options.
+  manifest, sound decoding, the music lists, the options, settings rows and pickers, the
+  on-screen keyboard, search results and the wave's reactions.
 - Captures: `scripts/xmb/snap.sh [screen]` renders the XMB headlessly into `compare/`.
 - Format changed Kotlin with the module's `ktlint…Format` tasks.
 - Pulling a new Metrolist release: merge `upstream`, keep this README and `CLAUDE.md`, keep the
@@ -140,6 +156,9 @@ XMB code lives in the shared module; platform glue sits in each app.
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
   yet.
 - The Windows portable build was assembled on Linux and hasn't been run on Windows yet.
+- Sign-in on Linux needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), as in the standard interface.
+- Searches made in the XMB show up in the standard search screen's history after a restart.
+- The on-screen keyboard and value pickers have no console frames to match yet.
 - `users.png` and `artist.png` are 68×68 and look soft when enlarged.
 - Layout, timing and colors are first passes until console reference frames are added to
   `reference/` ([compare/README.md](compare/README.md) lists what to check).

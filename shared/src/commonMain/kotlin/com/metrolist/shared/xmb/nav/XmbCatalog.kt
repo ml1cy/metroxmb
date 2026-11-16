@@ -3,43 +3,39 @@
 package com.metrolist.shared.xmb.nav
 
 import com.metrolist.shared.generated.resources.*
+import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.settings.SettingsUiRegistry
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.theme.XmbIcons
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 
 /**
- * The XMB's categories and their items. Music items open drill-down lists (M2); the rest are
- * placeholders for later milestones (PLAN.md). The Metrolist interface item switches back to the
- * stock screens.
+ * The XMB's categories and their items. Users, Settings and Search take their items from live
+ * data ([xmbUserItems], [xmbSettingsItems], [xmbSearchItems]); the defaults are what the XMB shows
+ * without a host (dev snapshots). Podcasts, Video, Friends and Visualizer are placeholders for later
+ * milestones (PLAN.md).
  */
-fun xmbCategories(): List<XmbCategory> =
+fun xmbCategories(
+    users: List<XmbItem> = xmbUserItems(null),
+    settings: List<XmbItem> = emptyList(),
+    search: List<XmbItem> = xmbSearchItems(emptyList()),
+): List<XmbCategory> =
     listOf(
-        category(
-            XmbCategoryId.USERS,
-            Res.string.xmb_category_users,
-            drawable(Res.drawable.xmb_cat_users),
-            item("account", Res.string.account, Res.drawable.xmb_item_artist),
-        ),
-        category(
+        XmbCategory(XmbCategoryId.USERS, Res.string.xmb_category_users, drawable(Res.drawable.xmb_cat_users), users),
+        XmbCategory(
             XmbCategoryId.SETTINGS,
             Res.string.settings,
             drawable(Res.drawable.xmb_cat_settings),
-            XmbItem(
-                id = "interface_style",
-                title = Res.string.xmb_switch_to_metrolist,
-                icon = drawable(Res.drawable.xmb_item_subsetting),
-                subtitle = Res.string.xmb_switch_to_metrolist_description,
-                action = XmbItemAction.SWITCH_TO_METROLIST,
-            ),
-            item("playback", Res.string.settings_playback, Res.drawable.xmb_item_volume),
-            item("audio_quality", Res.string.audio_quality, Res.drawable.xmb_item_subsetting),
-            item("metroeq", Res.string.metroeq, Res.drawable.xmb_item_equalizer),
-            XmbItem("visualizer", Res.string.xmb_category_visualizer, XmbIcon.Vector(XmbIcons.Visualizer)),
-            item("lyrics", Res.string.lyrics, Res.drawable.xmb_item_subsetting),
-            item("cast", Res.string.settings_cast_title, Res.drawable.xmb_item_network_settings),
-            item("storage", Res.string.storage, Res.drawable.xmb_item_subsetting),
-            item("about", Res.string.about, Res.drawable.xmb_item_info),
+            listOf(
+                XmbItem(
+                    id = "interface_style",
+                    title = Res.string.xmb_switch_to_metrolist,
+                    icon = drawable(Res.drawable.xmb_item_subsetting),
+                    subtitle = Res.string.xmb_switch_to_metrolist_description,
+                    action = XmbItemAction.SwitchToMetrolist,
+                ),
+            ) + settings,
         ),
         category(
             XmbCategoryId.MUSIC,
@@ -54,12 +50,7 @@ fun xmbCategories(): List<XmbCategory> =
             item("history", Res.string.menu_history, Res.drawable.xmb_item_history, XmbList.History),
             item("downloads", Res.string.downloads, Res.drawable.xmb_item_playlist, XmbList.Downloads),
         ),
-        category(
-            XmbCategoryId.SEARCH,
-            Res.string.search,
-            drawable(Res.drawable.xmb_cat_search),
-            item("search", Res.string.search, Res.drawable.xmb_cat_search),
-        ),
+        XmbCategory(XmbCategoryId.SEARCH, Res.string.search, drawable(Res.drawable.xmb_cat_search), search),
         category(
             XmbCategoryId.PODCASTS,
             Res.string.podcasts,
@@ -92,6 +83,113 @@ fun xmbCategories(): List<XmbCategory> =
             visualizer("auto_cycle", Res.string.xmb_visualizer_auto_cycle),
         ),
     )
+
+/** The signed-in account, as the Users column shows it. */
+data class XmbAccountInfo(
+    val signedIn: Boolean,
+    val name: String? = null,
+    val detail: String? = null,
+    val thumbnail: String? = null,
+)
+
+/**
+ * Users: Log in when signed out; when signed in, the account (selecting it switches channel) and
+ * Log out. Without [account] (no host) the column shows an unavailable Account row.
+ */
+fun xmbUserItems(account: XmbAccountInfo?): List<XmbItem> {
+    val userIcon = drawable(Res.drawable.xmb_cat_users)
+    return when {
+        account == null -> {
+            listOf(XmbItem("account", Res.string.account, userIcon))
+        }
+
+        !account.signedIn -> {
+            listOf(
+                XmbItem("sign_in", Res.string.action_login, userIcon, Res.string.xmb_users_sign_in_description, XmbItemAction.SignIn),
+            )
+        }
+
+        else -> {
+            listOf(
+                XmbItem(
+                    id = "account",
+                    title = account.name?.takeIf(String::isNotBlank)?.let(XmbText::Plain) ?: XmbText.Resource(Res.string.account),
+                    icon = userIcon,
+                    subtitle =
+                        account.detail?.takeIf(String::isNotBlank)?.let(XmbText::Plain) ?: XmbText.Resource(Res.string.xmb_users_signed_in),
+                    action = XmbItemAction.SwitchChannel,
+                    artwork = account.thumbnail?.takeIf(String::isNotBlank),
+                ),
+                XmbItem(
+                    "switch_channel",
+                    Res.string.xmb_users_switch_channel,
+                    drawable(Res.drawable.xmb_item_listen_together),
+                    Res.string.xmb_users_switch_channel_description,
+                    XmbItemAction.SwitchChannel,
+                ),
+                XmbItem(
+                    "sign_out",
+                    Res.string.action_logout,
+                    drawable(Res.drawable.xmb_item_remove),
+                    Res.string.xmb_users_sign_out_description,
+                    XmbItemAction.SignOut,
+                ),
+            )
+        }
+    }
+}
+
+/** Search: a new search on the on-screen keyboard, then the recent searches, newest first. */
+fun xmbSearchItems(history: List<String>): List<XmbItem> =
+    listOf(
+        XmbItem(
+            "new_search",
+            Res.string.xmb_search_new,
+            drawable(Res.drawable.xmb_cat_search),
+            Res.string.xmb_search_new_description,
+            XmbItemAction.OpenSearch,
+        ),
+    ) +
+        history.distinct().map { query ->
+            XmbItem(
+                id = "recent:$query",
+                title = XmbText.Plain(query),
+                icon = drawable(Res.drawable.xmb_item_history),
+                subtitle = XmbText.Resource(Res.string.xmb_search_recent),
+                list = XmbList.SearchResults(query),
+            )
+        }
+
+/**
+ * Settings pages from the shared settings registry, in the stock root order. Pages the XMB draws
+ * as rows open a level; custom pages (storage, backup, updates, MetroEQ...) open their stock screen.
+ */
+fun xmbSettingsItems(registry: SettingsUiRegistry): List<XmbItem> =
+    registry.rootGroups
+        .flatMap { it.pages }
+        .distinct()
+        .mapNotNull { id -> registry[id] }
+        .map { page ->
+            XmbItem(
+                id = "settings:${page.id.name}",
+                title = XmbText.Plain(page.title),
+                icon = drawable(settingsPageIcon(page.id)),
+                subtitle = page.subtitle?.takeIf(String::isNotBlank)?.let(XmbText::Plain),
+                action = if (page.custom) XmbItemAction.StockSettings(page.id) else XmbItemAction.None,
+                list = if (page.custom) null else XmbList.SettingsPage(page.id),
+            )
+        }
+
+internal fun settingsPageIcon(page: SettingsPageId): DrawableResource =
+    when (page) {
+        SettingsPageId.PLAYER, SettingsPageId.PLAYER_QUEUE -> Res.drawable.xmb_item_volume
+        SettingsPageId.EQUALIZER -> Res.drawable.xmb_item_equalizer
+        SettingsPageId.ABOUT -> Res.drawable.xmb_item_info
+        SettingsPageId.LISTEN_TOGETHER -> Res.drawable.xmb_item_listen_together
+        SettingsPageId.DEVICE_CONNECT -> Res.drawable.xmb_item_network_settings
+        SettingsPageId.CONTENT, SettingsPageId.CONTENT_HOME -> Res.drawable.xmb_item_playlist
+        else -> Res.drawable.xmb_item_subsetting
+    }
 
 private fun category(
     id: XmbCategoryId,

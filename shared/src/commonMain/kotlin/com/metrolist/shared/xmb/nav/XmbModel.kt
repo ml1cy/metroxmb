@@ -1,9 +1,12 @@
 package com.metrolist.shared.xmb.nav
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.xmb.adapters.XmbList
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /** The horizontal categories, in display order. */
 enum class XmbCategoryId {
@@ -27,24 +30,67 @@ sealed interface XmbIcon {
     ) : XmbIcon
 }
 
+/** Text from the string catalog, or plain text from data (settings titles, queries, account names). */
+sealed interface XmbText {
+    data class Resource(
+        val resource: StringResource,
+    ) : XmbText
+
+    data class Plain(
+        val text: String,
+    ) : XmbText
+}
+
+@Composable
+fun XmbText.resolve(): String =
+    when (this) {
+        is XmbText.Resource -> stringResource(resource)
+        is XmbText.Plain -> text
+    }
+
 /**
- * What selecting an item does besides opening its [XmbItem.list]. Items with neither play the
- * error sound.
+ * What selecting a top-level item does besides opening its [XmbItem.list]. Items with neither
+ * play the error sound.
  */
-enum class XmbItemAction {
-    NONE,
-    SWITCH_TO_METROLIST,
+sealed interface XmbItemAction {
+    data object None : XmbItemAction
+
+    data object SwitchToMetrolist : XmbItemAction
+
+    /** Opens the on-screen keyboard for a new search. */
+    data object OpenSearch : XmbItemAction
+
+    data object SignIn : XmbItemAction
+
+    data object SwitchChannel : XmbItemAction
+
+    data object SignOut : XmbItemAction
+
+    /** A settings page the XMB doesn't draw itself; the host shows its stock screen. */
+    data class StockSettings(
+        val page: SettingsPageId,
+    ) : XmbItemAction
 }
 
 data class XmbItem(
     val id: String,
-    val title: StringResource,
+    val title: XmbText,
     val icon: XmbIcon,
-    val subtitle: StringResource? = null,
-    val action: XmbItemAction = XmbItemAction.NONE,
+    val subtitle: XmbText? = null,
+    val action: XmbItemAction = XmbItemAction.None,
     val list: XmbList? = null,
+    val artwork: String? = null,
 ) {
-    val isAvailable: Boolean get() = action != XmbItemAction.NONE || list != null
+    constructor(
+        id: String,
+        title: StringResource,
+        icon: XmbIcon,
+        subtitle: StringResource? = null,
+        action: XmbItemAction = XmbItemAction.None,
+        list: XmbList? = null,
+    ) : this(id, XmbText.Resource(title), icon, subtitle?.let(XmbText::Resource), action, list)
+
+    val isAvailable: Boolean get() = action != XmbItemAction.None || list != null
 }
 
 data class XmbCategory(

@@ -4,6 +4,8 @@ import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.ArtistItem
 import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.model.PlaylistItem
+import com.metrolist.shared.model.SearchSummary
+import com.metrolist.shared.ui.settings.SettingsPageId
 
 /** A list the XMB can open as a drill-down level. [key] identifies it for animation and state. */
 sealed interface XmbList {
@@ -65,5 +67,28 @@ sealed interface XmbList {
         val artist: ArtistItem,
     ) : XmbList {
         override val key = "artist:${artist.id}"
+    }
+
+    /** A settings page from the settings registry, drawn as XMB rows with value pickers. */
+    data class SettingsPage(
+        val page: SettingsPageId,
+    ) : XmbList {
+        override val key = "settings:${page.name}"
+    }
+
+    /** Search results for [query]: one folder per result shelf (top result, songs, albums...). */
+    data class SearchResults(
+        val query: String,
+    ) : XmbList {
+        override val key = "search:$query"
+    }
+
+    /** One shelf of a search's results. */
+    data class SearchSection(
+        val query: String,
+        val index: Int,
+        val summary: SearchSummary,
+    ) : XmbList {
+        override val key = "search:$query:$index"
     }
 }

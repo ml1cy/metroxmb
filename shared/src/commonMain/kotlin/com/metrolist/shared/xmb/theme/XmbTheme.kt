@@ -27,32 +27,42 @@ fun rememberXmbFontFamily(): FontFamily {
 class XmbMetrics(
     val unit: Dp,
 ) {
-    val categorySpacing = unit * 136
-    val categoryIcon = unit * 72
-    val categoryLabelOffset = unit * 54
-    val categoryLabelSize = unit * 18
-    val itemIcon = unit * 56
-    val itemSpacing = unit * 66
-    val itemTextOffset = unit * 20
-    val itemTitleSize = unit * 19
-    val itemSubtitleSize = unit * 14
-    val focusedItemOffset = unit * 112
-    val itemsAboveGap = unit * 110
-    val clockSize = unit * 16
+    // Measured from reference/xmb/settings-red-1080p.png and game-purple-1080p.jpg (1.5 px per unit).
+    val categorySpacing = unit * 133
+
+    /** Icon box size; the PS3 PNGs leave padding around the glyph, so the box is larger than the glyph. */
+    val categoryIcon = unit * 120
+    val categoryLabelOffset = unit * 40
+    val categoryLabelSize = unit * 19
+    val itemIcon = unit * 100
+    val itemSpacing = unit * 53
+    val itemTextOffset = unit * 27
+    val itemTitleSize = unit * 23
+    val itemSubtitleSize = unit * 15
+
+    /** Where a setting's value starts, measured from the start of its title. */
+    val valueColumn = unit * 440
+    val focusedItemOffset = unit * 143
+    val itemsAboveGap = unit * 204
+    val itemsBelowGap = unit * 64
+    val clockSize = unit * 20
+    val clockIcon = unit * 22
+    val clockBoxTop = unit * 50
+    val clockBoxHeight = unit * 37
+    val clockBoxWidth = unit * 393
+    val clockEndPadding = unit * 77
+    val clockBorder = unit * 1.33f
     val edgeMargin = unit * 32
 
     /** How far left of the list an opened level's parent icon sits. */
-    val parentOffset = unit * 130
+    val parentOffset = unit * 150
 
     companion object {
         /** Horizontal position of the focused category, as a fraction of the window width. */
-        const val ANCHOR_X = 0.22f
+        const val ANCHOR_X = 0.295f
 
         /** Vertical position of the category row, as a fraction of the window height. */
-        const val BAR_Y = 0.30f
-
-        /** Vertical position of an opened level's focused row, as a fraction of the window height. */
-        const val LEVEL_FOCUS_Y = 0.42f
+        const val BAR_Y = 0.27f
 
         fun forSize(
             width: Dp,
@@ -68,15 +78,13 @@ object XmbMotion {
     const val FADE_MS = 200
 
     /** Unfocused category icons shrink to this scale and dim to [UNFOCUSED_CATEGORY_ALPHA]. */
-    const val UNFOCUSED_CATEGORY_SCALE = 0.78f
-    const val UNFOCUSED_CATEGORY_ALPHA = 0.55f
-    const val UNFOCUSED_ITEM_SCALE = 0.72f
+    const val UNFOCUSED_CATEGORY_SCALE = 0.66f
+    const val UNFOCUSED_CATEGORY_ALPHA = 0.45f
+    const val UNFOCUSED_ITEM_SCALE = 0.6f
     const val UNFOCUSED_ITEM_ALPHA = 0.62f
 
-    /** Focus glow pulse period and strength range. */
-    const val GLOW_PULSE_MS = 2400
-    const val GLOW_MIN = 0.55f
-    const val GLOW_MAX = 0.9f
+    /** Album art and photos fill this share of an item's icon box, about the size of a PS3 glyph. */
+    const val ARTWORK_FILL = 0.7f
 
     /** Decelerating ease for list and row scrolling. */
     val scrollEasing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)

@@ -27,19 +27,25 @@ import com.metrolist.shared.generated.resources.xmb_cat_settings
 import com.metrolist.shared.generated.resources.xmb_cat_users
 import com.metrolist.shared.generated.resources.xmb_cat_video
 import com.metrolist.shared.generated.resources.xmb_item_playlist
+import com.metrolist.shared.generated.resources.xmb_item_volume
 import com.metrolist.shared.model.AlbumTiny
 import com.metrolist.shared.model.ArtistTiny
 import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.playback.PlaybackUiState
+import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.settings.SettingsPlatform
+import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.adapters.XmbListState
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
 import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.nav.XmbCategoryId
 import com.metrolist.shared.xmb.nav.XmbIcon
+import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
+import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.theme.XmbIcons
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -94,6 +100,51 @@ class XmbSnapshotCapture {
                         animate = false,
                         initialLevels = listOf(homeLevel.copy(focus = 1), sectionLevel.copy(focus = 2)),
                     )
+                },
+                Screen("settings-december") {
+                    XmbApp({
+                    }, services = demoServices, time = {
+                        day.copy(
+                            month = 12,
+                        )
+                    }, animate = false, initialCategory = XmbCategoryId.SETTINGS, initialItem = 1)
+                },
+                Screen("settings-page") {
+                    XmbApp({
+                    }, services = demoServices, time = {
+                        day
+                    }, animate = false, initialCategory = XmbCategoryId.SETTINGS, initialLevels = listOf(playerLevel.copy(focus = 2)))
+                },
+                Screen("settings-picker") {
+                    XmbApp(
+                        {},
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(playerLevel.copy(focus = 2)),
+                        initialPicker = XmbPicker.Choice("Audio quality", listOf("Automatic", "High", "Low"), focus = 1) {},
+                    )
+                },
+                Screen("search-keyboard") {
+                    XmbApp(
+                        {},
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SEARCH,
+                        initialKeyboard =
+                            XmbKeyboard(
+                                title = "New search",
+                                text = "midnight d",
+                                row = 2,
+                                column = 3,
+                                suggestions = listOf("midnight drive", "midnight drive neon coast", "midnight dreams"),
+                            ),
+                    )
+                },
+                Screen("users") {
+                    XmbApp({}, services = demoServices, time = { day }, animate = false, initialCategory = XmbCategoryId.USERS)
                 },
                 Screen("music-options") {
                     XmbApp(
@@ -199,7 +250,34 @@ class XmbSnapshotCapture {
                         else -> flowOf(XmbListState.loaded(emptyList()))
                     }
                 },
+            settings =
+                XmbSettingsHost(
+                    host = {
+                        SharedSettingsHost(
+                            platform = SettingsPlatform.DESKTOP,
+                            onClose = {},
+                            availablePages =
+                                setOf(
+                                    SettingsPageId.STORAGE,
+                                    SettingsPageId.UPDATES,
+                                    SettingsPageId.ABOUT,
+                                    SettingsPageId.EQUALIZER,
+                                ),
+                        )
+                    },
+                    openStockPage = {},
+                ),
+            account =
+                object : XmbAccount {
+                    override fun signIn() = Unit
+
+                    override fun switchChannel() = Unit
+
+                    override fun signOut() = Unit
+                },
         )
+    private val playerLevel =
+        XmbLevel(XmbList.SettingsPage(SettingsPageId.PLAYER), "Player", XmbIcon.Drawable(Res.drawable.xmb_item_volume))
 
     private class Screen(
         val name: String,

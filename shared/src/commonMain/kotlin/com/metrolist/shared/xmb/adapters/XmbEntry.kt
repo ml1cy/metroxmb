@@ -6,6 +6,7 @@ import com.metrolist.shared.generated.resources.xmb_item_artist
 import com.metrolist.shared.generated.resources.xmb_item_music_video
 import com.metrolist.shared.generated.resources.xmb_item_playlist
 import com.metrolist.shared.generated.resources.xmb_item_song
+import com.metrolist.shared.generated.resources.xmb_item_subsetting
 import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.ArtistItem
 import com.metrolist.shared.model.ArtistTiny
@@ -17,6 +18,7 @@ import com.metrolist.shared.model.PodcastItem
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.toSongItem
+import com.metrolist.shared.ui.settings.SettingsItemRegistration
 import com.metrolist.shared.xmb.nav.XmbIcon
 import com.metrolist.shared.xmb.theme.XmbIcons
 
@@ -31,6 +33,9 @@ enum class XmbEntryKind {
 
     /** Browse and mood pages; shown, but not opened yet. */
     BROWSE,
+
+    /** A row of a settings page; [XmbEntry.setting] holds the registry item. */
+    SETTING,
 }
 
 /**
@@ -45,6 +50,9 @@ data class XmbEntry(
     val kind: XmbEntryKind,
     val item: YTItem? = null,
     val open: XmbList? = null,
+    val setting: SettingsItemRegistration? = null,
+    val value: String? = null,
+    val enabled: Boolean = true,
 )
 
 /** The playable song behind this row, if any. Episodes play as songs, like the stock app. */
@@ -86,6 +94,10 @@ val XmbEntry.icon: XmbIcon
 
             XmbEntryKind.PODCAST -> {
                 XmbIcon.Vector(XmbIcons.Podcasts)
+            }
+
+            XmbEntryKind.SETTING -> {
+                XmbIcon.Drawable(Res.drawable.xmb_item_subsetting)
             }
         }
 

@@ -55,7 +55,7 @@ fun xmbOptionsFor(
             listOf(XmbOption.PLAY, XmbOption.SHUFFLE)
         }
 
-        XmbEntryKind.PODCAST, XmbEntryKind.BROWSE -> {
+        XmbEntryKind.PODCAST, XmbEntryKind.BROWSE, XmbEntryKind.SETTING -> {
             emptyList()
         }
     }
