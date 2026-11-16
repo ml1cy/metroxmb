@@ -4,6 +4,7 @@ import com.metrolist.shared.model.AlbumItem
 import com.metrolist.shared.model.ArtistItem
 import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.model.PlaylistItem
+import com.metrolist.shared.model.PodcastItem
 import com.metrolist.shared.model.SearchSummary
 import com.metrolist.shared.ui.settings.SettingsPageId
 
@@ -67,6 +68,48 @@ sealed interface XmbList {
         val artist: ArtistItem,
     ) : XmbList {
         override val key = "artist:${artist.id}"
+    }
+
+    /** Podcasts in the library (subscriptions). */
+    data object Podcasts : XmbList {
+        override val key = "podcasts"
+    }
+
+    /** New episodes of subscribed podcasts. */
+    data object NewEpisodes : XmbList {
+        override val key = "new_episodes"
+    }
+
+    /** Episodes saved for later. */
+    data object SavedEpisodes : XmbList {
+        override val key = "saved_episodes"
+    }
+
+    /** One podcast's episodes. */
+    data class Podcast(
+        val podcast: PodcastItem,
+    ) : XmbList {
+        override val key = "podcast:${podcast.id}"
+    }
+
+    /** Liked songs that are music videos. */
+    data object LikedVideos : XmbList {
+        override val key = "liked_videos"
+    }
+
+    /** Music videos from the home feed's shelves. */
+    data object FeedVideos : XmbList {
+        override val key = "feed_videos"
+    }
+
+    /** Cast devices found on the network; the XMB builds these rows from the playback state. */
+    data object CastDevices : XmbList {
+        override val key = "cast_devices"
+    }
+
+    /** The people in the Listen Together room; built from the room state. */
+    data object RoomMembers : XmbList {
+        override val key = "room_members"
     }
 
     /** A settings page from the settings registry, drawn as XMB rows with value pickers. */

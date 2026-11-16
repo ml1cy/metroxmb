@@ -25,6 +25,11 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the PS3-style track overlay |
 | `waves-loud.png` | Waves with loud fake meter levels just after a beat: deeper folds, a brighter sheet and particles |
 | `reference-vs-waves.png` | Console video frames (left: `video-waves-quiet.jpg` above, `video-waves-loud.jpg` below) next to `visualizer-waves.png` and `waves-loud.png` |
+| `lyrics.png` | Music > Lyrics full screen (demo lyrics): the current line glowing, the track overlay below |
+| `cast-devices.png` | Play on device with three demo devices, the TV connected |
+| `video-column.png` | The Video column |
+| `video-full.png` | Full-screen video with a stand-in frame and the track overlay |
+| `podcasts.png` | The Podcasts column |
 | `live-desktop-xmb.png` | The real desktop app (Linux, virtual display, 1080×720 window) right after onboarding: the XMB replaces the stock screens |
 | `live-desktop-interface-setting.png` | The stock Settings → Appearance page with the new Interface style choice (before it moved to the top of the page) |
 

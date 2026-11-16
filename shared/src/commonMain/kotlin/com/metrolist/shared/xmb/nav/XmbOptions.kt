@@ -55,7 +55,11 @@ fun xmbOptionsFor(
             listOf(XmbOption.PLAY, XmbOption.SHUFFLE)
         }
 
-        XmbEntryKind.PODCAST, XmbEntryKind.BROWSE, XmbEntryKind.SETTING -> {
+        XmbEntryKind.PODCAST -> {
+            listOf(XmbOption.PLAY, XmbOption.PLAY_NEXT, XmbOption.ADD_TO_QUEUE)
+        }
+
+        XmbEntryKind.BROWSE, XmbEntryKind.SETTING, XmbEntryKind.DEVICE, XmbEntryKind.MEMBER -> {
             emptyList()
         }
     }

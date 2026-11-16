@@ -20,6 +20,7 @@ fun xmbCategories(
     users: List<XmbItem> = xmbUserItems(null),
     settings: List<XmbItem> = emptyList(),
     search: List<XmbItem> = xmbSearchItems(emptyList()),
+    friends: List<XmbItem> = xmbFriendItems(null),
 ): List<XmbCategory> =
     listOf(
         XmbCategory(XmbCategoryId.USERS, Res.string.xmb_category_users, drawable(Res.drawable.xmb_cat_users), users),
@@ -36,29 +37,39 @@ fun xmbCategories(
             item("artists", Res.string.artists, Res.drawable.xmb_item_artist, XmbList.Artists),
             item("history", Res.string.menu_history, Res.drawable.xmb_item_history, XmbList.History),
             item("downloads", Res.string.downloads, Res.drawable.xmb_item_playlist, XmbList.Downloads),
+            XmbItem(
+                "lyrics",
+                Res.string.lyrics,
+                drawable(Res.drawable.xmb_item_song),
+                Res.string.xmb_lyrics_description,
+                XmbItemAction.OpenLyrics,
+            ),
+            item("play_on_device", Res.string.xmb_cast_title, Res.drawable.xmb_item_network_settings, XmbList.CastDevices),
         ),
         XmbCategory(XmbCategoryId.SEARCH, Res.string.search, drawable(Res.drawable.xmb_cat_search), search),
         category(
             XmbCategoryId.PODCASTS,
             Res.string.podcasts,
             XmbIcon.Vector(XmbIcons.Podcasts),
-            item("subscriptions", Res.string.xmb_item_subscriptions, Res.drawable.xmb_item_playlist),
-            item("episodes", Res.string.filter_episodes, Res.drawable.xmb_item_song),
+            item("subscriptions", Res.string.xmb_item_subscriptions, Res.drawable.xmb_item_playlist, XmbList.Podcasts),
+            item("new_episodes", Res.string.new_episodes, Res.drawable.xmb_item_song, XmbList.NewEpisodes),
+            item("saved_episodes", Res.string.episodes_for_later, Res.drawable.xmb_item_history, XmbList.SavedEpisodes),
         ),
         category(
             XmbCategoryId.VIDEO,
             Res.string.video,
             drawable(Res.drawable.xmb_cat_video),
-            item("music_videos", Res.string.xmb_item_music_videos, Res.drawable.xmb_item_music_video),
-            item("live", Res.string.xmb_item_live, Res.drawable.xmb_item_music_video),
+            XmbItem(
+                "watch_video",
+                Res.string.xmb_video_watch,
+                drawable(Res.drawable.xmb_item_music_video),
+                Res.string.xmb_video_watch_description,
+                XmbItemAction.WatchVideo,
+            ),
+            item("liked_videos", Res.string.xmb_video_liked, Res.drawable.xmb_item_liked, XmbList.LikedVideos),
+            item("feed_videos", Res.string.xmb_item_music_videos, Res.drawable.xmb_item_music_video, XmbList.FeedVideos),
         ),
-        category(
-            XmbCategoryId.FRIENDS,
-            Res.string.xmb_category_friends,
-            drawable(Res.drawable.xmb_cat_friends),
-            item("listen_together", Res.string.listen_together, Res.drawable.xmb_item_listen_together),
-            item("lastfm_friends", Res.string.xmb_item_lastfm_friends, Res.drawable.xmb_item_artist),
-        ),
+        XmbCategory(XmbCategoryId.FRIENDS, Res.string.xmb_category_friends, drawable(Res.drawable.xmb_cat_friends), friends),
         category(
             XmbCategoryId.VISUALIZER,
             Res.string.xmb_category_visualizer,
@@ -120,6 +131,110 @@ fun xmbUserItems(account: XmbAccountInfo?): List<XmbItem> {
                     drawable(Res.drawable.xmb_item_remove),
                     Res.string.xmb_users_sign_out_description,
                     XmbItemAction.SignOut,
+                ),
+            )
+        }
+    }
+}
+
+/** Listen Together as the Friends column sees it. */
+data class XmbFriendsInfo(
+    val enabled: Boolean,
+    val username: String = "",
+    val roomCode: String? = null,
+    val isHost: Boolean = false,
+    val members: Int = 0,
+    val waitingToJoin: Boolean = false,
+    val joinRequests: List<Pair<String, String>> = emptyList(),
+)
+
+/**
+ * Friends (Listen Together): turn it on; outside a room, create or join one and set your name;
+ * waiting for a host, cancel; in a room, its code (selecting copies the invite link), the people in
+ * it, join requests for the host to approve, and Leave room. Without [info] (no host) the column
+ * shows an unavailable Listen Together row.
+ */
+fun xmbFriendItems(info: XmbFriendsInfo?): List<XmbItem> {
+    val together = drawable(Res.drawable.xmb_item_listen_together)
+    return when {
+        info == null -> {
+            listOf(XmbItem("listen_together", Res.string.listen_together, together))
+        }
+
+        !info.enabled -> {
+            listOf(
+                XmbItem(
+                    "enable",
+                    Res.string.xmb_friends_enable,
+                    together,
+                    Res.string.xmb_friends_enable_description,
+                    XmbItemAction.EnableListenTogether,
+                ),
+            )
+        }
+
+        info.roomCode != null -> {
+            buildList {
+                add(
+                    XmbItem(
+                        id = "room",
+                        title = XmbText.Plain(info.roomCode),
+                        icon = together,
+                        subtitle =
+                            XmbText.Resource(
+                                if (info.isHost) Res.string.xmb_friends_room_host else Res.string.xmb_friends_room_guest,
+                            ),
+                        action = XmbItemAction.CopyRoomLink,
+                    ),
+                )
+                add(
+                    XmbItem(
+                        id = "members",
+                        title = XmbText.Resource(Res.string.xmb_friends_members),
+                        icon = drawable(Res.drawable.xmb_cat_users),
+                        subtitle = XmbText.Plain(info.members.toString()),
+                        list = XmbList.RoomMembers,
+                    ),
+                )
+                info.joinRequests.forEach { (userId, name) ->
+                    add(
+                        XmbItem(
+                            id = "request:$userId",
+                            title = XmbText.Plain(name),
+                            icon = drawable(Res.drawable.xmb_cat_users),
+                            subtitle = XmbText.Resource(Res.string.xmb_friends_join_request),
+                            action = XmbItemAction.ReviewJoin(userId, name),
+                        ),
+                    )
+                }
+                add(XmbItem("leave", Res.string.leave_room, drawable(Res.drawable.xmb_item_remove), action = XmbItemAction.LeaveRoom))
+            }
+        }
+
+        info.waitingToJoin -> {
+            listOf(
+                XmbItem(
+                    "waiting",
+                    Res.string.xmb_friends_waiting,
+                    together,
+                    Res.string.xmb_friends_waiting_description,
+                    XmbItemAction.CancelJoin,
+                ),
+            )
+        }
+
+        else -> {
+            listOf(
+                XmbItem("create", Res.string.create_room, together, Res.string.xmb_friends_create_description, XmbItemAction.CreateRoom),
+                XmbItem("join", Res.string.join_room, together, Res.string.xmb_friends_join_description, XmbItemAction.JoinRoom),
+                XmbItem(
+                    id = "name",
+                    title = XmbText.Resource(Res.string.xmb_friends_name),
+                    icon = drawable(Res.drawable.xmb_cat_users),
+                    subtitle =
+                        info.username.takeIf(String::isNotBlank)?.let(XmbText::Plain)
+                            ?: XmbText.Resource(Res.string.xmb_friends_name_missing),
+                    action = XmbItemAction.EditUsername,
                 ),
             )
         }

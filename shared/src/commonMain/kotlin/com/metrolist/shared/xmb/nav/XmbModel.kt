@@ -35,6 +35,21 @@ enum class XmbVisualizerKind {
     WAVES,
 }
 
+/** What fills the screen instead of the menu. */
+sealed interface XmbFullScreen {
+    /** A visualizer, with the lyrics over it when [lyrics] is on (△ toggles them). */
+    data class Visualizer(
+        val kind: XmbVisualizerKind,
+        val lyrics: Boolean = false,
+    ) : XmbFullScreen
+
+    /** The playing music video. */
+    data object Video : XmbFullScreen
+
+    /** The playing song's lyrics over the home background. */
+    data object Lyrics : XmbFullScreen
+}
+
 /** Text from the string catalog, or plain text from data (settings titles, queries, account names). */
 sealed interface XmbText {
     data class Resource(
@@ -72,6 +87,39 @@ sealed interface XmbItemAction {
     /** Shows a visualizer full screen, hiding the XMB. */
     data class OpenVisualizer(
         val kind: XmbVisualizerKind,
+    ) : XmbItemAction
+
+    /** Shows the playing song's music video full screen. */
+    data object WatchVideo : XmbItemAction
+
+    /** Shows the playing song's lyrics full screen. */
+    data object OpenLyrics : XmbItemAction
+
+    /** Friends: turns Listen Together on. */
+    data object EnableListenTogether : XmbItemAction
+
+    /** Friends: creates a room (asking for a name first if there's none). */
+    data object CreateRoom : XmbItemAction
+
+    /** Friends: joins a room by code, typed on the keyboard. */
+    data object JoinRoom : XmbItemAction
+
+    /** Friends: changes the name others see. */
+    data object EditUsername : XmbItemAction
+
+    /** Friends: copies the room's invite link. */
+    data object CopyRoomLink : XmbItemAction
+
+    /** Friends: leaves the room (after a Yes/No). */
+    data object LeaveRoom : XmbItemAction
+
+    /** Friends: stops waiting for the host to let us in. */
+    data object CancelJoin : XmbItemAction
+
+    /** Friends: lets someone in, or not (the host's Approve/Reject picker). */
+    data class ReviewJoin(
+        val userId: String,
+        val username: String,
     ) : XmbItemAction
 
     /** A settings page the XMB doesn't draw itself; the host shows its stock screen. */

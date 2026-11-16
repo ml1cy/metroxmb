@@ -3,6 +3,7 @@ package com.metrolist.shared.xmb
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.collectAsState
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -50,6 +53,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import com.metrolist.shared.auth.AuthManager
+import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.no
 import com.metrolist.shared.generated.resources.xmb_cat_search
@@ -69,11 +73,16 @@ import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.background.XmbWaveNudge
 import com.metrolist.shared.visualizer.rememberVisualizerAudio
 import com.metrolist.shared.visualizer.waves.WavesVisualizer
+import com.metrolist.shared.xmb.adapters.XmbEntry
 import com.metrolist.shared.xmb.adapters.XmbEntryKind
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.adapters.XmbListState
 import com.metrolist.shared.xmb.adapters.XmbSettingLabels
 import com.metrolist.shared.xmb.adapters.XmbSettingStep
+import com.metrolist.shared.xmb.adapters.castEntries
+import com.metrolist.shared.xmb.adapters.currentLyricIndex
+import com.metrolist.shared.xmb.adapters.matches
+import com.metrolist.shared.xmb.adapters.memberEntries
 import com.metrolist.shared.xmb.adapters.plainNumber
 import com.metrolist.shared.xmb.adapters.toXmbEntries
 import com.metrolist.shared.xmb.adapters.xmbSettingStep
@@ -85,6 +94,7 @@ import com.metrolist.shared.xmb.nav.XmbAccountInfo
 import com.metrolist.shared.xmb.nav.XmbAction
 import com.metrolist.shared.xmb.nav.XmbCategoryId
 import com.metrolist.shared.xmb.nav.XmbFeedback
+import com.metrolist.shared.xmb.nav.XmbFullScreen
 import com.metrolist.shared.xmb.nav.XmbIcon
 import com.metrolist.shared.xmb.nav.XmbItemAction
 import com.metrolist.shared.xmb.nav.XmbKeyboard
@@ -92,16 +102,17 @@ import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
-import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
 import com.metrolist.shared.xmb.nav.xmbActionFor
 import com.metrolist.shared.xmb.nav.xmbActionForScroll
 import com.metrolist.shared.xmb.nav.xmbCategories
+import com.metrolist.shared.xmb.nav.xmbFriendItems
 import com.metrolist.shared.xmb.nav.xmbSearchItems
 import com.metrolist.shared.xmb.nav.xmbSettingsItems
 import com.metrolist.shared.xmb.nav.xmbUserItems
 import com.metrolist.shared.xmb.screens.XmbKeyboardView
+import com.metrolist.shared.xmb.screens.XmbLyricsView
 import com.metrolist.shared.xmb.screens.XmbNowPlaying
 import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.screens.XmbPickerView
@@ -168,14 +179,15 @@ fun XmbApp(
     initialOptions: Boolean = false,
     initialPicker: XmbPicker? = null,
     initialKeyboard: XmbKeyboard? = null,
-    initialVisualizer: XmbVisualizerKind? = null,
+    initialFullScreen: XmbFullScreen? = null,
 ) {
     val sounds = LocalXmbSoundPlayer.current
     val now = rememberXmbTime(time)
     val fontFamily = rememberXmbFontFamily()
     val motion = remember { XmbWaveMotion() }
-    var visualizer by remember { mutableStateOf(initialVisualizer) }
-    val audio = rememberVisualizerAudio(active = visualizer != null && animate)
+    var fullScreen by remember { mutableStateOf(initialFullScreen) }
+    val visualizerMode = fullScreen as? XmbFullScreen.Visualizer
+    val audio = rememberVisualizerAudio(active = visualizerMode != null && animate)
     val seconds = rememberAnimationSeconds(animate, motion, audio)
     // The full-screen visualizer's track overlay shows until this time, then fades.
     var overlayUntil by remember { mutableFloatStateOf(VISUALIZER_OVERLAY_SECONDS) }
@@ -197,11 +209,21 @@ fun XmbApp(
     val suggestions by remember(services) { services?.search?.suggestions ?: flowOf(emptyList()) }.collectAsState(emptyList())
     val account = services?.account?.let { xmbAccountInfo() }
     val signOutQuestion = stringResource(Res.string.xmb_users_sign_out_confirm)
+    val together = services?.listenTogether
+    val friends = together?.let { rememberXmbFriendsInfo(it) }
+    val playbackState =
+        services
+            ?.playback
+            ?.state
+            ?.collectAsState()
+            ?.value
+    val text = rememberXmbM6Text()
     val categories =
         xmbCategories(
             users = xmbUserItems(account),
             settings = registry?.let(::xmbSettingsItems).orEmpty(),
             search = xmbSearchItems(history),
+            friends = xmbFriendItems(friends),
         )
     val itemCounts = categories.map { it.items.size }
     val itemTitles = categories.map { category -> category.items.map { it.title.resolve() } }
@@ -222,9 +244,7 @@ fun XmbApp(
     val settingsPage = (level?.list as? XmbList.SettingsPage)?.page
     val musicState by remember(level?.list?.key, services) {
         val list = level?.list
-        if (list == null || services == null ||
-            settingsPage != null
-        ) {
+        if (list == null || services == null || settingsPage != null || list == XmbList.CastDevices || list == XmbList.RoomMembers) {
             flowOf(XmbListState.loaded(emptyList()))
         } else {
             services.music.open(list)
@@ -244,13 +264,40 @@ fun XmbApp(
                 }
             }
             XmbListState.loaded(page?.toXmbEntries(labels, sliderLabels).orEmpty())
+        } else if (level?.list == XmbList.CastDevices) {
+            val devices =
+                castEntries(playbackState?.castDevices.orEmpty(), playbackState?.castState ?: CastState(), text.connected, text.connecting)
+            XmbListState(devices, isLoading = devices.isEmpty())
+        } else if (level?.list == XmbList.RoomMembers) {
+            val room =
+                together
+                    ?.manager
+                    ?.roomState
+                    ?.collectAsState()
+                    ?.value
+            XmbListState.loaded(memberEntries(room?.users.orEmpty(), text.host))
         } else {
             musicState
         }
+    // Cast devices are only searched for while their list is open.
+    val castListOpen = level?.list == XmbList.CastDevices
+    DisposableEffect(castListOpen, services) {
+        val playback = services?.playback
+        if (castListOpen) playback?.startCastDiscovery()
+        onDispose { if (castListOpen) playback?.stopCastDiscovery() }
+    }
     val drill by animateFloatAsState(if (navigation.stack.isEmpty()) 0f else 1f, tween(XmbMotion.FADE_MS))
     val pickerShown by animateFloatAsState(if (picker != null) 1f else 0f, tween(XmbMotion.FADE_MS))
     val keyboardShown by animateFloatAsState(if (keyboard != null) 1f else 0f, tween(XmbMotion.FADE_MS))
-    val visualizerShown by animateFloatAsState(if (visualizer != null) 1f else 0f, tween(VISUALIZER_FADE_MS))
+    val fullShown by animateFloatAsState(if (fullScreen != null) 1f else 0f, tween(VISUALIZER_FADE_MS))
+    val visualizerShown by animateFloatAsState(if (visualizerMode != null) 1f else 0f, tween(VISUALIZER_FADE_MS))
+    val videoShown by animateFloatAsState(if (fullScreen == XmbFullScreen.Video) 1f else 0f, tween(VISUALIZER_FADE_MS))
+    val lyricsOn = fullScreen == XmbFullScreen.Lyrics || visualizerMode?.lyrics == true
+    val lyricsShown by animateFloatAsState(if (lyricsOn) 1f else 0f, tween(VISUALIZER_FADE_MS))
+    val playingSong = playbackState?.currentSong
+    LaunchedEffect(lyricsOn, playingSong?.id) {
+        if (lyricsOn && playingSong != null) services?.lyrics?.request(playingSong)
+    }
 
     LaunchedEffect(level?.list?.key, listState.entries.size, listState.isLoading) {
         if (!listState.isLoading) navigation = navigation.clampLevel(listState.entries.size)
@@ -306,6 +353,34 @@ fun XmbApp(
         settingsRevision++
     }
 
+    /** Full-screen video of the playing song; false when there's nothing to show. */
+    fun watchVideo(): Boolean {
+        val playback = services?.playback ?: return false
+        if (services.video == null || playback.state.value.currentSong == null) return false
+        playback.setVideoMode(true)
+        fullScreen = XmbFullScreen.Video
+        overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+        return true
+    }
+
+    /** Runs [then] with the Listen Together name, asking for one on the keyboard first if it's blank. */
+    fun withName(then: (String) -> Unit) {
+        val manager = together?.manager ?: return
+        val name = manager.username.value
+        if (name.isNotBlank()) {
+            then(name)
+        } else {
+            openKeyboard(
+                KeyboardSession(XmbKeyboard(title = text.yourName), forSearch = false) { typed ->
+                    if (typed.isNotBlank()) {
+                        manager.setUsername(typed)
+                        then(typed.trim())
+                    }
+                },
+            )
+        }
+    }
+
     fun selectTopLevel(
         category: Int,
         index: Int,
@@ -338,14 +413,88 @@ fun XmbApp(
             }
 
             is XmbItemAction.OpenVisualizer -> {
-                visualizer = action.kind
+                fullScreen = XmbFullScreen.Visualizer(action.kind)
                 overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            }
+
+            XmbItemAction.WatchVideo -> {
+                if (!watchVideo()) return XmbFeedback.ERROR
+            }
+
+            XmbItemAction.OpenLyrics -> {
+                if (services?.lyrics == null) return XmbFeedback.ERROR
+                fullScreen = XmbFullScreen.Lyrics
+                overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            }
+
+            XmbItemAction.EnableListenTogether -> {
+                together?.manager?.setEnabled(true) ?: return XmbFeedback.ERROR
+            }
+
+            XmbItemAction.CreateRoom -> {
+                val manager = together?.manager ?: return XmbFeedback.ERROR
+                withName { name -> manager.createRoom(name) }
+            }
+
+            XmbItemAction.JoinRoom -> {
+                val manager = together?.manager ?: return XmbFeedback.ERROR
+                withName { name ->
+                    openKeyboard(
+                        KeyboardSession(XmbKeyboard(title = text.roomCode), forSearch = false) { code -> manager.joinRoom(code, name) },
+                    )
+                }
+            }
+
+            XmbItemAction.EditUsername -> {
+                val manager = together?.manager ?: return XmbFeedback.ERROR
+                openKeyboard(
+                    KeyboardSession(
+                        XmbKeyboard(title = title, text = manager.username.value),
+                        forSearch = false,
+                    ) { manager.setUsername(it) },
+                )
+            }
+
+            XmbItemAction.CopyRoomLink -> {
+                val link = together?.manager?.roomLink() ?: return XmbFeedback.ERROR
+                together.copyText(link)
+            }
+
+            XmbItemAction.LeaveRoom -> {
+                val manager = together?.manager ?: return XmbFeedback.ERROR
+                picker = XmbPicker.Choice(text.leaveQuestion, listOf(labels.yes, labels.no), focus = 1) { if (it == 0) manager.leaveRoom() }
+            }
+
+            XmbItemAction.CancelJoin -> {
+                together?.manager?.cancelJoinRequest() ?: return XmbFeedback.ERROR
+            }
+
+            is XmbItemAction.ReviewJoin -> {
+                val manager = together?.manager ?: return XmbFeedback.ERROR
+                picker =
+                    XmbPicker.Choice(action.username, listOf(text.approve, text.reject), focus = 0) {
+                        if (it == 0) manager.approveJoin(action.userId) else manager.rejectJoin(action.userId)
+                    }
             }
 
             is XmbItemAction.StockSettings -> {
                 services?.settings?.openStockPage?.invoke(action.page) ?: return XmbFeedback.ERROR
             }
         }
+        return XmbFeedback.SELECT
+    }
+
+    /** Connects to a cast device, or disconnects from the one in use. */
+    fun selectCastDevice(entry: XmbEntry): XmbFeedback {
+        val playback = services?.playback ?: return XmbFeedback.ERROR
+        val state = playback.state.value
+        val current = state.castState.device
+        if (current != null && current.matches(entry)) {
+            playback.disconnectCast()
+            return XmbFeedback.BACK
+        }
+        val device = state.castDevices.firstOrNull { it.matches(entry) } ?: return XmbFeedback.ERROR
+        playback.castTo(device)
         return XmbFeedback.SELECT
     }
 
@@ -445,6 +594,19 @@ fun XmbApp(
                         selectSetting(selection.item)
                     }
 
+                    entries.getOrNull(selection.item)?.kind == XmbEntryKind.DEVICE -> {
+                        selectCastDevice(entries[selection.item])
+                    }
+
+                    entries.getOrNull(selection.item)?.kind == XmbEntryKind.MEMBER -> {
+                        XmbFeedback.ERROR
+                    }
+
+                    navigation.level?.list == XmbList.LikedVideos || navigation.level?.list == XmbList.FeedVideos -> {
+                        // Videos play full screen, like the console's Video column.
+                        if (actions?.playFrom(entries, selection.item) == true && watchVideo()) XmbFeedback.SELECT else XmbFeedback.ERROR
+                    }
+
                     else -> {
                         val opened = entries.getOrNull(selection.item)?.toLevel()
                         if (opened != null) {
@@ -512,12 +674,28 @@ fun XmbApp(
             .focusable()
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || suspended) return@onKeyEvent false
-                if (visualizer != null) {
-                    // Full screen: ○ goes back to the XMB, media keys still work, anything else shows the track.
+                val mode = fullScreen
+                if (mode != null) {
+                    // Full screen: ○ steps back (lyrics off, then the XMB), △ toggles lyrics over a
+                    // visualizer, media keys still work, and anything else shows the track.
                     when (val action = xmbActionFor(event.key)) {
                         XmbAction.BACK -> {
-                            visualizer = null
+                            fullScreen =
+                                if (mode is XmbFullScreen.Visualizer && mode.lyrics) {
+                                    mode.copy(lyrics = false)
+                                } else {
+                                    if (mode == XmbFullScreen.Video) services?.playback?.setVideoMode(false)
+                                    null
+                                }
                             feedback(action, XmbFeedback.BACK)
+                        }
+
+                        XmbAction.OPTIONS -> {
+                            if (mode is XmbFullScreen.Visualizer && services?.lyrics != null) {
+                                fullScreen = mode.copy(lyrics = !mode.lyrics)
+                                feedback(action, XmbFeedback.SELECT)
+                            }
+                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
                         }
 
                         XmbAction.PLAY_PAUSE, XmbAction.NEXT_TRACK, XmbAction.PREVIOUS_TRACK -> {
@@ -570,7 +748,7 @@ fun XmbApp(
             }
         val styles = rememberXmbRowStyles(metrics, fontFamily)
         val backgroundColors = XmbPalette.backgroundColors(now.month, now.hourOfDay)
-        if (visualizerShown < 1f) {
+        if (visualizerShown < 1f && videoShown < 1f) {
             XmbBackground(
                 colors = backgroundColors,
                 modifier = Modifier.fillMaxSize(),
@@ -578,13 +756,19 @@ fun XmbApp(
                 motion = motion,
             )
         }
-        if (visualizer != null || visualizerShown > 0f) {
+        if (visualizerMode != null || visualizerShown > 0f) {
             WavesVisualizer(
                 audio = audio,
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
             )
         }
-        val menuAlpha = { 1f - visualizerShown }
+        val video = services?.video
+        if (video != null && (fullScreen == XmbFullScreen.Video || videoShown > 0f)) {
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = videoShown }.background(Color.Black)) {
+                video.Surface(Modifier.fillMaxSize())
+            }
+        }
+        val menuAlpha = { 1f - fullShown }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - drill) * (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
             XmbBar(
                 categories = categories,
@@ -610,7 +794,31 @@ fun XmbApp(
                     .padding(end = metrics.edgeMargin, bottom = metrics.edgeMargin)
                     .graphicsLayer { alpha = menuAlpha() },
             )
-            if (visualizerShown > 0f) {
+            if (lyricsShown > 0f) {
+                val position by produceState(playback.currentPositionMs(), playingSong?.id, playbackState?.isPlaying) {
+                    while (true) {
+                        value = playback.currentPositionMs()
+                        delay(LYRICS_POLL_MS)
+                    }
+                }
+                val lines = playingSong?.let { services.lyrics?.lines(it.id) }
+                val message =
+                    when {
+                        playingSong == null -> text.nothingPlaying
+                        lines == null -> text.loading
+                        lines.isEmpty() -> text.noLyrics
+                        else -> null
+                    }
+                XmbLyricsView(
+                    lines = lines.orEmpty(),
+                    current = currentLyricIndex(lines.orEmpty(), position),
+                    message = message,
+                    metrics = metrics,
+                    fontFamily = fontFamily,
+                    modifier = Modifier.graphicsLayer { alpha = lyricsShown },
+                )
+            }
+            if (fullShown > 0f) {
                 XmbVisualizerOverlay(
                     playback,
                     metrics,
@@ -618,7 +826,7 @@ fun XmbApp(
                     Modifier.graphicsLayer {
                         // Full screen, the track shows after opening and each key press, then fades out.
                         val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
-                        alpha = visualizerShown * overlay
+                        alpha = fullShown * overlay
                     },
                 )
             }
@@ -754,6 +962,9 @@ private fun rememberAnimationSeconds(
 private const val VISUALIZER_FADE_MS = 600
 private const val VISUALIZER_OVERLAY_SECONDS = 4f
 private const val VISUALIZER_OVERLAY_FADE = 0.6f
+
+/** How often the lyrics view reads the playback position. */
+private const val LYRICS_POLL_MS = 100L
 
 /** How far the menu fades behind the on-screen keyboard. */
 private const val KEYBOARD_FADE = 0.8f

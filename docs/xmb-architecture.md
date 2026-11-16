@@ -391,3 +391,21 @@ SkSL first pass was dropped. `visualizer/waves/WavesVisualizer.kt` sets the grad
 the ribbon from the audio; `screens/XmbVisualizerOverlay.kt` is the track overlay. The MetroEQ
 page is unchanged: both read the same smoothed levels, so a second consumer doesn't take frames
 from it. The home-screen ribbon stays navigation-driven.
+
+## 18. M6: podcasts, video, friends, lyrics, casting
+
+- **Podcasts** come from the repository (`getLibraryPodcasts`, `getNewPodcastEpisodes`,
+  `getSavedEpisodes`, `getPodcast`) through `DefaultXmbMusicSource`; episodes play as songs.
+- **Video**: Liked videos filter liked songs to `isVideoSong`; Music videos collect video songs from
+  the home feed's shelves. The host supplies `XmbVideo` (desktop: the existing `VideoRenderer`
+  drawing `PlayerState.videoFrame`, telling the player the view size); `XmbApp` turns video mode on
+  through `PlaybackController.setVideoMode` and off when leaving.
+- **Friends** reads the shared `ListenTogetherManager` (room state, role, name, join requests) and
+  calls it directly (`createRoom`, `joinRoom`, `approveJoin`, `leaveRoom`...); the host supplies the
+  manager and a clipboard (`XmbListenTogether`). The schema and codecs are untouched.
+- **Lyrics**: the host supplies `XmbLyrics` (desktop: `LyricsState.fetchLyrics` and its current
+  entries); `currentLyricIndex` picks the line by binary search on start times.
+- **Casting** uses `PlaybackController`'s discovery, device list, `castTo` and `disconnectCast`.
+- Full-screen state is one `XmbFullScreen` value (visualizer, video, lyrics); `XmbApp` routes keys
+  to it before the menu.
+

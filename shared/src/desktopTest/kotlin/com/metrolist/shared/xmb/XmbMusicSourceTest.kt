@@ -35,6 +35,7 @@ class XmbMusicSourceTest {
                 dao.insert(SongEntity("old", "Old", liked = true, likedDate = LocalDateTime(2026, 1, 1, 0, 0)))
                 dao.insert(SongEntity("new", "New", liked = true, likedDate = LocalDateTime(2026, 2, 1, 0, 0)))
                 dao.insert(SongEntity("kept", "Kept", isDownloaded = true, dateDownload = LocalDateTime(2026, 3, 1, 0, 0)))
+                dao.insert(SongEntity("clip", "Clip", liked = true, likedDate = LocalDateTime(2026, 1, 15, 0, 0), isVideo = true))
                 dao.insert(PlaylistEntity(id = "mine", name = "Mine", isLocal = true))
                 dao.insert(PlaylistSongMap(playlistId = "mine", songId = "kept", position = 0))
                 val requested = mutableListOf<String>()
@@ -51,10 +52,11 @@ class XmbMusicSourceTest {
                         .entries
                         .map { it.song?.id }
 
-                assertEquals(listOf("new", "old"), ids(XmbList.Liked), "Newest likes first")
+                assertEquals(listOf("new", "clip", "old"), ids(XmbList.Liked), "Newest likes first")
+                assertEquals(listOf("clip"), ids(XmbList.LikedVideos), "Only liked music videos")
                 assertEquals(listOf("kept"), ids(XmbList.Downloads))
                 assertEquals(listOf("kept"), ids(XmbList.Playlist(PlaylistItem("mine", "Mine", null, isLocal = true))))
-                assertEquals(listOf("new", "old"), ids(XmbList.Playlist(PlaylistItem("auto:liked", "Liked", null))))
+                assertEquals(listOf("new", "clip", "old"), ids(XmbList.Playlist(PlaylistItem("auto:liked", "Liked", null))))
                 assertEquals(
                     XmbListState.loaded(emptyList()),
                     source.open(XmbList.Playlist(PlaylistItem("auto:top100", "Top", null))).first(),

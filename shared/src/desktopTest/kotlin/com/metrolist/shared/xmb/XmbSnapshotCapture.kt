@@ -14,11 +14,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.metrolist.shared.cast.CastConnectionStatus
+import com.metrolist.shared.cast.CastDevice
+import com.metrolist.shared.cast.CastProtocol
+import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.xmb_cat_friends
 import com.metrolist.shared.generated.resources.xmb_cat_music
@@ -26,11 +31,13 @@ import com.metrolist.shared.generated.resources.xmb_cat_search
 import com.metrolist.shared.generated.resources.xmb_cat_settings
 import com.metrolist.shared.generated.resources.xmb_cat_users
 import com.metrolist.shared.generated.resources.xmb_cat_video
+import com.metrolist.shared.generated.resources.xmb_item_network_settings
 import com.metrolist.shared.generated.resources.xmb_item_playlist
 import com.metrolist.shared.generated.resources.xmb_item_volume
 import com.metrolist.shared.model.AlbumTiny
 import com.metrolist.shared.model.ArtistTiny
 import com.metrolist.shared.model.HomeSection
+import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.playback.PlaybackUiState
@@ -44,6 +51,7 @@ import com.metrolist.shared.xmb.adapters.XmbListState
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
 import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.nav.XmbCategoryId
+import com.metrolist.shared.xmb.nav.XmbFullScreen
 import com.metrolist.shared.xmb.nav.XmbIcon
 import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
@@ -156,7 +164,7 @@ class XmbSnapshotCapture {
                         services = demoServices,
                         time = { day.copy(month = 9) },
                         animate = false,
-                        initialVisualizer = XmbVisualizerKind.WAVES,
+                        initialFullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.WAVES),
                     )
                 },
                 Screen("waves-loud") {
@@ -165,6 +173,29 @@ class XmbSnapshotCapture {
                             repeat(12) { update(FloatArray(18) { band -> if (band < 4) 0.95f else 0.75f }, 1f / 60f) }
                         }
                     WavesVisualizer(loud, Modifier.fillMaxSize())
+                },
+                Screen("lyrics") {
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialFullScreen = XmbFullScreen.Lyrics)
+                },
+                Screen("cast-devices") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialLevels =
+                            listOf(
+                                XmbLevel(XmbList.CastDevices, "Play on device", XmbIcon.Drawable(Res.drawable.xmb_item_network_settings)),
+                            ),
+                    )
+                },
+                Screen("video-column") {
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialCategory = XmbCategoryId.VIDEO)
+                },
+                Screen("video-full") {
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialFullScreen = XmbFullScreen.Video)
+                },
+                Screen("podcasts") {
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialCategory = XmbCategoryId.PODCASTS)
                 },
                 Screen("music-options") {
                     XmbApp(
@@ -230,7 +261,25 @@ class XmbSnapshotCapture {
                 object : PlaybackController {
                     override val state =
                         MutableStateFlow(
-                            PlaybackUiState(currentSong = demoSongs[2], isPlaying = true, positionMs = 83_000, durationMs = 215_000),
+                            PlaybackUiState(
+                                currentSong = demoSongs[2],
+                                isPlaying = true,
+                                positionMs = 83_000,
+                                durationMs = 215_000,
+                                queue = demoSongs,
+                                currentQueueIndex = 2,
+                                castDevices =
+                                    listOf(
+                                        CastDevice("tv", "Living room TV", CastProtocol.GOOGLE_CAST, "10.0.0.2", 8009),
+                                        CastDevice("sp", "Kitchen speaker", CastProtocol.SONOS, "10.0.0.3", 1400),
+                                        CastDevice("pc", "Studio PC", CastProtocol.FCAST, "10.0.0.4", 46899),
+                                    ),
+                                castState =
+                                    CastState(
+                                        status = CastConnectionStatus.CONNECTED,
+                                        device = CastDevice("tv", "Living room TV", CastProtocol.GOOGLE_CAST, "10.0.0.2", 8009),
+                                    ),
+                            ),
                         )
 
                     override fun play(
@@ -294,7 +343,30 @@ class XmbSnapshotCapture {
 
                     override fun signOut() = Unit
                 },
+            lyrics =
+                object : XmbLyrics {
+                    override fun request(song: SongItem) = Unit
+
+                    override fun lines(songId: String) = demoLyrics
+                },
+            video =
+                object : XmbVideo {
+                    @Composable
+                    override fun Surface(modifier: Modifier) {
+                        // A stand-in frame: the demo has no video stream.
+                        Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF1B2A4A), Color(0xFF6A3A7A), Color(0xFFE0A060)))))
+                    }
+                },
         )
+    private val demoLyrics =
+        listOf(
+            "Streetlights fold into the river",
+            "Every sign is pointing home",
+            "Cold harbor, hold the light for me",
+            "Till the morning finds its way",
+            "Waves keep time against the pier",
+            "And I keep time with you",
+        ).mapIndexed { index, line -> LyricsEntry(time = 72_000L + index * 6_000L, text = line) }
     private val playerLevel =
         XmbLevel(XmbList.SettingsPage(SettingsPageId.PLAYER), "Player", XmbIcon.Drawable(Res.drawable.xmb_item_volume))
 

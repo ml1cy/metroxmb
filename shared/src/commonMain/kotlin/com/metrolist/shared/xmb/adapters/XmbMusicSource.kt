@@ -1,5 +1,6 @@
 package com.metrolist.shared.xmb.adapters
 
+import com.metrolist.shared.api.YouTubeRepository
 import com.metrolist.shared.constants.SongSortType
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.StoredHistoryRow
@@ -13,6 +14,8 @@ import com.metrolist.shared.model.BuiltinPlaylist
 import com.metrolist.shared.model.PlaylistItem
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.YTItem
+import com.metrolist.shared.model.isVideoSong
+import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.menu.loadMediaItemSongs
 import com.metrolist.shared.utils.Logger
 import com.metrolist.shared.viewmodels.HomeViewModel
@@ -54,6 +57,7 @@ class DefaultXmbMusicSource(
     private val scope: CoroutineScope,
     private val downloadedSongIds: Flow<Set<String>> = flowOf(emptySet()),
     private val search: XmbSearch? = null,
+    private val repository: () -> YouTubeRepository = { GlobalYouTubeRepository.instance },
     private val loadSongs: suspend (YTItem) -> List<SongItem> = ::loadMediaItemSongs,
 ) : XmbMusicSource {
     private val home by lazy { HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
@@ -138,6 +142,56 @@ class DefaultXmbMusicSource(
 
             is XmbList.Playlist -> {
                 playlist(list.playlist)
+            }
+
+            XmbList.LikedVideos -> {
+                database.dao().likedSongs(SongSortType.CREATE_DATE, descending = true).map { songs ->
+                    XmbListState.loaded(songs.map { it.toSongItem() }.filter { it.isVideoSong }.map(YTItem::toXmbEntry))
+                }
+            }
+
+            XmbList.FeedVideos -> {
+                home.uiState.map { state ->
+                    val videos =
+                        (state.data.orEmpty() + state.discoverySections)
+                            .flatMap { it.items }
+                            .filterIsInstance<SongItem>()
+                            .filter { it.isVideoSong }
+                            .distinctBy { it.id }
+                            .map(YTItem::toXmbEntry)
+                    XmbListState(
+                        entries = videos,
+                        isLoading = videos.isEmpty() && state.showLoadingPlaceholder,
+                        isError = videos.isEmpty() && state.error != null,
+                    )
+                }
+            }
+
+            // Built in XmbApp from the playback and room state.
+            XmbList.CastDevices, XmbList.RoomMembers -> {
+                flowOf(XmbListState.loaded(emptyList()))
+            }
+
+            XmbList.Podcasts -> {
+                once { repository().getLibraryPodcasts().map(YTItem::toXmbEntry) }
+            }
+
+            XmbList.NewEpisodes -> {
+                once { repository().getNewPodcastEpisodes().map(YTItem::toXmbEntry) }
+            }
+
+            XmbList.SavedEpisodes -> {
+                once { repository().getSavedEpisodes().map(YTItem::toXmbEntry) }
+            }
+
+            is XmbList.Podcast -> {
+                once {
+                    repository()
+                        .getPodcast(list.podcast.id)
+                        ?.episodes
+                        .orEmpty()
+                        .map(YTItem::toXmbEntry)
+                }
             }
 
             is XmbList.SearchResults -> {

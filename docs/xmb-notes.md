@@ -102,6 +102,16 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Track overlay | at 1080p: artwork 100 px, 118 px from the left; title 36 px and "artist / album" 28 px beside it; a 386 px block 116 px from the right with the queue position, "00:01:53 / 00:02:14" and a silver codec pill with a speaker mark, then a 9 px green bar on a dark grey track; shows for 4 s after opening or any key, fading over 0.6 s | Measured from the 1080p console capture (the Linkin Park photo's blue tones were the camera) |
 | Full screen | fades in and out over 600 ms; ○ returns to the XMB | The console hides its menu while a visualizer plays |
 
+## M6: podcasts, video, friends, lyrics, casting
+
+| Constant | Value | Reason |
+|---|---|---|
+| Full-screen modes | visualizer (with optional lyrics), video, lyrics; all fade over 600 ms, hide the menu, and show the track overlay for 4 s after opening or any key | One way in and out for everything that takes over the screen; ○ steps back (lyrics off first, then the XMB) |
+| Video | `setVideoMode(true)` when shown, `false` when leaving; the host's surface on black, scaled to fit | The console's Video column plays full screen; leaving turns video off so audio-only streaming resumes |
+| Lyrics | current line 34 units with a white glow, others 24 units at 70%, fading with distance; 3 lines each side, 64 units apart, centred at 40% of the height on a soft dark band; slides over 400 ms; position read every 100 ms | Readable over the ribbon and clear of the track overlay |
+| Cast list | discovery runs only while Play on device is open; the connected device stays listed and shows Connected or Connecting | Discovery costs network traffic |
+| Friends | the column follows the room manager: off, idle (create, join, name), waiting, in a room (code, people, requests, leave) | Everything Listen Together needs, without leaving the XMB |
+
 ## Settings, value picker and keyboard (M3)
 
 | Constant | Value | Reason |

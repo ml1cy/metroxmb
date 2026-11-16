@@ -1,9 +1,11 @@
 package com.metrolist.shared.xmb.adapters
 
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.xmb_cat_users
 import com.metrolist.shared.generated.resources.xmb_item_album
 import com.metrolist.shared.generated.resources.xmb_item_artist
 import com.metrolist.shared.generated.resources.xmb_item_music_video
+import com.metrolist.shared.generated.resources.xmb_item_network_settings
 import com.metrolist.shared.generated.resources.xmb_item_playlist
 import com.metrolist.shared.generated.resources.xmb_item_song
 import com.metrolist.shared.generated.resources.xmb_item_subsetting
@@ -36,6 +38,12 @@ enum class XmbEntryKind {
 
     /** A row of a settings page; [XmbEntry.setting] holds the registry item. */
     SETTING,
+
+    /** A cast device; [XmbEntry.key] carries its id. */
+    DEVICE,
+
+    /** Someone in the Listen Together room. */
+    MEMBER,
 }
 
 /**
@@ -98,6 +106,14 @@ val XmbEntry.icon: XmbIcon
 
             XmbEntryKind.SETTING -> {
                 XmbIcon.Drawable(Res.drawable.xmb_item_subsetting)
+            }
+
+            XmbEntryKind.DEVICE -> {
+                XmbIcon.Drawable(Res.drawable.xmb_item_network_settings)
+            }
+
+            XmbEntryKind.MEMBER -> {
+                XmbIcon.Drawable(Res.drawable.xmb_cat_users)
             }
         }
 
@@ -169,6 +185,7 @@ fun YTItem.toXmbEntry(): XmbEntry =
                 artwork = thumbnail.asArtwork(),
                 kind = XmbEntryKind.PODCAST,
                 item = this,
+                open = XmbList.Podcast(this),
             )
         }
 

@@ -15,8 +15,12 @@ import coil3.compose.setSingletonImageLoaderFactory
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.auth.AuthState
+import com.metrolist.desktop.state.playback.ListenTogetherState
+import com.metrolist.desktop.state.playback.LyricsState
+import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
+import com.metrolist.desktop.ui.components.VideoRenderer
 import com.metrolist.desktop.ui.screens.LoginDialog
 import com.metrolist.desktop.ui.screens.settings.SettingsOverlay
 import com.metrolist.desktop.ui.theme.MetrolistTheme
@@ -24,6 +28,7 @@ import com.metrolist.desktop.utils.DesktopImageLoader
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
 import com.metrolist.shared.db.MusicDatabase
+import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
@@ -32,8 +37,11 @@ import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
+import com.metrolist.shared.xmb.XmbListenTogether
+import com.metrolist.shared.xmb.XmbLyrics
 import com.metrolist.shared.xmb.XmbServices
 import com.metrolist.shared.xmb.XmbSettingsHost
+import com.metrolist.shared.xmb.XmbVideo
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.sound.DesktopXmbSoundPlayer
@@ -78,6 +86,9 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     search = search,
                     settings = XmbSettingsHost({ settingsHost }, ::openStockSettings),
                     account = DesktopXmbAccount,
+                    video = DesktopXmbVideo,
+                    lyrics = DesktopXmbLyrics,
+                    listenTogether = XmbListenTogether(ListenTogetherState.listenTogetherManager, AppState::copyToClipboard),
                 )
             }
         DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())
@@ -119,6 +130,24 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
 private fun openStockSettings(page: SettingsPageId) {
     UiState.selectedSettingsPage = page
     UiState.showSettings = true
+}
+
+/** The player's video frames, drawn with the desktop's video renderer; the player is told the size. */
+private object DesktopXmbVideo : XmbVideo {
+    @Composable
+    override fun Surface(modifier: Modifier) {
+        VideoRenderer(modifier = modifier, onViewportSizeChanged = { width, height -> PlayerState.setVideoTargetSize(width, height) })
+    }
+}
+
+/** The desktop's lyrics state: fetched per song; null until this song's lines are in. */
+private object DesktopXmbLyrics : XmbLyrics {
+    override fun request(song: SongItem) {
+        if (LyricsState.currentLyricsSongId != song.id) LyricsState.fetchLyrics(song)
+    }
+
+    override fun lines(songId: String): List<LyricsEntry>? =
+        if (LyricsState.currentLyricsSongId == songId && !LyricsState.isLyricsLoading) LyricsState.currentLyricsEntries else null
 }
 
 private object DesktopXmbAccount : XmbAccount {

@@ -25,10 +25,10 @@ next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M3 done (desktop); M4 in progress.** The XMB runs on desktop (Windows, macOS,
-Linux), plays your music, searches, and has every setting and sign-in in its own columns. The
-stock desktop screens are removed. Android keeps the stock Metrolist interface until M7 replaces
-it. iOS was removed.
+**Current milestone: M6 done (desktop); M4 and M5 on hold.** The XMB runs on desktop (Windows,
+macOS, Linux): music, podcasts, music videos, search, Listen Together, lyrics, casting, every
+setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. Android keeps
+the stock Metrolist interface until M7 replaces it. iOS was removed.
 
 | | Milestone | Status |
 |---|---|---|
@@ -36,9 +36,9 @@ it. iOS was removed.
 | M1 | XMB shell on desktop: category row, item columns, focus motion, monthly background, wave, sounds, Rodin font, interface-style switch | ✅ Done |
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
-| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | In progress: first pass |
-| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Planned |
-| M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | Planned |
+| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | On hold: matched to the owner's videos, not yet checked with real music |
+| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | On hold (reference stills saved) |
+| M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Planned |
 
 **After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
@@ -74,6 +74,15 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   the console's track overlay (artwork, title, artist / album, queue position, time, codec badge
   and progress). ○ returns to the
   XMB; any other key shows the track for a few seconds. Valley and Gaia come in M5.
+- **Podcasts.** Subscriptions (each opens its episodes), New episodes and Episodes for later.
+- **Video.** Watch video shows the playing song's music video full screen; Liked videos and Music
+  videos (from the home feed) play full screen when selected. ○ goes back.
+- **Friends.** Listen Together: turn it on, create a room or join one by code on the keyboard, set
+  your name, see who's in the room, let people in, copy the invite link, leave.
+- **Lyrics.** Music > Lyrics shows the playing song's synced lyrics full screen, the current line
+  glowing; △ shows them over a visualizer too.
+- **Play on device.** Music > Play on device lists cast devices (Google Cast, DLNA, Sonos, FCast)
+  while it's open; select one to play there, select it again to come back.
 - **Now playing.** Artwork, title, artist and progress in the bottom right.
 - **Look and sound.** Layout measured from console frames: category row, item spacing, title
   placement, the clock box. The PS3 monthly background colors, dark at the top and bright at the
@@ -94,6 +103,7 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
 | Space, media keys | Play/pause, next, previous |
 | Mouse wheel | Move up and down |
 | Typing (keyboard open) | Letters go straight into the text, Backspace deletes, Enter submits, Esc cancels |
+| Full screen (visualizer, video, lyrics) | ○ goes back, △ shows or hides lyrics over a visualizer, any other key shows the track |
 
 Controllers work on Android (M7); on desktop the UI toolkit has no gamepad input yet.
 
@@ -167,8 +177,10 @@ XMB code lives in the shared module; platform glue sits in each app.
 - Sign-in on Linux needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), as in the standard interface.
 - Searches made in the XMB show up in the standard search screen's history after a restart.
 - The on-screen keyboard and value pickers have no console frames to match yet.
-- Features without an XMB screen yet (Listen Together rooms, statistics, playlist editing, video)
-  aren't reachable on desktop until their milestones; their settings are in the Settings column.
+- Features without an XMB screen yet (statistics, playlist editing) aren't reachable on desktop;
+  their settings are in the Settings column.
+- Podcasts, videos and Listen Together were built and tested without network access to YouTube or
+  the Listen Together server; full-screen video was only checked with a stand-in frame.
 - `users.png` and `artist.png` are 68×68 and look soft when enlarged.
 - Layout, timing and colors are first passes until console reference frames are added to
   `reference/` ([compare/README.md](compare/README.md) lists what to check).
