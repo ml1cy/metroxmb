@@ -179,6 +179,11 @@ a gradient fallback on older Android (minSdk is 24).
 
 ## 11. Upstream touchpoints (approved)
 
+> **After M3:** the owner had the stock desktop UI and the iOS app removed. Touchpoints 1–3 (the
+> interface-style preference and setting) and the `SettingsOrdering.kt` addition are reverted, 4
+> becomes "the XMB replaces Android's stock UI in M7", 5 now shows the XMB unconditionally, and 6
+> is gone with iOS. See §16 and `UPSTREAM_TOUCHPOINTS.md`.
+
 Approved by the owner. M1 landed 1, 2, 3, 5 and 7, plus a one-word addition to
 `SettingsOrdering.kt` so the interface group sits at the top of Appearance. Android (4) switches
 over in M7, once the XMB handles touch there; until then `xmbPlatforms` lists only desktop, so
@@ -359,4 +364,17 @@ The three columns take their items from live data (`xmbSettingsItems`, `xmbSearc
   flows: on desktop, the stock sign-in and channel dialogs and `AuthState.signOut()`.
 - **Wave.** The background wave and sparkles react to navigation through `XmbWaveMotion`
   (`docs/xmb-notes.md`), not to audio; the meter stays for the visualizers.
+
+## 16. Stock UI removal (after M3)
+
+The owner chose to keep only the XMB. On desktop, `App()` shows onboarding, then the XMB.
+Desktop files that nothing reachable from `Main.kt` or the XMB host uses were found by a
+reference walk over top-level names (conservative: a name match counts as a use) and deleted
+along with their tests; the compiler confirmed the rest still builds. What stays because the XMB
+still uses it: onboarding, the settings overlay with its custom pages, the integrations overlay,
+the sign-in, token-login and log dialogs, the session-expired and playback-error dialogs, the
+snackbar, the mini-player window, the tray, and all of the state, playback, storage and
+integration code. Android keeps its stock UI until M7; the shared `ui/` code it uses stays.
+The iOS app, its source sets and Gradle targets, and the iOS scripts are deleted; common
+expect/actual plumbing named after iOS stays because desktop and Android implement it.
 

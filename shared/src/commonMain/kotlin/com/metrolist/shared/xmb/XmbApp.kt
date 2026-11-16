@@ -147,13 +147,11 @@ private class KeyboardSession(
 /**
  * The XMB front end: background, category row with item columns, drill-down levels, the △
  * options panel, value pickers, the on-screen keyboard, now-playing info and the clock.
- * [onSwitchToStock] switches the interface style back to the stock screens. Without [services]
- * the lists stay closed (dev snapshots). While [suspended] (a stock dialog is over the XMB) keys
- * are left alone. [time], [animate] and the initial state exist so dev snapshots render a fixed scene.
+ * Without [services] the lists stay closed (dev snapshots). While [suspended] (a stock dialog is
+ * over the XMB) keys are left alone. [time], [animate] and the initial state exist so dev snapshots render a fixed scene.
  */
 @Composable
 fun XmbApp(
-    onSwitchToStock: () -> Unit,
     modifier: Modifier = Modifier,
     services: XmbServices? = null,
     suspended: Boolean = false,
@@ -167,7 +165,6 @@ fun XmbApp(
     initialKeyboard: XmbKeyboard? = null,
 ) {
     val sounds = LocalXmbSoundPlayer.current
-    val switchToStock by rememberUpdatedState(onSwitchToStock)
     val now = rememberXmbTime(time)
     val fontFamily = rememberXmbFontFamily()
     val motion = remember { XmbWaveMotion() }
@@ -309,10 +306,6 @@ fun XmbApp(
             XmbItemAction.None -> {
                 if (list == null || actions == null) return XmbFeedback.ERROR
                 navigation = navigation.push(XmbLevel(list, title, item.icon, item.artwork))
-            }
-
-            XmbItemAction.SwitchToMetrolist -> {
-                switchToStock()
             }
 
             XmbItemAction.OpenSearch -> {

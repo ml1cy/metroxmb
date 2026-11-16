@@ -3,8 +3,8 @@
 A YouTube Music player with a PlayStation 3 XrossMediaBar (XMB) front end, built on
 [Metrolist-KMP](https://github.com/MetrolistGroup/Metrolist)'s source code. Metrolist's backend
 (streaming, playback, library, lyrics, casting, MetroEQ, Listen Together) is kept as is; this
-project adds an XMB interface and, later, live replicas of the PS3's music visualizers as the
-background. The stock Metrolist interface stays available as a selectable interface style.
+project replaces Metrolist's interface with an XMB and adds live replicas of the PS3's music
+visualizers. On desktop the XMB is the only interface.
 
 > [!IMPORTANT]
 > **Private project.** The repository and its builds contain Sony PS3 assets (the Rodin font and
@@ -25,9 +25,10 @@ next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M3 done (desktop).** The XMB runs on desktop (Windows, macOS, Linux), plays
-your music, searches, and has every setting and sign-in in its own columns. Android keeps the stock Metrolist interface until M7. iOS isn't a target and
-keeps the stock interface.
+**Current milestone: M3 done (desktop); M4 in progress.** The XMB runs on desktop (Windows, macOS,
+Linux), plays your music, searches, and has every setting and sign-in in its own columns. The
+stock desktop screens are removed. Android keeps the stock Metrolist interface until M7 replaces
+it. iOS was removed.
 
 | | Milestone | Status |
 |---|---|---|
@@ -38,7 +39,7 @@ keeps the stock interface.
 | M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Next |
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Planned |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | Planned |
-| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings | Planned |
+| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Planned |
 
 **After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
 waves, beat-synced colors, party mode, shared visualizers in Listen Together rooms, gamepad-driven
@@ -47,9 +48,9 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
 
 ## What works now
 
-- **Interface switch.** The XMB is the default after first-run setup. Settings > **Metrolist
-  interface** in the XMB switches to the stock screens; stock Settings > Appearance > **Interface
-  style** switches back.
+- **XMB only.** After first-run setup the desktop app shows the XMB. A few standard windows still
+  open over it where the XMB has no screen of its own yet: some settings pages, sign-in, the
+  mini-player and the tray.
 - **Menu.** Eight categories (Users, Settings, Music, Search, Podcasts, Video, Friends,
   Visualizer) with the console's focus behavior: the focused icon grows and glows, labels fade,
   lists scroll with easing, items above the focus jump over the category row, and each category
@@ -149,7 +150,8 @@ XMB code lives in the shared module; platform glue sits in each app.
 - Captures: `scripts/xmb/snap.sh [screen]` renders the XMB headlessly into `compare/`.
 - Format changed Kotlin with the module's `ktlint…Format` tasks.
 - Pulling a new Metrolist release: merge `upstream`, keep this README and `CLAUDE.md`, keep the
-  GitHub Actions files deleted, and check each file listed in `UPSTREAM_TOUCHPOINTS.md`.
+  GitHub Actions files, the iOS app and the removed desktop screens deleted, and check each file
+  listed in `UPSTREAM_TOUCHPOINTS.md`.
 
 ## Known limits
 
@@ -159,6 +161,8 @@ XMB code lives in the shared module; platform glue sits in each app.
 - Sign-in on Linux needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), as in the standard interface.
 - Searches made in the XMB show up in the standard search screen's history after a restart.
 - The on-screen keyboard and value pickers have no console frames to match yet.
+- Features without an XMB screen yet (Listen Together rooms, statistics, playlist editing, video)
+  aren't reachable on desktop until their milestones; their settings are in the Settings column.
 - `users.png` and `artist.png` are 68×68 and look soft when enlarged.
 - Layout, timing and colors are first passes until console reference frames are added to
   `reference/` ([compare/README.md](compare/README.md) lists what to check).

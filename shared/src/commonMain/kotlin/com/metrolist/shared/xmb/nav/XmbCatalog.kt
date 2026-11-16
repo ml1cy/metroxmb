@@ -13,7 +13,7 @@ import org.jetbrains.compose.resources.StringResource
 /**
  * The XMB's categories and their items. Users, Settings and Search take their items from live
  * data ([xmbUserItems], [xmbSettingsItems], [xmbSearchItems]); the defaults are what the XMB shows
- * without a host (dev snapshots). Podcasts, Video, Friends and Visualizer are placeholders for later
+ * without a host (dev snapshots; Settings is empty without a settings registry). Podcasts, Video, Friends and Visualizer are placeholders for later
  * milestones (PLAN.md).
  */
 fun xmbCategories(
@@ -23,20 +23,7 @@ fun xmbCategories(
 ): List<XmbCategory> =
     listOf(
         XmbCategory(XmbCategoryId.USERS, Res.string.xmb_category_users, drawable(Res.drawable.xmb_cat_users), users),
-        XmbCategory(
-            XmbCategoryId.SETTINGS,
-            Res.string.settings,
-            drawable(Res.drawable.xmb_cat_settings),
-            listOf(
-                XmbItem(
-                    id = "interface_style",
-                    title = Res.string.xmb_switch_to_metrolist,
-                    icon = drawable(Res.drawable.xmb_item_subsetting),
-                    subtitle = Res.string.xmb_switch_to_metrolist_description,
-                    action = XmbItemAction.SwitchToMetrolist,
-                ),
-            ) + settings,
-        ),
+        XmbCategory(XmbCategoryId.SETTINGS, Res.string.settings, drawable(Res.drawable.xmb_cat_settings), settings),
         category(
             XmbCategoryId.MUSIC,
             Res.string.xmb_category_music,

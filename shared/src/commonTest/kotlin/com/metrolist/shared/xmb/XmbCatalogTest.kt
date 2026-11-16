@@ -1,14 +1,8 @@
 package com.metrolist.shared.xmb
 
-import com.metrolist.shared.constants.InterfaceStyleKey
 import com.metrolist.shared.model.SearchSummary
 import com.metrolist.shared.model.SearchSummaryPage
 import com.metrolist.shared.model.SongItem
-import com.metrolist.shared.settings.Settings
-import com.metrolist.shared.ui.settings.SettingsGroupRegistration
-import com.metrolist.shared.ui.settings.SettingsPageId
-import com.metrolist.shared.ui.settings.SettingsPlatform
-import com.metrolist.shared.ui.settings.prioritized
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.adapters.toXmbEntries
 import com.metrolist.shared.xmb.nav.XmbAccountInfo
@@ -19,7 +13,6 @@ import com.metrolist.shared.xmb.nav.XmbText
 import com.metrolist.shared.xmb.nav.xmbCategories
 import com.metrolist.shared.xmb.nav.xmbSearchItems
 import com.metrolist.shared.xmb.nav.xmbUserItems
-import com.russhwolf.settings.MapSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -34,7 +27,8 @@ class XmbCatalogTest {
         val categories = xmbCategories()
         assertEquals(XmbCategoryId.entries.toList(), categories.map { it.id })
         categories.forEach { category ->
-            assertTrue(category.items.isNotEmpty(), "${category.id} has no items")
+            // Settings lists the settings registry's pages, so it's empty without a host.
+            if (category.id != XmbCategoryId.SETTINGS) assertTrue(category.items.isNotEmpty(), "${category.id} has no items")
             assertEquals(
                 category.items.size,
                 category.items
@@ -44,12 +38,6 @@ class XmbCatalogTest {
                 "${category.id} has duplicate item ids",
             )
         }
-    }
-
-    @Test
-    fun settingsOffersTheWayBackToTheStockInterface() {
-        val settings = xmbCategories().single { it.id == XmbCategoryId.SETTINGS }
-        assertEquals(XmbItemAction.SwitchToMetrolist, settings.items.first().action)
     }
 
     @Test
@@ -79,10 +67,10 @@ class XmbCatalogTest {
     }
 
     @Test
-    fun dynamicColumnsKeepTheirPlaceAndTheWayBackStaysFirst() {
+    fun dynamicColumnsKeepTheirPlace() {
         val categories = xmbCategories(search = xmbSearchItems(listOf("q")))
         assertEquals(2, categories.single { it.id == XmbCategoryId.SEARCH }.items.size)
-        assertEquals(1, categories.single { it.id == XmbCategoryId.SETTINGS }.items.size)
+        assertEquals(0, categories.single { it.id == XmbCategoryId.SETTINGS }.items.size)
     }
 
     @Test
@@ -110,31 +98,5 @@ class XmbCatalogTest {
         assertEquals("Song, Other", entries[1].subtitle)
         assertEquals("https://img/s.jpg", entries[0].artwork)
         assertEquals(XmbList.SearchSection("q", 2, page.summaries[2]), entries[1].open)
-    }
-
-    @Test
-    fun interfaceStyleDefaultsToXmbAndIsStoredByOrdinal() {
-        assertEquals(InterfaceStyle.XMB, Settings(MapSettings()).interfaceStyle)
-        val store = MapSettings()
-        Settings(store).interfaceStyle = InterfaceStyle.METROLIST
-        assertEquals(InterfaceStyle.METROLIST.ordinal, store.getInt(InterfaceStyleKey, -1))
-        assertEquals(InterfaceStyle.METROLIST, Settings(MapSettings(InterfaceStyleKey to 0)).interfaceStyle)
-        assertEquals(listOf("METROLIST", "XMB"), InterfaceStyle.entries.map { it.name }, "Stored ordinals must not change")
-    }
-
-    @Test
-    fun interfaceGroupLeadsTheAppearancePage() {
-        val groups =
-            listOf("theme", "interface", "displayDensity").map { id ->
-                SettingsGroupRegistration(id = id, title = id, items = emptyList())
-            }
-        assertEquals(listOf("interface", "theme", "displayDensity"), groups.prioritized(SettingsPageId.APPEARANCE).map { it.id })
-    }
-
-    @Test
-    fun onlyPlatformsWithAnXmbHostOfferIt() {
-        assertTrue(SettingsPlatform.DESKTOP.supportsXmb())
-        assertFalse(SettingsPlatform.ANDROID.supportsXmb())
-        assertFalse(SettingsPlatform.IOS.supportsXmb())
     }
 }

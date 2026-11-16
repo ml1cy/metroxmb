@@ -7,7 +7,6 @@ internal fun List<SettingsGroupRegistration>.prioritized(page: SettingsPageId): 
         when (page) {
             SettingsPageId.APPEARANCE -> {
                 listOf(
-                    "interface",
                     "theme",
                     "playerAppearance",
                     "tabs",

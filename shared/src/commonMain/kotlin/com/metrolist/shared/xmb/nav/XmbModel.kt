@@ -55,8 +55,6 @@ fun XmbText.resolve(): String =
 sealed interface XmbItemAction {
     data object None : XmbItemAction
 
-    data object SwitchToMetrolist : XmbItemAction
-
     /** Opens the on-screen keyboard for a new search. */
     data object OpenSearch : XmbItemAction
 

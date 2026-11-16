@@ -81,20 +81,19 @@ class XmbSnapshotCapture {
         val screens =
             listOf(
                 Screen("icons", 1280, 200) { CategoryIconSheet() },
-                Screen("shell") { XmbApp({}, time = { day }, animate = false) },
-                Screen("shell-night") { XmbApp({}, time = { day.copy(hour = 23) }, animate = false) },
-                Screen("music-scrolled") { XmbApp({}, time = { day }, animate = false, initialItem = 4) },
-                Screen("settings") { XmbApp({}, time = { day }, animate = false, initialCategory = XmbCategoryId.SETTINGS) },
+                Screen("shell") { XmbApp(time = { day }, animate = false) },
+                Screen("shell-night") { XmbApp(time = { day.copy(hour = 23) }, animate = false) },
+                Screen("music-scrolled") { XmbApp(time = { day }, animate = false, initialItem = 4) },
+                Screen("settings") { XmbApp(time = { day }, animate = false, initialCategory = XmbCategoryId.SETTINGS) },
                 Screen("visualizer-august") {
-                    XmbApp({}, time = { day.copy(month = 8) }, animate = false, initialCategory = XmbCategoryId.VISUALIZER)
+                    XmbApp(time = { day.copy(month = 8) }, animate = false, initialCategory = XmbCategoryId.VISUALIZER)
                 },
-                Screen("small-window", 960, 600) { XmbApp({}, time = { day }, animate = false) },
+                Screen("small-window", 960, 600) { XmbApp(time = { day }, animate = false) },
                 Screen("music-home") {
-                    XmbApp({}, services = demoServices, time = { day }, animate = false, initialLevels = listOf(homeLevel))
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialLevels = listOf(homeLevel))
                 },
                 Screen("music-section") {
                     XmbApp(
-                        {},
                         services = demoServices,
                         time = { day },
                         animate = false,
@@ -102,22 +101,25 @@ class XmbSnapshotCapture {
                     )
                 },
                 Screen("settings-december") {
-                    XmbApp({
-                    }, services = demoServices, time = {
-                        day.copy(
-                            month = 12,
-                        )
-                    }, animate = false, initialCategory = XmbCategoryId.SETTINGS, initialItem = 1)
+                    XmbApp(
+                        services = demoServices,
+                        time = { day.copy(month = 12) },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialItem = 1,
+                    )
                 },
                 Screen("settings-page") {
-                    XmbApp({
-                    }, services = demoServices, time = {
-                        day
-                    }, animate = false, initialCategory = XmbCategoryId.SETTINGS, initialLevels = listOf(playerLevel.copy(focus = 2)))
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(playerLevel.copy(focus = 2)),
+                    )
                 },
                 Screen("settings-picker") {
                     XmbApp(
-                        {},
                         services = demoServices,
                         time = { day },
                         animate = false,
@@ -128,7 +130,6 @@ class XmbSnapshotCapture {
                 },
                 Screen("search-keyboard") {
                     XmbApp(
-                        {},
                         services = demoServices,
                         time = { day },
                         animate = false,
@@ -144,11 +145,10 @@ class XmbSnapshotCapture {
                     )
                 },
                 Screen("users") {
-                    XmbApp({}, services = demoServices, time = { day }, animate = false, initialCategory = XmbCategoryId.USERS)
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialCategory = XmbCategoryId.USERS)
                 },
                 Screen("music-options") {
                     XmbApp(
-                        {},
                         services = demoServices,
                         time = { day },
                         animate = false,

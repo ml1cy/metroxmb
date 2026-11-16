@@ -7,12 +7,13 @@ Metrolist's source; Metrolist's `AGENTS.md` describes their repo's process and d
 Build on **Metrolist-KMP**'s source code to make a **PS3 XrossMediaBar (XMB)-style interface**,
 with a faithful replica of the PS3's built-in music visualizers (made by Q-Games) as the live
 background. Metrolist's backend (streaming, playback, library, lyrics, casting, MetroEQ,
-Listen Together) stays as is. The stock Metrolist UI keeps working as a selectable interface style.
+Listen Together) stays as is. The XMB is the only interface: after M3 the owner had the stock
+desktop screens removed (Android keeps its stock UI until M7 replaces it; iOS was removed).
 
 **Visualizers for the 1:1 core:** Waves (XMB silk ribbon), Valley (terrain), Gaia (Earth).
 
-**Target order:** Desktop (fastest to iterate and screenshot) → Android / Android TV. iOS isn't
-a target: it keeps the stock Metrolist interface.
+**Target order:** Desktop (fastest to iterate and screenshot) → Android / Android TV. iOS was
+removed.
 
 ## What already exists in Metrolist (don't rebuild it)
 - **Audio data:** `shared/.../equalizer/AudioSpectrumMeter` is an 18-band meter fed on every
@@ -61,7 +62,7 @@ Horizontal category row; each category opens a vertical item list:
 ```
 shared/src/commonMain/kotlin/com/metrolist/shared/
   xmb/
-    XmbApp.kt               root when InterfaceStyle = XMB: background + bar + overlays
+    XmbApp.kt               root: background + bar + overlays
     nav/                    XmbState (category, item, depth stack), input mapping
     bar/                    CategoryRow, ItemColumn, OptionsPanel, focus animations
     screens/                search keyboard, now-playing info, dialogs, settings pages
@@ -75,8 +76,8 @@ shared/src/commonMain/kotlin/com/metrolist/shared/
 shared/src/commonMain/composeResources/
   drawable/xmb_*.png  font/xmb_rodin_latin_regular.ttf  files/xmb/sounds/*.ogg
 ```
-Platform entry points (Android activity, desktop window) choose `XmbApp` or the stock UI from
-`Settings.shared.interfaceStyle`; iOS always shows the stock UI. Log every upstream file edit
+The desktop window shows `XmbApp` after onboarding; Android's activity switches to it in M7.
+Log every upstream file edit
 in `UPSTREAM_TOUCHPOINTS.md`.
 
 **Input:** keyboard/controller/D-pad first (arrows, Enter = ✕, Esc/Back = ○, Menu/Tab = △).
@@ -105,6 +106,7 @@ long-press = options.
 
 ### M1: XMB shell, assets and background (desktop)
 - `InterfaceStyle` preference (`METROLIST` / `XMB`, fork default `XMB`) and the entry-point switch
+  (removed after M3 with the stock desktop screens)
 - Move `assets-ps3/` into Compose resources with `git mv` (`drawable/xmb_*`,
   `font/xmb_rodin_latin_regular.ttf`, `files/xmb/sounds/`), update `ASSETS_MANIFEST.md`
   (moved to `docs/xmb-assets.md`) with the new paths, and add a backend test that every
@@ -150,6 +152,7 @@ long-press = options.
 - Touch gestures, phone portrait layout, tablet landscape, TV D-pad
 - Quality settings and FPS cap; pause when hidden (per `docs/rendering.md`); shader fallback
   below the API level the existing shaders require
+- The XMB replaces Android's stock UI; then remove the stock Android screens the XMB doesn't borrow
 
 ## Extra features (after the core is done)
 - Theme picker: monthly colors, fixed colors, custom, or album-art tint
@@ -173,4 +176,4 @@ long-press = options.
 - Screens compared with reference frames in `compare/`, with remaining differences listed
 - 60 fps at 1080p on a mid-range Android phone and on integrated graphics
 - Fully usable with keyboard/controller alone and with touch alone
-- Stock interface style still builds and works
+- Android's stock UI still builds until M7 replaces it

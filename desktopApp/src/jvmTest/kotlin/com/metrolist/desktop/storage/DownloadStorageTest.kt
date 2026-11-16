@@ -1,6 +1,5 @@
 package com.metrolist.desktop.storage
 
-import com.metrolist.desktop.ui.screens.downloadedCollectionSnapshot
 import com.metrolist.shared.api.lyrics.LyricsFetcher
 import com.metrolist.shared.api.lyrics.LyricsTranslationClient
 import com.metrolist.shared.db.entities.SongEntity
@@ -38,71 +37,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DownloadStorageTest {
-    @Test
-    fun downloadedCollectionRestoresPodcastResumeAndSavesLaterProgressOffline() =
-        runBlocking {
-            val root = Files.createTempDirectory("downloaded-podcast")
-            val database = getDatabaseBuilder(root.resolve("music.db").toFile()).build()
-            try {
-                database.dao().upsert(
-                    SongEntity(
-                        "episode",
-                        "Stored episode",
-                        duration = 7200,
-                        albumId = "podcast",
-                        isEpisode = true,
-                        playbackPosition = 120_000L,
-                    ),
-                )
-                val files =
-                    listOf(
-                        DownloadedFile("episode", "Episode", "Author", null, "/audio", null, 7200, 1234),
-                        DownloadedFile("legacy", "Legacy", "Artist", null, "/legacy", null, 60, 1234),
-                    )
-                val stored = database.dao().getSongsByIds(files.map { it.songId })
-                val (songs, _) = downloadedCollectionSnapshot(files, stored)
-                val episode = songs.first()
-                assertTrue(episode.isPodcast)
-                assertEquals("podcast", episode.podcastId)
-                assertEquals("Stored episode", episode.title)
-                assertEquals(120_000L, PodcastLibrary.resumePosition(database, episode))
-                assertEquals(files.last().toSongItem(), songs.last())
-                val progress =
-                    PodcastPlaybackProgress(
-                        this,
-                        { song, position, duration, metadata ->
-                            PodcastLibrary.updatePlaybackPosition(database, song, position, duration, metadata)
-                        },
-                        { throw it },
-                    )
-                progress.update(episode, 180_000L, 7_200_000L, playing = false)
-                progress.flush()?.join()
-                assertEquals(180_000L, PodcastLibrary.resumePosition(database, episode))
-            } finally {
-                database.close()
-                root.toFile().deleteRecursively()
-            }
-        }
-
-    @Test
-    fun downloadSnapshotIncludesAudioAndArtworkSizesAndRefreshesAfterRemoval() {
-        val root = Files.createTempDirectory("download-snapshot").toFile()
-        try {
-            val audio = root.resolve("song.m4a").apply { writeBytes(ByteArray(2048)) }
-            val art = root.resolve("song.jpg").apply { writeBytes(ByteArray(512)) }
-            val entry = DownloadedFile("song", "Song", "Artist", null, audio.path, art.path, 60, 1234)
-            val (songs, metadata) = downloadedCollectionSnapshot(listOf(entry))
-            assertEquals(listOf("song"), songs.map { it.id })
-            assertEquals(2560L, metadata.getValue("song").fileSize)
-            art.delete()
-            assertEquals(2048L, downloadedCollectionSnapshot(listOf(entry)).second.getValue("song").fileSize)
-            assertTrue(downloadedCollectionSnapshot(emptyList()).first.isEmpty())
-            assertTrue(downloadedCollectionSnapshot(emptyList()).second.isEmpty())
-        } finally {
-            root.deleteRecursively()
-        }
-    }
-
     @Test
     fun offlineLyricsWaitForPersistenceAndFailedFetchesRemainRetryable() =
         runBlocking {

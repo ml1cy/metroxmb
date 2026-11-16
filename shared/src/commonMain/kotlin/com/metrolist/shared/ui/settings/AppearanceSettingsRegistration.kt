@@ -37,8 +37,6 @@ import com.metrolist.shared.settings.desktopDefaultOpenTabs
 import com.metrolist.shared.settings.normalizeDefaultOpenTab
 import com.metrolist.shared.settings.updateDefaultOpenTab
 import com.metrolist.shared.ui.icons.MetrolistIcons
-import com.metrolist.shared.xmb.InterfaceStyle
-import com.metrolist.shared.xmb.supportsXmb
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -88,24 +86,6 @@ internal fun SettingsUiRegistryBuilder.registerAppearanceSettings(host: SharedSe
         tone = SettingsTone.ORANGE,
         subtitle = stringResource(Res.string.settings_appearance_overview),
     ) {
-        // XMB Music: interface style switch (see UPSTREAM_TOUCHPOINTS.md)
-        if (host.platform.supportsXmb()) {
-            group("interface", stringResource(Res.string.xmb_interface_group)) {
-                val styleChoices =
-                    listOf(
-                        SettingsChoice(InterfaceStyle.XMB.name, stringResource(Res.string.xmb_interface_style_xmb)),
-                        SettingsChoice(InterfaceStyle.METROLIST.name, stringResource(Res.string.xmb_interface_style_metrolist)),
-                    )
-                choice(
-                    id = "interfaceStyle",
-                    title = stringResource(Res.string.xmb_interface_style),
-                    description = stringResource(Res.string.xmb_interface_style_description),
-                    valueLabel = styleChoices.first { it.id == settings.interfaceStyle.name }.label,
-                    choices = styleChoices,
-                    selectedChoiceId = settings.interfaceStyle.name,
-                ) { id -> settings.interfaceStyle = InterfaceStyle.valueOf(id) }
-            }
-        }
         group("theme", stringResource(Res.string.appearance_theme)) {
             choice(
                 id = "themeMode",

@@ -91,7 +91,6 @@ import com.metrolist.shared.constants.HideNonMusicalVideosKey
 import com.metrolist.shared.constants.HideRecentSearchesKey
 import com.metrolist.shared.constants.HideShortSongsKey
 import com.metrolist.shared.constants.HistoryPlaylistsEnabledKey
-import com.metrolist.shared.constants.InterfaceStyleKey
 import com.metrolist.shared.constants.IosCustomFontFileKey
 import com.metrolist.shared.constants.IosCustomFontNameKey
 import com.metrolist.shared.constants.IosCustomFontRevisionKey
@@ -190,7 +189,6 @@ import com.metrolist.shared.model.PlaylistPickerSort
 import com.metrolist.shared.model.PlaylistSongSort
 import com.metrolist.shared.model.SortDirection
 import com.metrolist.shared.playback.SleepTimerDefaults
-import com.metrolist.shared.xmb.InterfaceStyle
 import com.metrolist.shared.youtube.playback.PlaybackNetworkState
 import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
 import com.russhwolf.settings.get
@@ -325,7 +323,6 @@ class Settings(
     var enableHapticFeedback by preference(EnableHapticFeedbackKey, true)
 
     var appLayout by preference(AppLayout.EXPRESS)
-    var interfaceStyle by preference(InterfaceStyleKey, InterfaceStyle.XMB)
     var showMiniplayer by preference(false)
     var videoViewerVisible by preference(VideoViewerVisibleKey, false)
     var playVideosInMiniPlayer by preference(PlayVideosInMiniPlayerKey, false)

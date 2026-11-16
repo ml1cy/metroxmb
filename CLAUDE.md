@@ -36,6 +36,8 @@ repo goes back to MetrolistGroup. The work plan is in [PLAN.md](PLAN.md).
   `docs/desktop-native-image.md`, `docs/install/README.md`). Those parts don't apply here, nor
   do the `actionlint`, `node --test .github/scripts/*.test.cjs` and
   `python3 -m unittest discover -s .github/tests` commands. The Gradle and `scripts/` checks do.
+- Metrolist's docs also describe the iOS app and the stock desktop screens, which are removed here
+  (`docs/development.md` iOS setup, the iOS and AltStore checks in `docs/checks.md`).
 
 ## Technical facts to respect
 These come from how the code actually works, not from upstream policy:
@@ -58,18 +60,25 @@ These come from how the code actually works, not from upstream policy:
   platform). Format changed Kotlin with `ktlint --format` so the build's lint step passes.
 
 ## Project rules
-- **Keep stock Metrolist working.** The XMB is a selectable interface style: an `InterfaceStyle`
-  preference (`METROLIST` / `XMB`, default `XMB`). Don't delete the stock screens; that keeps
-  upstream merges easy and gives a fallback while the XMB is unfinished.
+- **The XMB is the only interface (owner's decision after M3).** Desktop shows only the XMB; the
+  stock desktop screens are deleted. What the XMB still borrows stays until an XMB version
+  replaces it: first-run onboarding, the settings overlay and its custom pages (storage, backup,
+  updates, about, devtools, MetroEQ, fonts, integrations), the sign-in, token and log dialogs, the
+  mini-player window and the tray. Android keeps its stock UI until M7, when the XMB replaces it
+  outright. iOS is removed. Keep Metrolist's features (playback, library, integrations, Listen
+  Together, casting, lyrics, Device Connect) even where the XMB has no screen for them yet.
+  `UPSTREAM_TOUCHPOINTS.md` lists what was deleted; on upstream merges, resolve modify/delete
+  conflicts on those paths by keeping them deleted and delete new upstream files that only serve
+  the removed screens.
 - **Code location:** XMB and visualizer code go in `shared`, under the packages
   `com.metrolist.shared.xmb` and `com.metrolist.shared.visualizer`; platform glue goes in the
   platform source sets. New Gradle modules only with the owner's OK.
 - **Audio data:** don't write a new PCM tap. Every platform already feeds
   `shared/.../equalizer/AudioSpectrumMeter` (Android `EqualizerAudioProcessor`, desktop FFmpeg
-  `AudioRenderer`, iOS `IosAudioProcessingTap`). Call `addConsumer()` while a visualizer is
+  `AudioRenderer`). Call `addConsumer()` while a visualizer is
   visible, `removeConsumer()` on dispose, and read `levels()`. Extend the meter in shared code if
   more data is needed, keeping the MetroEQ page's behavior the same. Where the meter has no data
-  (iOS HLS fallback, Android offload), the visualizer keeps its idle motion.
+  (Android offload), the visualizer keeps its idle motion.
 - **Shaders:** follow the existing pattern in `ArtworkBackgroundShader.kt` and
   `PlatformLiquidBackgroundCanvas.*`.
 - **Input:** XMB navigation must work with keyboard, controller/D-pad (including Android TV) and

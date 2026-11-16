@@ -110,17 +110,10 @@ import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.desktop.ui.DesktopDensityProvider
 import com.metrolist.desktop.ui.components.DesktopMenuBar
 import com.metrolist.desktop.ui.components.DesktopPlayerVisibility
-import com.metrolist.desktop.ui.components.FloatingSearchOverlay
-import com.metrolist.desktop.ui.components.FullscreenPlayerView
 import com.metrolist.desktop.ui.components.LocalCaptionBarInsets
 import com.metrolist.desktop.ui.components.MiniplayerWindow
-import com.metrolist.desktop.ui.components.ShortcutsOverlay
 import com.metrolist.desktop.ui.components.TokenLoginDialog
 import com.metrolist.desktop.ui.components.UpdateArtworkTheme
-import com.metrolist.desktop.ui.components.VideoFullscreenOverlay
-import com.metrolist.desktop.ui.layouts.ExpressLayout
-import com.metrolist.desktop.ui.layouts.FocusedLayout
-import com.metrolist.desktop.ui.layouts.LayoutUtils
 import com.metrolist.desktop.ui.screens.DesktopOnboarding
 import com.metrolist.desktop.ui.screens.LastFmArtistBrowser
 import com.metrolist.desktop.ui.screens.LastFmArtistBrowserHost
@@ -156,7 +149,6 @@ import com.metrolist.desktop.window.findSkiaLayer
 import com.metrolist.desktop.window.restoreWindowPosition
 import com.metrolist.desktop.window.setWindowPlacement
 import com.metrolist.desktop.xmb.XmbDesktopHost
-import com.metrolist.desktop.xmb.showsXmb
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
 import com.metrolist.shared.BuildConfig
@@ -277,19 +269,16 @@ fun WindowScope.App(
         LocalMouseScrollFactors provides desktopMouseScrollFactors(LocalDensity.current),
         desktopScrollConfig(),
     ) {
-        if (showsXmb()) {
-            XmbDesktopHost(checkDarkMode)
-        } else {
-            AppContent(navigator, onMaximized, toggleWindowFullscreen, checkDarkMode, isLinux, integrationsReady)
-        }
+        AppContent(checkDarkMode, isLinux, integrationsReady)
     }
 }
 
+/**
+ * XMB Music: first-run onboarding, then the XMB. The stock Metrolist screens are gone; what stays
+ * here is what the XMB still relies on (dialogs and windows the stock content used to draw).
+ */
 @Composable
 private fun WindowScope.AppContent(
-    navigator: Navigator,
-    onMaximized: () -> Unit,
-    toggleWindowFullscreen: () -> Unit,
     checkDarkMode: (Boolean) -> Unit,
     isLinux: Boolean,
     integrationsReady: Boolean,
@@ -297,16 +286,9 @@ private fun WindowScope.AppContent(
     MetrolistTheme {
         val colorScheme = MaterialTheme.colorScheme
         WindowsWindowBackground(colorScheme.background)
-        val isExpandedPlayerVisible = PlayerState.currentTrack != null && PlayerState.isExpanded
-        checkDarkMode(
-            if (isExpandedPlayerVisible && !UiState.showSettings && !UiState.isRefreshingApp) {
-                Settings.shared.playerBackgroundStyle != PlayerBackgroundStyle.SOLID || !colorScheme.surfaceContainer.isLight()
-            } else {
-                !colorScheme.background.isLight()
-            },
-        )
         var onboardingComplete by remember { mutableStateOf(Settings.shared.desktopOnboardingComplete) }
         if (!onboardingComplete) {
+            checkDarkMode(!colorScheme.background.isLight())
             DesktopOnboarding { sendCrashReports, openLogin ->
                 if (isCrashReportingAvailable()) {
                     if (Settings.shared.desktopPendingOnboardingSentryConsent.isNotBlank()) {
@@ -324,15 +306,7 @@ private fun WindowScope.AppContent(
             }
             return@MetrolistTheme
         }
-        val rootFocusRequester = remember { FocusRequester() }
-        val contentFocusRequester = remember { FocusRequester() }
-        var isRootFocused by remember { mutableStateOf(false) }
-        var isPlayerBackgroundFocused by remember { mutableStateOf(false) }
         val lastFmBrowser = remember { LastFmArtistBrowser().also { LastFM.renderedPageLoader = it::load } }
-        setSingletonImageLoaderFactory { context ->
-            DesktopImageLoader.create(context)
-        }
-        UpdateArtworkTheme()
         LaunchedEffect(colorScheme) {
             try {
                 val bg = colorScheme.background.toArgb()
@@ -346,62 +320,11 @@ private fun WindowScope.AppContent(
             } catch (_: Exception) {
             }
         }
-        var searchWasOpen by remember { mutableStateOf(false) }
-        LaunchedEffect(UiState.showFloatingSearch) {
-            if (UiState.showFloatingSearch) {
-                searchWasOpen = true
-            } else if (searchWasOpen) {
-                contentFocusRequester.requestFocus()
-                searchWasOpen = false
-            }
-        }
-        LaunchedEffect(isExpandedPlayerVisible) {
-            if (!isExpandedPlayerVisible && !UiState.showFloatingSearch) rootFocusRequester.requestFocus()
-        }
-        val windowCornerRadius =
-            if (OsUtil.isMac && !UiState.isMaximized) {
-                10.dp
-            } else {
-                0.dp
-            }
-        val outlineColor =
-            if (!UiState.isMaximized) {
-                if (isLinux) {
-                    if (UiState.isWindowFocused) {
-                        colorScheme.outlineVariant
-                    } else {
-                        colorScheme.outlineVariant.copy(
-                            alpha = 0.5f,
-                        )
-                    }
-                } else {
-                    if (UiState.isWindowFocused) colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent
-                }
-            } else {
-                Color.Transparent
-            }
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .focusRequester(contentFocusRequester)
-                    .focusRestorer(rootFocusRequester)
-                    .focusGroup()
-                    .clip(RoundedCornerShape(windowCornerRadius)),
-        ) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Top))) {
             LastFmArtistBrowserHost(lastFmBrowser)
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Top))
-                    .focusRequester(rootFocusRequester)
-                    .onFocusChanged { isRootFocused = it.isFocused }
-                    .focusable()
-                    .pointerInput(rootFocusRequester) {
-                        detectTapGestures { rootFocusRequester.requestFocus() }
-                    },
-            )
-            DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())
+            key(UiState.appRefreshKey) {
+                XmbDesktopHost(checkDarkMode)
+            }
             DesktopWebViewError()
             if (UiState.showIntegrationsSettings) {
                 IntegrationsOverlay(colorScheme)
@@ -418,37 +341,11 @@ private fun WindowScope.AppContent(
                     },
                 )
             }
-            if (UiState.showSignIn || UiState.showSwitchChannel) {
-                val isSwitchingChannel = UiState.showSwitchChannel
-                LoginDialog(
-                    onDismissRequest = {
-                        UiState.showSignIn = false
-                        UiState.showSwitchChannel = false
-                    },
-                    onAuthDataExtracted = { cookie, visitorData, dataSyncId, authUser ->
-                        AuthState.updateAuth(
-                            cookie,
-                            visitorData,
-                            dataSyncId,
-                            authUser,
-                            accountInfo = GlobalYouTubeRepository.instance.lastAccountInfo,
-                        )
-                        UiState.showSignIn = false
-                        UiState.showSwitchChannel = false
-                        UiState.appRefreshKey++
-                    },
-                    isSwitchingChannel = isSwitchingChannel,
-                )
-            }
             PopupVisibility(visible = YouTubeSessionState.showExpiredSessionNotice) {
                 AlertDialog(
                     onDismissRequest = YouTubeSessionState::dismissExpiredSessionNotice,
                     title = { Text(stringResource(Res.string.youtube_session_expired_title)) },
-                    text = {
-                        Text(
-                            stringResource(Res.string.youtube_session_expired_message),
-                        )
-                    },
+                    text = { Text(stringResource(Res.string.youtube_session_expired_message)) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -506,72 +403,10 @@ private fun WindowScope.AppContent(
                         },
                 )
             }
-            DesktopShortcutLayer(
-                clearPointerFocus = { rootFocusRequester.requestFocus() },
-                onForward = { navigator.goForward() },
-                modifier = Modifier.fillMaxSize(),
-                isPlaybackBackgroundFocused = {
-                    isRootFocused || (isExpandedPlayerVisible && isPlayerBackgroundFocused)
-                },
-                onRefresh = { LayoutUtils.refreshCurrentPage(navigator.state.currentRoute) },
-                toggleWindowFullscreen = toggleWindowFullscreen,
-            ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(windowCornerRadius))
-                            .background(colorScheme.background),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .border(
-                                        if (UiState.isMaximized || Settings.shared.enableSystemWindowFrame) 0.dp else 1.dp,
-                                        outlineColor,
-                                        RoundedCornerShape(windowCornerRadius),
-                                    ),
-                        ) {
-                            key(UiState.appRefreshKey) {
-                                when (Settings.shared.appLayout) {
-                                    AppLayout.COMFORTABLE,
-                                    AppLayout.EXPRESS,
-                                    -> ExpressLayout(onMaximized, toggleWindowFullscreen) { rootFocusRequester.requestFocus() }
-
-                                    AppLayout.DYNAMIC,
-                                    AppLayout.FOCUSED,
-                                    -> FocusedLayout(onMaximized, toggleWindowFullscreen) { rootFocusRequester.requestFocus() }
-                                }
-                            }
-                        }
-                    }
-                }
-                DesktopPlayerVisibility(visible = isExpandedPlayerVisible) {
-                    FullscreenPlayerView(
-                        seedColor = UiState.seedColor,
-                        toggleFullscreen = { toggleWindowFullscreen() },
-                        onBackgroundFocusChanged = { isPlayerBackgroundFocused = it },
-                        onFocus = {
-                            window.requestFocus()
-                        },
-                    )
-                }
-            }
-            VideoFullscreenOverlay(colorScheme, toggleWindowFullscreen)
             if (UiState.isRefreshingApp) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = colorScheme.surface.copy(alpha = 0.94f),
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface.copy(alpha = 0.94f)) {
                     LoadingScreen()
                 }
-            }
-            PopupVisibility(visible = UiState.showSettings) {
-                SettingsOverlay(colorScheme)
             }
             YouTubeSyncSnackbar(AppState.snackbarHostState)
             val snackbarScheme = rememberUpdatedState(colorScheme)
@@ -587,22 +422,7 @@ private fun WindowScope.AppContent(
                 )
             }
         }
-
         if (integrationsReady) MiniplayerWindow()
-
-        if (UiState.showFloatingSearch) {
-            FloatingSearchOverlay(
-                colorScheme = colorScheme,
-                onDismiss = { UiState.showFloatingSearch = false },
-            )
-        }
-
-        PopupVisibility(visible = UiState.showShortcutsDialog) {
-            ShortcutsOverlay(
-                colorScheme = colorScheme,
-                onDismiss = { UiState.showShortcutsDialog = false },
-            )
-        }
     }
 }
 

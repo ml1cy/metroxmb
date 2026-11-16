@@ -29,7 +29,6 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
-import com.metrolist.shared.xmb.InterfaceStyle
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
@@ -47,8 +46,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
 
 /**
- * Desktop glue for the XMB: shown by `App()` in Main.kt instead of the stock content when the
- * interface style is XMB and onboarding is done. Supplies the playback controller `App()`
+ * Desktop glue for the XMB, which `App()` in Main.kt shows once onboarding is done. Supplies the playback controller `App()`
  * provides, the music lists, search, downloads, the settings registry's host, sign-in and the
  * image loader, and keeps the page-bound token host the stock content runs, so stream resolution
  * works the same. The stock settings overlay and the sign-in dialog open over the XMB for what
@@ -86,7 +84,6 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
         Box(Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalXmbSoundPlayer provides sounds) {
                 XmbApp(
-                    onSwitchToStock = { Settings.shared.interfaceStyle = InterfaceStyle.METROLIST },
                     services = services,
                     suspended = UiState.showSettings || UiState.showSignIn || UiState.showSwitchChannel,
                 )
@@ -148,7 +145,3 @@ private class DesktopXmbDownloads : XmbDownloads {
 
     override fun remove(songId: String) = DownloadManager.deleteDownload(songId)
 }
-
-/** Whether `App()` shows the XMB. Onboarding always runs in the stock interface first. */
-internal fun showsXmb(settings: Settings = Settings.shared): Boolean =
-    settings.interfaceStyle == InterfaceStyle.XMB && settings.desktopOnboardingComplete
