@@ -81,10 +81,11 @@ job (owner's call). All reactions settle within about two seconds.
 | Artwork | album art or photo cropped square, 6% corner radius; the XMB icon shows until it loads or if it fails | Album art replaces item icons, as the manifest notes |
 | History list | latest 200 plays, one row per song | Enough to scroll; paging can come later |
 
-## Waves visualizer (M4, first pass; `visualizer/`)
+## Waves visualizer (M4; `visualizer/`)
 
-From the owner's photos of the console (`reference/waves/ps3-waves-photo-*.jpg`) and the ribbon
-port; motion and reactivity still need video frames.
+From the owner's console videos and photos (`reference/waves/`): `video-waves-quiet.jpg`,
+`video-waves-loud.jpg` and `video-waves-loud-5fps.jpg` (five frames a second through a loud
+passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the track overlay.
 
 | Constant | Value | Reason |
 |---|---|---|
@@ -93,11 +94,12 @@ port; motion and reactivity still need video frames.
 | Smoothing | attack 18/s, release 4/s | Reacts within a few frames, falls back gently |
 | Beat | bass at least 0.08 above its 0.6 s average and above 0.2, at most every 0.18 s; decays at 5/s | Bass onsets, not held notes |
 | Flow | time × (1 + 1.5 × energy); the ribbon's clock is 0.35 × flow | The ribbon travels faster when the music is louder |
+| Particle clock | time × (1 + 5 × energy + 4 × beat) | In the loud video frames the particles streak while the ribbon keeps its pace |
 | Polling | `AudioSpectrumMeter.levels()` every 33 ms off the main thread, only while full screen | The meter only captures while it has consumers (CLAUDE.md) |
-| Background | the month's color at the top, navy (0.06, 0.08, 0.24) from 75% down, deeper navy at the bottom | Both photos: violet at the top, navy (14, 19, 59) at the bottom |
-| Ribbon | the home ribbon raised by 15% of the height; folds × (1 + bass); opacity 0.75 × (1.1 + 0.5 × energy + 0.7 × beat) | The photos' bright band across the upper middle |
-| Particles | opacity 0.75 × (0.7 + 0.8 × treble + 0.8 × beat) | Specks that light up with the highs and the beat |
-| Track overlay | bottom left: artwork, title, "artist / album"; bottom right: queue position "3/10", "00:01:50 / 00:03:51", a green-on-blue progress bar and the stream's codec (OPUS, AAC...) in a blue badge; shows for 4 s after opening or any key, fading over 0.6 s | The console's music player overlay in the Linkin Park photo |
+| Sky | fixed violet, not the month's color: (110, 40, 240) at the top, (70, 14, 175) at 35%, (35, 8, 125) at 60%, (10, 4, 45) at 85%, (5, 2, 20) at the bottom | Sampled from the video; every Waves source (videos and photos) is violet |
+| Ribbon | the home ribbon at its usual height (low, as in the videos); tint (1, 0.82, 1); folds × (1 + 0.8 × bass); 4 + 5 × mid folds across its depth; opacity 0.75 × (1 + 0.5 × energy + 0.6 × beat) | The video's lavender-pink strands; loud passages turn the band into a bundle of thin silk lines |
+| Particles | opacity 0.75 × (0.8 + 0.8 × treble + 0.8 × beat); a trail as long as their move in 1/20 s | Dots when quiet, streaks when loud |
+| Track overlay | at 1080p: artwork 100 px, 118 px from the left; title 36 px and "artist / album" 28 px beside it; a 386 px block 116 px from the right with the queue position, "00:01:53 / 00:02:14" and a silver codec pill with a speaker mark, then a 9 px green bar on a dark grey track; shows for 4 s after opening or any key, fading over 0.6 s | Measured from the 1080p console capture (the Linkin Park photo's blue tones were the camera) |
 | Full screen | fades in and out over 600 ms; ○ returns to the XMB | The console hides its menu while a visualizer plays |
 
 ## Settings, value picker and keyboard (M3)

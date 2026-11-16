@@ -24,7 +24,7 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `users.png` | Users signed out: Log in |
 | `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the PS3-style track overlay |
 | `waves-loud.png` | Waves with loud fake meter levels just after a beat: deeper folds, a brighter sheet and particles |
-| `reference-vs-waves.png` | The owner's console photo `reference/waves/ps3-waves-photo-nujabes.jpg` (left) next to `visualizer-waves.png` (right) |
+| `reference-vs-waves.png` | Console video frames (left: `video-waves-quiet.jpg` above, `video-waves-loud.jpg` below) next to `visualizer-waves.png` and `waves-loud.png` |
 | `live-desktop-xmb.png` | The real desktop app (Linux, virtual display, 1080×720 window) right after onboarding: the XMB replaces the stock screens |
 | `live-desktop-interface-setting.png` | The stock Settings → Appearance page with the new Interface style choice (before it moved to the top of the page) |
 
@@ -36,7 +36,10 @@ From the owner, in `reference/`: `xmb/settings-red-1080p.png` and `xmb/game-purp
 (small or photographed, for general look only), `waves/waves-purple-720p.jpg` (the Waves
 visualizer, for M4; looks fan-made next to the console photos), `waves/ps3-waves-photo-linkin.jpg` and
 `waves/ps3-waves-photo-nujabes.jpg` (photos of a TV playing music on the console: the Waves look
-and the track overlay), and `xmb/bg_sample.png` (a flat December-red tile). The ribbon and
+and the track overlay), stills from the owner's console videos (`waves/video-*.jpg`: quiet and
+loud Waves, five frames a second through a loud passage, and the 1080p track overlay;
+`valley/video-*.jpg` and `other/video-*.jpg` for M5: the blue and orange valley scenes, a warm
+abstract scene and a pastel sky), and `xmb/bg_sample.png` (a flat December-red tile). The ribbon and
 background follow https://github.com/tsbehlman/xmb, a GPL-3.0 WebGL port of RetroArch's XMB
 ribbon, which the owner pointed to.
 
@@ -51,8 +54,8 @@ text sizes, the clock box, and no halo on focused icons. Still different:
   difference
 - **Sparkle motion, wave reactions and every timing** need video frames at 2 fps or more
 - The on-screen keyboard and value pickers have no reference frames yet
-- **Waves**: the photos' band is broader and whiter at its left end than the idle ribbon here;
-  how it moves with the music needs video frames
+- **Waves**: the console's loud particles are a little bigger and brighter than here, and the speeds
+  are judged from phone video, so they're approximate
 
 ## Remaining differences (M2)
 

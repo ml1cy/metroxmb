@@ -69,10 +69,10 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   songs, albums, artists...). Recent searches are listed under New search.
 - **Users.** Log in when signed out; when signed in, your account (select it to switch channel)
   and Log out, after a Yes/No.
-- **Visualizer (first pass).** Visualizer > Waves plays full screen: the ribbon over the month's
-  color fading to navy, moving with the music (bass, mids, treble and beats from the audio meter),
-  with the console's track overlay (artwork, title, artist / album, queue position, time, progress
-  and codec). ○ returns to the
+- **Visualizer.** Visualizer > Waves plays full screen: the ribbon low on a violet sky, moving with
+  the music (bass deepens it, louder passages add silk lines and make the particles streak), with
+  the console's track overlay (artwork, title, artist / album, queue position, time, codec badge
+  and progress). ○ returns to the
   XMB; any other key shows the track for a few seconds. Valley and Gaia come in M5.
 - **Now playing.** Artwork, title, artist and progress in the bottom right.
 - **Look and sound.** Layout measured from console frames: category row, item spacing, title

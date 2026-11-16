@@ -47,6 +47,13 @@ class XmbRibbonTest {
     }
 
     @Test
+    fun moreFoldsChangeTheSheet() {
+        val four = ribbonVertex(0.3f, 0.35f, time = 1f, ratio = 0.5f, folds = 4f)[1]
+        val nine = ribbonVertex(0.3f, 0.35f, time = 1f, ratio = 0.5f, folds = 9f)[1]
+        assertTrue(four != nine)
+    }
+
+    @Test
     fun amplitudeScalesTheFolds() {
         val flat = ribbonVertex(0.3f, 0.2f, time = 1f, ratio = 0.5f, amplitude = 0f)[1]
         val folded = ribbonVertex(0.3f, 0.2f, time = 1f, ratio = 0.5f, amplitude = 2f)[1]

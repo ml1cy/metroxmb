@@ -580,7 +580,6 @@ fun XmbApp(
         }
         if (visualizer != null || visualizerShown > 0f) {
             WavesVisualizer(
-                colors = backgroundColors,
                 audio = audio,
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
             )

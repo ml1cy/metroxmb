@@ -86,6 +86,15 @@ class VisualizerAudioTest {
     }
 
     @Test
+    fun particlesRushInLoudPassages() {
+        val quiet = VisualizerAudio().apply { run(null, 1f) }
+        val loud = VisualizerAudio().apply { run(levels(0.95f, 0.95f, 0.95f), 1f) }
+        assertEquals(1f, quiet.particleFlow, 0.01f)
+        assertTrue(loud.particleFlow > 4f, "Particles rush much faster than the ribbon")
+        assertTrue(loud.particleFlow > loud.flow * 2f)
+    }
+
+    @Test
     fun longFramesAreCapped() {
         val audio = VisualizerAudio()
         audio.update(levels(0.95f), 30f)

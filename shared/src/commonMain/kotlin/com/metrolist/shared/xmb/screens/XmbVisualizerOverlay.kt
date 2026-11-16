@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -41,10 +41,11 @@ import com.metrolist.shared.xmb.theme.XmbMetrics
 import kotlinx.coroutines.delay
 
 /**
- * The track info over a full-screen visualizer, laid out like the console's music player (compare
- * the photos in reference/waves): artwork, title and "artist / album" at the bottom left; the
- * queue position, "00:01:50 / 00:03:51", a green-on-blue progress bar and a codec badge at the
- * bottom right. Hidden when nothing is loaded.
+ * The track info over a full-screen visualizer, laid out like the console's music player
+ * (`reference/waves/video-track-overlay-1080p.jpg`, measured at 1.5 px per unit): artwork, title
+ * and "artist / album" at the bottom left; at the bottom right the queue position, then
+ * "00:01:53 / 00:02:14" beside a silver codec badge, then a green progress bar on a dark track.
+ * Hidden when nothing is loaded.
  */
 @Composable
 internal fun XmbVisualizerOverlay(
@@ -65,59 +66,91 @@ internal fun XmbVisualizerOverlay(
     val duration = state.durationMs.takeIf { it > 0 } ?: song.duration?.times(1000) ?: 0L
     val density = LocalDensity.current
     val unit = metrics.unit
-    val shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, with(density) { unit.toPx() }), with(density) { (unit * 3).toPx() })
-    val title = TextStyle(color = Color.White, fontFamily = fontFamily, fontSize = with(density) { (unit * 20).toSp() }, shadow = shadow)
-    val detail = title.copy(fontSize = with(density) { (unit * 15).toSp() })
-    Box(modifier.fillMaxSize().padding(horizontal = unit * 64, vertical = unit * 56)) {
+    val shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, with(density) { unit.toPx() }), with(density) { (unit * 3).toPx() })
+
+    fun style(size: Float) =
+        TextStyle(
+            color = Color.White,
+            fontFamily = fontFamily,
+            fontSize =
+                with(density) {
+                    (unit * size).toSp()
+                },
+            shadow = shadow,
+        )
+    Box(modifier.fillMaxSize().padding(start = unit * 79, end = unit * 77, bottom = unit * 58)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.BottomStart)) {
-            // XmbArtwork insets art to 70% of its box; this box makes the art 48 units.
-            XmbArtwork(song.thumbnail, XmbIcon.Drawable(Res.drawable.xmb_item_song), unit * 68)
-            Spacer(Modifier.width(unit * 2))
-            Column(Modifier.widthIn(max = unit * 520)) {
-                BasicText(song.customTitle ?: song.title, style = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                artistAlbumLine(song)?.let { BasicText(it, style = detail, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            // XmbArtwork insets art to 70% of its box; this box makes the art 67 units (100 px at 1080p).
+            XmbArtwork(song.thumbnail, XmbIcon.Drawable(Res.drawable.xmb_item_song), unit * 96)
+            Spacer(Modifier.width(unit * 1))
+            Column(Modifier.widthIn(max = unit * 560)) {
+                BasicText(song.customTitle ?: song.title, style = style(24f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                BasicText(artistAlbumLine(song) ?: "- / -", style = style(19f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Column(
             horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(unit * 6),
-            modifier = Modifier.align(Alignment.BottomEnd),
+            modifier = Modifier.align(Alignment.BottomEnd).width(unit * 257).padding(bottom = unit * 4),
         ) {
-            queueCounter(state.currentQueueIndex, state.queue.size)?.let { BasicText(it, style = title) }
-            BasicText(
-                if (duration > 0) "${formatPlaybackClock(position)} / ${formatPlaybackClock(duration)}" else formatPlaybackClock(position),
-                style = title,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(unit * 10)) {
-                val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
-                Canvas(Modifier.width(unit * 260).height(unit * 8)) {
-                    val radius = CornerRadius(size.height / 2f)
-                    drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF9CC3F0), Color(0xFF5C8FD6))), cornerRadius = radius)
-                    drawRoundRect(
-                        Brush.verticalGradient(listOf(Color(0xFFB4F06A), Color(0xFF5CB82E))),
-                        size =
-                            size.copy(
-                                width =
-                                    size.width * fraction,
-                            ),
-                        cornerRadius = radius,
-                    )
-                }
-                codecBadge(state.playbackResource?.mimeType, state.playbackResource?.codecs)?.let { codec ->
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier =
-                            Modifier
-                                .background(
-                                    Brush.verticalGradient(listOf(Color(0xFF8FB0EC), Color(0xFF3C63B8))),
-                                    RoundedCornerShape(unit * 4),
-                                ).border(unit, Color.White.copy(alpha = 0.7f), RoundedCornerShape(unit * 4))
-                                .padding(horizontal = unit * 8, vertical = unit * 1),
+            BasicText(queueCounter(state.currentQueueIndex, state.queue.size) ?: "", style = style(19f))
+            Spacer(Modifier.height(unit * 26))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BasicText(
+                    if (duration >
+                        0
                     ) {
-                        BasicText(codec, style = detail.copy(fontSize = with(density) { (unit * 13).toSp() }))
-                    }
+                        "${formatPlaybackClock(position)} / ${formatPlaybackClock(duration)}"
+                    } else {
+                        formatPlaybackClock(position)
+                    },
+                    style = style(20f),
+                    modifier = Modifier.weight(1f),
+                )
+                codecBadge(state.playbackResource?.mimeType, state.playbackResource?.codecs)?.let { codec ->
+                    CodecBadge(codec, style(11f).copy(color = Color(0xFF2A2A2A), shadow = null), unit)
                 }
             }
+            Spacer(Modifier.height(unit * 18))
+            val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+            Canvas(Modifier.width(unit * 257).height(unit * 6)) {
+                val radius = CornerRadius(size.height / 2f)
+                drawRoundRect(Brush.verticalGradient(listOf(Color(0xFF3A3A3A), Color(0xFF5C5C5C))), cornerRadius = radius)
+                drawRoundRect(
+                    Brush.verticalGradient(listOf(Color(0xFFC6F06E), Color(0xFF7FC41E))),
+                    size =
+                        size.copy(
+                            width =
+                                size.width * fraction,
+                        ),
+                    cornerRadius = radius,
+                )
+                drawRoundRect(Color.White.copy(alpha = 0.35f), cornerRadius = radius, style = Stroke(width = size.height / 6f))
+            }
+        }
+    }
+}
+
+/** The console's codec pill: silver, dark lettering, with a small speaker mark after it. */
+@Composable
+private fun CodecBadge(
+    codec: String,
+    text: TextStyle,
+    unit: androidx.compose.ui.unit.Dp,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(unit * 2)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier =
+                Modifier
+                    .width(unit * 56)
+                    .height(unit * 12)
+                    .background(Brush.verticalGradient(listOf(Color(0xFFE6E6E6), Color(0xFF8C8C8C))), RoundedCornerShape(unit * 3))
+                    .border(unit * 0.7f, Color.White.copy(alpha = 0.6f), RoundedCornerShape(unit * 3)),
+        ) {
+            BasicText(codec, style = text)
+        }
+        Canvas(Modifier.width(unit * 5).height(unit * 10)) {
+            drawArc(Color(0xFFBDBDBD), startAngle = -60f, sweepAngle = 120f, useCenter = false, style = Stroke(width = size.width / 3f))
         }
     }
 }

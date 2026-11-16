@@ -14,7 +14,8 @@ import kotlin.math.exp
 /**
  * What the visualizers react to, taken from [AudioSpectrumMeter]'s 18 bands: smoothed [bass],
  * [mid] and [treble] (0..1), overall [energy], a [beat] pulse that jumps to 1 on a bass onset and
- * decays, and [flow], a clock that runs faster when the music is louder. Without meter data
+ * decays, [flow], a clock that runs faster when the music is louder, and [particleFlow], which
+ * rushes much faster still. Without meter data
  * (nothing playing, or a platform path the meter can't see) everything settles to 0 and the
  * visualizer keeps its idle motion. Plain fields, read while drawing.
  */
@@ -30,6 +31,10 @@ class VisualizerAudio {
     var beat = 0f
         private set
     var flow = 0f
+        private set
+
+    /** A clock for particles: it rushes in loud passages and on beats, so they streak. */
+    var particleFlow = 0f
         private set
 
     /** The latest meter levels, written by the polling coroutine and read by the frame loop. */
@@ -62,6 +67,7 @@ class VisualizerAudio {
             if (beat < REST) beat = 0f
         }
         flow += dt * (1f + FLOW_BOOST * energy)
+        particleFlow += dt * (1f + PARTICLE_RUSH * energy + PARTICLE_BEAT_RUSH * beat)
     }
 
     val isSilent: Boolean get() = bass == 0f && mid == 0f && treble == 0f && beat == 0f
@@ -93,6 +99,8 @@ class VisualizerAudio {
         const val MIN_BEAT_GAP = 0.18f
         const val BEAT_DECAY = 5f
         const val FLOW_BOOST = 1.5f
+        const val PARTICLE_RUSH = 5f
+        const val PARTICLE_BEAT_RUSH = 4f
         const val MAX_STEP = 0.1f
         private const val REST = 0.001f
 

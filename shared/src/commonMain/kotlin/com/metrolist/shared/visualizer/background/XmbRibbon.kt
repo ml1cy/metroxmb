@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.Vertices
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -42,7 +43,17 @@ internal class RibbonFrame(
     val particleOpacity: Float = RIBBON_PARTICLE_OPACITY,
     val lift: Float = 0f,
     val drift: Float = 0f,
+    /** How many times the sheet folds across its depth: more folds draw more silk lines. */
+    val folds: Float = RIBBON_FOLDS,
+    /** The sheet's color, added onto the background. */
+    val tint: Color = Color.White,
+    /** The particles' own clock, so they can rush while the ribbon keeps its pace. */
+    val particleTime: Float = time,
+    /** How far back along its path (in particle-clock time) each particle's trail reaches; 0 draws dots. */
+    val streak: Float = 0f,
 )
+
+internal const val RIBBON_FOLDS = 4f
 
 internal const val RIBBON_SPEED = 0.25f
 
@@ -68,8 +79,9 @@ internal fun ribbonVertex(
     time: Float,
     ratio: Float,
     amplitude: Float = 1f,
+    folds: Float = RIBBON_FOLDS,
 ): FloatArray {
-    var vy = cos(y * 4f) * cos(y + time / 5f + x) / 8f * amplitude
+    var vy = cos(y * folds) * cos(y + time / 5f + x) / 8f * amplitude
     val c = noise(x * 7f / 4f, vy * 7f, y * 7f) / 15f
     vy += c + cos(x * 2f - time) * ratio / 2f - 0.3f
     return floatArrayOf(x, vy, y + c)
@@ -122,7 +134,7 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
         Array(n * n) { index ->
             val column = index / n
             val row = index % n
-            ribbonVertex(column * 2f / (n - 1) - 1f, row * 2f / (n - 1) - 1f, frame.time, ratio, frame.amplitude)
+            ribbonVertex(column * 2f / (n - 1) - 1f, row * 2f / (n - 1) - 1f, frame.time, ratio, frame.amplitude, frame.folds)
         }
     val positions = ArrayList<Offset>(n * n)
     val colors = ArrayList<Color>(n * n)
@@ -135,7 +147,7 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
             val alongY = if (row < n - 1) grid[index + 1] else mirror(here, grid[index - 1])
             val alpha = ribbonAlpha(here, alongX, alongY, frame.opacity).coerceIn(0f, 1f)
             positions += Offset((here[0] + 1f) / 2f * size.width, (1f - here[1] - frame.lift) / 2f * size.height)
-            colors += Color(1f, 1f, 1f, alpha)
+            colors += Color(frame.tint.red, frame.tint.green, frame.tint.blue, alpha)
         }
     }
     // Vertex colors are multiplied by the paint color, so it must be white.
@@ -168,24 +180,25 @@ private val particleSeeds: List<ParticleSeed> =
 /** Particles drifting along the ribbon and twinkling, added onto what's below. */
 internal fun DrawScope.drawRibbonParticles(frame: RibbonFrame) {
     val ratio = (size.width / size.height).coerceIn(1f, 2f) * 0.375f
-    val time = frame.time
     val pixel = size.height / 1080f
     particleSeeds.forEach { seed ->
-        val x = fract(time * (seed.x - 0.5f) / 15f + seed.y * 50f - frame.drift) * 2f - 1f
-        var y = sin(time * (seed.y + 1.5f) / 4f + seed.x * 100f)
-        y /= (6f - seed.x * 4f * seed.y) / ratio
-        val mixAmount = y * 0.5f + 0.5f
-        val variance =
-            (
-                sin(time * (seed.x + 0.5f) * 12f + seed.y * 10f) * (1f - mixAmount) +
-                    sin(time * (seed.y + 1.5f) * 6f + seed.x * 4f) * mixAmount
-            ) *
-                seed.x + seed.y
-        val alpha = (frame.particleOpacity * variance * variance).coerceIn(0f, 1f)
-        if (alpha <= 0.01f) return@forEach
-        y += cos(seed.y * 4f) * cos(x + seed.y + time / 5f) / 8f * frame.amplitude + cos(x * 2f - time) * ratio / 2f - 0.28f
-        val center = Offset((x + 1f) / 2f * size.width, (1f - y - frame.lift) / 2f * size.height)
+        val now = particlePosition(seed, frame.particleTime, frame, ratio) ?: return@forEach
+        val center = Offset((now[0] + 1f) / 2f * size.width, (1f - now[1] - frame.lift) / 2f * size.height)
+        val alpha = now[2]
         val radius = seed.size * pixel / 2f
+        val trail = if (frame.streak > 0f) particlePosition(seed, frame.particleTime - frame.streak, frame, ratio) else null
+        if (trail != null && abs(trail[0] - now[0]) < 0.5f) {
+            // Fast particles leave a short trail, like the console's streaks in loud passages.
+            val start = Offset((trail[0] + 1f) / 2f * size.width, (1f - trail[1] - frame.lift) / 2f * size.height)
+            drawLine(
+                Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = alpha)), start = start, end = center),
+                start = start,
+                end = center,
+                strokeWidth = radius,
+                cap = StrokeCap.Round,
+                blendMode = BlendMode.Plus,
+            )
+        }
         drawCircle(
             Brush.radialGradient(
                 listOf(Color.White.copy(alpha = alpha), Color.White.copy(alpha = alpha * 0.6f), Color.Transparent),
@@ -197,6 +210,33 @@ internal fun DrawScope.drawRibbonParticles(frame: RibbonFrame) {
             blendMode = BlendMode.Plus,
         )
     }
+}
+
+/**
+ * A particle's (x, y, alpha) in normalized device units at particle-clock [time]: it drifts and
+ * bobs on its own clock and rides the ribbon's wave on the ribbon's clock. Null when it's dark.
+ */
+private fun particlePosition(
+    seed: ParticleSeed,
+    time: Float,
+    frame: RibbonFrame,
+    ratio: Float,
+): FloatArray? {
+    val x = fract(time * (seed.x - 0.5f) / 15f + seed.y * 50f - frame.drift) * 2f - 1f
+    var y = sin(time * (seed.y + 1.5f) / 4f + seed.x * 100f)
+    y /= (6f - seed.x * 4f * seed.y) / ratio
+    val mixAmount = y * 0.5f + 0.5f
+    val variance =
+        (
+            sin(time * (seed.x + 0.5f) * 12f + seed.y * 10f) * (1f - mixAmount) +
+                sin(time * (seed.y + 1.5f) * 6f + seed.x * 4f) * mixAmount
+        ) *
+            seed.x + seed.y
+    val alpha = (frame.particleOpacity * variance * variance).coerceIn(0f, 1f)
+    if (alpha <= 0.01f) return null
+    val wave = frame.time
+    y += cos(seed.y * 4f) * cos(x + seed.y + wave / 5f) / 8f * frame.amplitude + cos(x * 2f - wave) * ratio / 2f - 0.28f
+    return floatArrayOf(x, y, alpha)
 }
 
 private fun fract(value: Float) = value - floor(value)
