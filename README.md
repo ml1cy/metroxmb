@@ -23,7 +23,8 @@ background. The stock Metrolist interface stays available as a selectable interf
 ## Status
 
 **Current milestone: M2 done (desktop).** The XMB runs on desktop (Windows, macOS, Linux) and
-plays your music. Android and iOS keep the stock Metrolist interface until M7 and M8.
+plays your music. Android keeps the stock Metrolist interface until M7. iOS isn't a target and
+keeps the stock interface.
 
 | | Milestone | Status |
 |---|---|---|
@@ -35,7 +36,6 @@ plays your music. Android and iOS keep the stock Metrolist interface until M7 an
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Planned |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | Planned |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings | Planned |
-| M8 | iOS | Planned |
 
 **After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
 waves, beat-synced colors, party mode, shared visualizers in Listen Together rooms, gamepad-driven
@@ -138,7 +138,7 @@ XMB code lives in the shared module; platform glue sits in each app.
 ## Known limits
 
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
-  yet; iOS can't play Ogg Vorbis and needs converted sounds (M8).
+  yet.
 - The Windows portable build was assembled on Linux and hasn't been run on Windows yet.
 - `users.png` and `artist.png` are 68×68 and look soft when enlarged.
 - Layout, timing and colors are first passes until console reference frames are added to

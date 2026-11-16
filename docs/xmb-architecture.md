@@ -180,9 +180,10 @@ a gradient fallback on older Android (minSdk is 24).
 ## 11. Upstream touchpoints (approved)
 
 Approved by the owner. M1 landed 1, 2, 3, 5 and 7, plus a one-word addition to
-`SettingsOrdering.kt` so the interface group sits at the top of Appearance. Android (4) and iOS
-(6) switch over in M7 and M8, once the XMB handles touch there; until then
-`xmbPlatforms` lists only desktop, so those platforms neither show the setting nor switch.
+`SettingsOrdering.kt` so the interface group sits at the top of Appearance. Android (4) switches
+over in M7, once the XMB handles touch there; until then `xmbPlatforms` lists only desktop, so
+Android neither shows the setting nor switches. iOS (6) is dropped: iOS isn't a target and keeps
+the stock interface.
 `UPSTREAM_TOUCHPOINTS.md` is the log of what actually changed.
 
 The XMB sits beside the stock UI. Each platform switches at the point where its shared locals
@@ -196,7 +197,7 @@ Together manager, auth restore and onboarding without re-creating them.
 | 3 | `shared/.../ui/settings/AppearanceSettingsRegistration.kt` | One `CHOICE` item "Interface style" (XMB / Metrolist) at the top of Appearance, so the stock settings on every platform can switch back to the XMB. Strings `xmb_interface_style*` in `values/strings.xml` |
 | 4 | `androidApp/.../ui/MetrolistApp.kt` | Inside `NavigationContentProvider` (l.893): `if (Settings.shared.interfaceStyle == InterfaceStyle.XMB) { XmbAndroidHost(...); return }` before the stock scaffold. `XmbAndroidHost` is a project-only file in `androidApp/.../xmb/` |
 | 5 | `desktopApp/.../Main.kt` | In `App()` (l.278): call `XmbDesktopHost(...)` instead of `AppContent(...)` when the style is XMB. The host keeps `MetrolistTheme`, the onboarding gate and the image loader setup from `AppContent` and adds XMB input. Project-only file in `desktopApp/.../xmb/` |
-| 6 | `shared/src/iosMain/.../MainViewController.kt` | At l.438: `XmbIosHost(...)` instead of `MobileApp(...)` when the style is XMB, passing the same platform arguments. Project-only file in `shared/src/iosMain/.../xmb/` |
+| 6 | `shared/src/iosMain/.../MainViewController.kt` | **Dropped.** iOS keeps the stock `MobileApp(...)`; no edit |
 | 7 | `shared/src/commonMain/composeResources/values/strings.xml` | XMB strings with the `xmb_` prefix (upstream file; appended block only) |
 
 Notes:
@@ -206,8 +207,8 @@ Notes:
   project-only names (`xmb_*`), not an upstream edit.
 - An upstream merge touching these lines conflicts in small, predictable places; each will be
   logged in `UPSTREAM_TOUCHPOINTS.md` when it lands.
-- Alternative for 4 to 6: switch earlier (in `MainActivity.showContent`, `Window`,
-  `MainViewController`) with fully separate hosts. That means fewer lines inside upstream root
+- Alternative for 4 and 5: switch earlier (in `MainActivity.showContent`, `Window`) with fully
+  separate hosts. That means fewer lines inside upstream root
   composables, but the hosts would duplicate player connection, controller, Listen Together and
   theme setup that drifts with upstream. Not recommended.
 
@@ -249,8 +250,8 @@ Notes:
   M1 draws every icon at a fixed dp size, and the manifest test enforces a minimum of 128 px.
   The owner may want sharper `users`/`artist` sources.
 - **Sounds are Ogg Vorbis** (48 kHz). Android (`SoundPool`) and desktop (bundled FFmpeg) can
-  play them. **iOS AVFoundation can't decode Vorbis.** Options for M8: convert to CAF/AAC at
-  build time, or decode through FFmpeg/Opus code already in the tree. Not a blocker before M8.
+  play them. iOS AVFoundation can't decode Vorbis, which doesn't matter since iOS keeps the
+  stock interface.
 - Font: `SCE-PS3-Rodin-LATIN-Regular.ttf`, TrueType, regular weight only. Compose synthesizes
   bold; non-Latin falls back through the app's existing font stack.
 

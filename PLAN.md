@@ -11,7 +11,8 @@ Listen Together) stays as is. The stock Metrolist UI keeps working as a selectab
 
 **Visualizers for the 1:1 core:** Waves (XMB silk ribbon), Valley (terrain), Gaia (Earth).
 
-**Target order:** Desktop (fastest to iterate and screenshot) → Android / Android TV → iOS.
+**Target order:** Desktop (fastest to iterate and screenshot) → Android / Android TV. iOS isn't
+a target: it keeps the stock Metrolist interface.
 
 ## What already exists in Metrolist (don't rebuild it)
 - **Audio data:** `shared/.../equalizer/AudioSpectrumMeter` is an 18-band meter fed on every
@@ -74,8 +75,8 @@ shared/src/commonMain/kotlin/com/metrolist/shared/
 shared/src/commonMain/composeResources/
   drawable/xmb_*.png  font/xmb_rodin_latin_regular.ttf  files/xmb/sounds/*.ogg
 ```
-Platform entry points (Android activity, desktop window, iOS `MainViewController`) choose
-`XmbApp` or the stock UI from `Settings.shared.interfaceStyle`. Log every upstream file edit
+Platform entry points (Android activity, desktop window) choose `XmbApp` or the stock UI from
+`Settings.shared.interfaceStyle`; iOS always shows the stock UI. Log every upstream file edit
 in `UPSTREAM_TOUCHPOINTS.md`.
 
 **Input:** keyboard/controller/D-pad first (arrows, Enter = ✕, Esc/Back = ○, Menu/Tab = △).
@@ -148,9 +149,6 @@ long-press = options.
 - Quality settings and FPS cap; pause when hidden (per `docs/rendering.md`); shader fallback
   below the API level the existing shaders require
 
-### M8: iOS
-- Check the shaders, meter and touch on iOS. Building needs a Mac (or macOS CI).
-
 ## Extra features (after the core is done)
 - Theme picker: monthly colors, fixed colors, custom, or album-art tint
 - Lyrics floating over the waves; beat-synced color shifts; party mode
@@ -164,8 +162,8 @@ long-press = options.
 ## Known risks
 - **Scope:** the front-end rewrite is the biggest part. Metrolist-KMP is alpha, so upstream
   ViewModels may change. Keep adapters thin and touchpoints logged.
-- The meter is unavailable on iOS HLS streams and during Android offload. The visualizer
-  falls back to idle motion there.
+- The meter is unavailable during Android offload. The visualizer falls back to idle motion
+  there.
 - **Private repo only:** the committed PS3 font and sounds are Sony's. Keep `origin` private
   and don't share builds.
 

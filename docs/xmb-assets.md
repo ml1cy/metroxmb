@@ -90,8 +90,7 @@ PNGs they replace were copies of `reference/icons-extra/menu_stream.png` and `me
 | Unlock (achievement-style) | `files/xmb/sounds/unlock.ogg` | 1.0 s |
 | Menu background music | `files/xmb/sounds/menu_bgm.ogg` | 2:14. Optional; off by default, and muted while music plays |
 
-Desktop decodes these with the bundled FFmpeg and Android's `SoundPool` plays Vorbis. iOS
-can't decode Vorbis natively, so iOS needs converted copies (M8).
+Desktop decodes these with the bundled FFmpeg and Android's `SoundPool` plays Vorbis.
 
 ## Not shipped
 
