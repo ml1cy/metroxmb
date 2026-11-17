@@ -10,6 +10,7 @@ import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.util.packFloats
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.shared.ui.navigation.PopupSourceResetHandler
+import com.metrolist.shared.xmb.XmbBackdropInput
 
 @Suppress("UNCHECKED_CAST")
 @OptIn(InternalComposeUiApi::class)
@@ -50,8 +51,12 @@ interface LayoutHitTestOwner {
 private val Any?.isPopupSourceResetObserver: Boolean
     get() = this is SuspendingPointerInputModifierNode && pointerInputEventHandler is PopupSourceResetHandler
 
+// The XMB's backdrop handler covers the whole window; the title-bar strip over it stays the window's.
+private val Any?.isXmbBackdrop: Boolean
+    get() = this is SuspendingPointerInputModifierNode && pointerInputEventHandler is XmbBackdropInput
+
 internal fun hasInteractivePointerInput(nodes: List<*>): Boolean =
-    nodes.any { it is PointerInputModifierNode && !it.isPopupSourceResetObserver }
+    nodes.any { it is PointerInputModifierNode && !it.isPopupSourceResetObserver && !it.isXmbBackdrop }
 
 internal abstract class ReflectLayoutHitTestOwner : LayoutHitTestOwner {
     @OptIn(InternalComposeUiApi::class)

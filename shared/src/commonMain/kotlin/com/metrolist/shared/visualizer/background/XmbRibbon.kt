@@ -147,7 +147,7 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
             val alongY = if (row < n - 1) grid[index + 1] else mirror(here, grid[index - 1])
             val alpha = ribbonAlpha(here, alongX, alongY, frame.opacity).coerceIn(0f, 1f)
             positions += Offset((here[0] + 1f) / 2f * size.width, (1f - here[1] - frame.lift) / 2f * size.height)
-            colors += Color(frame.tint.red, frame.tint.green, frame.tint.blue, alpha)
+            colors += Color(frame.tint.red, frame.tint.green, frame.tint.blue, alpha / RIBBON_SAMPLE_OFFSETS.size)
         }
     }
     // Vertex colors are multiplied by the paint color, so it must be white.
@@ -156,10 +156,24 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
             color = Color.White
             blendMode = BlendMode.Plus
         }
+    // drawVertices has no anti-aliasing. Where the sheet turns edge-on (its crests and troughs) the
+    // triangles get thinner than a pixel and the silk lines would step, so the mesh is drawn once per
+    // sub-pixel offset at a fraction of its strength: added up, that's 8x multisampling.
+    val vertices = Vertices(VertexMode.Triangles, positions, positions, colors, ribbonIndices)
     drawIntoCanvas { canvas ->
-        canvas.drawVertices(Vertices(VertexMode.Triangles, positions, positions, colors, ribbonIndices), BlendMode.Modulate, paint)
+        for (offset in RIBBON_SAMPLE_OFFSETS) {
+            canvas.save()
+            canvas.translate(offset.x, offset.y)
+            canvas.drawVertices(vertices, BlendMode.Modulate, paint)
+            canvas.restore()
+        }
     }
 }
+
+/** Sub-pixel sample positions for the ribbon's passes: the standard 8x multisampling pattern. */
+internal val RIBBON_SAMPLE_OFFSETS =
+    listOf(1 to -3, -1 to 3, 5 to 1, -3 to -5, -5 to 5, -7 to -1, 3 to 7, 7 to -7)
+        .map { (x, y) -> Offset(x / 16f, y / 16f) }
 
 private fun mirror(
     here: FloatArray,

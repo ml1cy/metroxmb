@@ -69,11 +69,10 @@ import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.rememberMetrolistSettingsRegistry
 import com.metrolist.shared.visualizer.VisualizerAudio
-import com.metrolist.shared.visualizer.background.XmbBackground
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.background.XmbWaveNudge
 import com.metrolist.shared.visualizer.rememberVisualizerAudio
-import com.metrolist.shared.visualizer.waves.WavesVisualizer
+import com.metrolist.shared.visualizer.waves.XmbBackdrop
 import com.metrolist.shared.xmb.adapters.XmbEntry
 import com.metrolist.shared.xmb.adapters.XmbEntryKind
 import com.metrolist.shared.xmb.adapters.XmbList
@@ -101,6 +100,7 @@ import com.metrolist.shared.xmb.nav.XmbItemAction
 import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
+import com.metrolist.shared.xmb.nav.XmbNoticeRequest
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.reduce
@@ -114,11 +114,12 @@ import com.metrolist.shared.xmb.nav.xmbSettingsItems
 import com.metrolist.shared.xmb.nav.xmbUserItems
 import com.metrolist.shared.xmb.screens.XmbKeyboardView
 import com.metrolist.shared.xmb.screens.XmbLyricsView
-import com.metrolist.shared.xmb.screens.XmbNowPlaying
+import com.metrolist.shared.xmb.screens.XmbNoticeView
 import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.screens.XmbPickerView
-import com.metrolist.shared.xmb.screens.XmbVisualizerOverlay
+import com.metrolist.shared.xmb.screens.XmbTrackInfo
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
+import com.metrolist.shared.xmb.sound.XmbSound
 import com.metrolist.shared.xmb.sound.sound
 import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbMotion
@@ -172,6 +173,7 @@ fun XmbApp(
     modifier: Modifier = Modifier,
     services: XmbServices? = null,
     suspended: Boolean = false,
+    notice: XmbNoticeRequest? = null,
     time: (() -> XmbTime)? = null,
     animate: Boolean = true,
     initialCategory: XmbCategoryId = XmbCategoryId.MUSIC,
@@ -193,6 +195,10 @@ fun XmbApp(
     // The full-screen visualizer's track overlay shows until this time, then fades.
     var overlayUntil by remember { mutableFloatStateOf(VISUALIZER_OVERLAY_SECONDS) }
     val focusRequester = remember { FocusRequester() }
+    // A host notice (playback error, expired sign-in) takes the keys until a button is chosen.
+    val noticeId = notice?.notice?.id
+    var noticeFocus by remember(noticeId) { mutableIntStateOf(notice?.notice?.focus ?: 0) }
+    LaunchedEffect(noticeId) { if (noticeId != null) sounds.play(XmbSound.NOTICE) }
     val scope = rememberCoroutineScope()
     val actions = remember(services, scope) { services?.let { XmbActions(it, scope) } }
 
@@ -675,6 +681,19 @@ fun XmbApp(
             .focusable()
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || suspended) return@onKeyEvent false
+                if (notice != null) {
+                    val action = xmbActionFor(event.key) ?: return@onKeyEvent true
+                    val step = notice.notice.reduce(action, noticeFocus)
+                    noticeFocus = step.focus
+                    val chosen = step.chosen
+                    if (chosen != null) {
+                        sounds.play(XmbSound.NOTICE_CLOSE)
+                        notice.onChoice(chosen)
+                    } else {
+                        step.feedback.sound()?.let(sounds::play)
+                    }
+                    return@onKeyEvent true
+                }
                 val mode = fullScreen
                 if (mode != null) {
                     // Full screen: ○ steps back (lyrics off, then the XMB), △ toggles lyrics over a
@@ -688,6 +707,8 @@ fun XmbApp(
                                     if (mode == XmbFullScreen.Video) services?.playback?.setVideoMode(false)
                                     null
                                 }
+                            // The track info slides back to its corner in view.
+                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
                             feedback(action, XmbFeedback.BACK)
                         }
 
@@ -714,21 +735,24 @@ fun XmbApp(
                 val action = xmbActionFor(event.key) ?: return@onKeyEvent false
                 dispatch(action)
                 true
-            }.pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
-                        if (event.type == PointerEventType.Press && !suspended) focusRequester.requestFocus()
-                        if (event.type != PointerEventType.Scroll) continue
-                        val delta = event.changes.fold(Offset.Zero) { sum, change -> sum + change.scrollDelta }
-                        xmbActionForScroll(delta.x, delta.y)?.let {
-                            dispatch(it)
-                            event.changes.forEach { change -> change.consume() }
+            }.pointerInput(
+                Unit,
+                XmbBackdropInput {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
+                            if (event.type == PointerEventType.Press && !suspended) focusRequester.requestFocus()
+                            if (event.type != PointerEventType.Scroll) continue
+                            val delta = event.changes.fold(Offset.Zero) { sum, change -> sum + change.scrollDelta }
+                            xmbActionForScroll(delta.x, delta.y)?.let {
+                                dispatch(it)
+                                event.changes.forEach { change -> change.consume() }
+                            }
                         }
                     }
-                }
-            },
+                },
+            ),
     ) {
         val metrics = remember(maxWidth, maxHeight) { XmbMetrics.forSize(maxWidth, maxHeight) }
         val density = LocalDensity.current
@@ -751,19 +775,15 @@ fun XmbApp(
             }
         val styles = rememberXmbRowStyles(metrics, fontFamily)
         val backgroundColors = XmbPalette.backgroundColors(now.month, now.hourOfDay)
-        if (visualizerShown < 1f && videoShown < 1f) {
-            XmbBackground(
+        if (videoShown < 1f) {
+            // One picture for both: opening Waves turns the home sky and wave into it.
+            XmbBackdrop(
                 colors = backgroundColors,
-                modifier = Modifier.fillMaxSize(),
-                seconds = { seconds.floatValue },
                 motion = motion,
-            )
-        }
-        if (visualizerMode != null || visualizerShown > 0f) {
-            WavesVisualizer(
                 audio = audio,
+                waves = { visualizerShown },
                 seconds = { seconds.floatValue },
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
+                modifier = Modifier.fillMaxSize(),
             )
         }
         val video = services?.video
@@ -772,7 +792,8 @@ fun XmbApp(
                 video.Surface(Modifier.fillMaxSize())
             }
         }
-        val menuAlpha = { 1f - fullShown }
+        // The menu is gone by the time the track info has slid most of the way.
+        val menuAlpha = { (1f - fullShown / MENU_FADE_SHARE).coerceIn(0f, 1f) }
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - drill) * (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
             XmbBar(
                 categories = categories,
@@ -789,15 +810,6 @@ fun XmbApp(
             }
         }
         services?.playback?.let { playback ->
-            XmbNowPlaying(
-                playback,
-                metrics,
-                fontFamily,
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = metrics.edgeMargin, bottom = metrics.edgeMargin)
-                    .graphicsLayer { alpha = menuAlpha() },
-            )
             if (lyricsShown > 0f) {
                 val position by produceState(playback.currentPositionMs(), playingSong?.id, playbackState?.isPlaying) {
                     while (true) {
@@ -822,18 +834,18 @@ fun XmbApp(
                     modifier = Modifier.graphicsLayer { alpha = lyricsShown },
                 )
             }
-            if (fullShown > 0f) {
-                XmbVisualizerOverlay(
-                    playback,
-                    metrics,
-                    fontFamily,
-                    Modifier.graphicsLayer {
-                        // Full screen, the track shows after opening and each key press, then fades out.
-                        val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
-                        alpha = fullShown * overlay
-                    },
-                )
-            }
+            XmbTrackInfo(
+                playback = playback,
+                metrics = metrics,
+                fontFamily = fontFamily,
+                expand = { fullShown },
+                alpha = {
+                    // Full screen, the track shows after opening and each key press, then fades out.
+                    val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
+                    1f + (overlay - 1f) * fullShown
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
         XmbClock(
             now,
@@ -853,6 +865,7 @@ fun XmbApp(
             }
         }
         keyboard?.let { XmbKeyboardView(it.keyboard, metrics, fontFamily) }
+        notice?.let { XmbNoticeView(it.notice, noticeFocus, metrics, fontFamily) }
     }
 
     // Keys belong to the XMB whenever the window is active and no stock dialog is over it.
@@ -964,8 +977,12 @@ private fun rememberAnimationSeconds(
     return seconds
 }
 
-/** Full-screen visualizer: fade in or out, and how long the track overlay stays after a key. */
-private const val VISUALIZER_FADE_MS = 600
+/**
+ * Full screen: how long the move in or out takes (the backdrop's blend, the track info's slide),
+ * the share of it the menu takes to fade, and how long the track overlay stays after a key.
+ */
+private const val VISUALIZER_FADE_MS = 900
+private const val MENU_FADE_SHARE = 0.6f
 private const val VISUALIZER_OVERLAY_SECONDS = 4f
 private const val VISUALIZER_OVERLAY_FADE = 0.6f
 

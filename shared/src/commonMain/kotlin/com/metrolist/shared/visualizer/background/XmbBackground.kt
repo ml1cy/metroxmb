@@ -34,16 +34,22 @@ internal fun DrawScope.drawXmbBackground(
     motion: XmbWaveMotion,
 ) {
     drawRect(Brush.verticalGradient(listOf(colors.top, colors.bottom)))
-    val frame =
-        RibbonFrame(
-            // Navigation pushes the flow (XmbWaveMotion); the error sound makes it shiver.
-            time = RIBBON_START + (motion.flow + motion.shiver * 0.15f * sin(seconds * 46f)) * RIBBON_SPEED,
-            amplitude = 1f + 0.9f * motion.swell,
-            opacity = RIBBON_OPACITY * (1f + 0.7f * motion.flash),
-            particleOpacity = RIBBON_PARTICLE_OPACITY * (1f + 1.5f * motion.flash),
-            lift = -motion.lift * 0.12f,
-            drift = motion.drift,
-        )
+    val frame = homeRibbonFrame(motion, seconds)
     drawRibbon(frame)
     drawRibbonParticles(frame)
 }
+
+/** The home ribbon for this frame: at rest it drifts; [motion] (navigation) pushes, swells and flashes it. */
+internal fun homeRibbonFrame(
+    motion: XmbWaveMotion,
+    seconds: Float,
+): RibbonFrame =
+    RibbonFrame(
+        // Navigation pushes the flow (XmbWaveMotion); the error sound makes it shiver.
+        time = RIBBON_START + (motion.flow + motion.shiver * 0.15f * sin(seconds * 46f)) * RIBBON_SPEED,
+        amplitude = 1f + 0.9f * motion.swell,
+        opacity = RIBBON_OPACITY * (1f + 0.7f * motion.flash),
+        particleOpacity = RIBBON_PARTICLE_OPACITY * (1f + 1.5f * motion.flash),
+        lift = -motion.lift * 0.12f,
+        drift = motion.drift,
+    )

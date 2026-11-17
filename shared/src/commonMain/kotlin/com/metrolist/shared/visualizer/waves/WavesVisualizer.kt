@@ -30,30 +30,34 @@ fun WavesVisualizer(
     Canvas(modifier) {
         // The audio fields are plain values; reading the frame clock is what redraws every frame.
         seconds()
-        drawRect(Brush.verticalGradient(*SKY))
-        val rush = 1f + VisualizerAudio.PARTICLE_RUSH * audio.energy + VisualizerAudio.PARTICLE_BEAT_RUSH * audio.beat
-        val frame =
-            RibbonFrame(
-                time = RIBBON_START + audio.flow * WAVES_SPEED,
-                amplitude = 1f + 0.8f * audio.bass,
-                opacity = RIBBON_OPACITY * (1f + 0.5f * audio.energy + 0.6f * audio.beat),
-                particleOpacity = RIBBON_PARTICLE_OPACITY * (0.8f + 0.8f * audio.treble + 0.8f * audio.beat),
-                folds = RIBBON_FOLDS + 5f * audio.mid,
-                tint = TINT,
-                particleTime = RIBBON_START + audio.particleFlow * WAVES_SPEED,
-                // A trail as long as the particle moves in about a twentieth of a second.
-                streak = WAVES_SPEED * rush / 20f,
-            )
+        drawRect(Brush.verticalGradient(*WAVES_SKY))
+        val frame = wavesRibbonFrame(audio)
         drawRibbon(frame)
         drawRibbonParticles(frame)
     }
+}
+
+/** The Waves ribbon for this frame of [audio]: the bass swells it, the mid folds it, beats flash it. */
+internal fun wavesRibbonFrame(audio: VisualizerAudio): RibbonFrame {
+    val rush = 1f + VisualizerAudio.PARTICLE_RUSH * audio.energy + VisualizerAudio.PARTICLE_BEAT_RUSH * audio.beat
+    return RibbonFrame(
+        time = RIBBON_START + audio.flow * WAVES_SPEED,
+        amplitude = 1f + 0.8f * audio.bass,
+        opacity = RIBBON_OPACITY * (1f + 0.5f * audio.energy + 0.6f * audio.beat),
+        particleOpacity = RIBBON_PARTICLE_OPACITY * (0.8f + 0.8f * audio.treble + 0.8f * audio.beat),
+        folds = RIBBON_FOLDS + 5f * audio.mid,
+        tint = TINT,
+        particleTime = RIBBON_START + audio.particleFlow * WAVES_SPEED,
+        // A trail as long as the particle moves in about a twentieth of a second.
+        streak = WAVES_SPEED * rush / 20f,
+    )
 }
 
 /** The ribbon's clock against [VisualizerAudio.flow]: a little livelier than the home screen's. */
 private const val WAVES_SPEED = 0.35f
 
 /** Sampled from the console video: violet at the top through deep violet to near black. */
-private val SKY =
+internal val WAVES_SKY =
     arrayOf(
         0f to Color(110, 40, 240),
         0.35f to Color(70, 14, 175),

@@ -9,6 +9,7 @@ import com.metrolist.desktop.window.jna.structure.WinUserConst.HTCLOSE
 import com.metrolist.desktop.window.jna.structure.WinUserConst.HTMAXBUTTON
 import com.metrolist.desktop.window.jna.structure.WinUserConst.HTMINBUTTON
 import com.metrolist.shared.ui.navigation.PopupSourceResetHandler
+import com.metrolist.shared.xmb.XmbBackdropInput
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -23,6 +24,16 @@ class WindowsCaptionHitTesterTest {
         for (nodes in listOf(listOf(observer, control), listOf(control, observer))) {
             assertEquals(HTCLIENT, frame.hitTest(200f, 16f, false) { _, _ -> hasInteractivePointerInput(nodes) })
         }
+    }
+
+    @Test
+    fun xmbBackdropLeavesTheCaptionToTheWindow() {
+        val backdrop = SuspendingPointerInputModifierNode(XmbBackdropInput { })
+        val control = SuspendingPointerInputModifierNode { }
+        val frame = frame()
+
+        assertEquals(HTCAPTION, frame.hitTest(200f, 16f, false) { _, _ -> hasInteractivePointerInput(listOf(backdrop)) })
+        assertEquals(HTCLIENT, frame.hitTest(200f, 16f, false) { _, _ -> hasInteractivePointerInput(listOf(backdrop, control)) })
     }
 
     @Test

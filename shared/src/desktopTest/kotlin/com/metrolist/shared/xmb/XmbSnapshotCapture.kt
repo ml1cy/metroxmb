@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,7 +46,9 @@ import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.visualizer.VisualizerAudio
+import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.waves.WavesVisualizer
+import com.metrolist.shared.visualizer.waves.XmbBackdrop
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.adapters.XmbListState
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
@@ -57,8 +60,11 @@ import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
+import com.metrolist.shared.xmb.screens.XmbTrackInfo
 import com.metrolist.shared.xmb.theme.XmbIcons
+import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbPalette
+import com.metrolist.shared.xmb.theme.rememberXmbFontFamily
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.compose.resources.painterResource
@@ -206,7 +212,11 @@ class XmbSnapshotCapture {
                         initialOptions = true,
                     )
                 },
-            )
+            ) +
+                // The move into Waves: the sky and wave blend, the track info slides and grows.
+                listOf(0f, 0.35f, 0.65f, 1f).map { step ->
+                    Screen("visualizer-transition-${(step * 100).toInt()}") { TransitionFrame(step) }
+                }
         for (screen in screens) {
             if (only != null && screen.name != only) continue
             val density = if (screen.width >= 1920) 1.5f else 1f
@@ -369,6 +379,30 @@ class XmbSnapshotCapture {
         ).mapIndexed { index, line -> LyricsEntry(time = 72_000L + index * 6_000L, text = line) }
     private val playerLevel =
         XmbLevel(XmbList.SettingsPage(SettingsPageId.PLAYER), "Player", XmbIcon.Drawable(Res.drawable.xmb_item_volume))
+
+    /** One still of the move into Waves, [step] of the way, without the menu (it fades first). */
+    @Composable
+    private fun TransitionFrame(step: Float) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val metrics = XmbMetrics.forSize(maxWidth, maxHeight)
+            XmbBackdrop(
+                colors = XmbPalette.backgroundColors(11, 14f),
+                motion = XmbWaveMotion(),
+                audio = VisualizerAudio(),
+                waves = { step },
+                seconds = { 3f },
+                modifier = Modifier.fillMaxSize(),
+            )
+            XmbTrackInfo(
+                playback = checkNotNull(demoServices.playback),
+                metrics = metrics,
+                fontFamily = rememberXmbFontFamily(),
+                expand = { step },
+                alpha = { 1f },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 
     private class Screen(
         val name: String,
