@@ -1,8 +1,10 @@
 package com.metrolist.shared.xmb
 
 import com.metrolist.shared.visualizer.background.RIBBON_RESOLUTION
+import com.metrolist.shared.visualizer.background.RIBBON_SAMPLE_OFFSETS
 import com.metrolist.shared.visualizer.background.ribbonAlpha
 import com.metrolist.shared.visualizer.background.ribbonIndices
+import com.metrolist.shared.visualizer.background.ribbonPassAlpha
 import com.metrolist.shared.visualizer.background.ribbonVertex
 import kotlin.math.cos
 import kotlin.test.Test
@@ -58,5 +60,18 @@ class XmbRibbonTest {
         val flat = ribbonVertex(0.3f, 0.2f, time = 1f, ratio = 0.5f, amplitude = 0f)[1]
         val folded = ribbonVertex(0.3f, 0.2f, time = 1f, ratio = 0.5f, amplitude = 2f)[1]
         assertTrue(flat != folded)
+    }
+
+    @Test
+    fun ribbonPassesKeepFullEightBitPrecision() {
+        val passes = RIBBON_SAMPLE_OFFSETS.size
+        for (level in 0..255) {
+            val alpha = level / 255f
+            // Each pass's color is stored in 8 bits, rounded as Compose's Color does.
+            val sum = (0 until passes).sumOf { pass -> (ribbonPassAlpha(alpha, pass, passes) * 255f + 0.5f).toInt() }
+            assertTrue(kotlin.math.abs(sum - level) <= 1, "level $level came back as $sum")
+        }
+        // Nothing where the sheet is clear: no haze from the nudges.
+        assertEquals(0, (0 until passes).sumOf { pass -> (ribbonPassAlpha(0f, pass, passes) * 255f + 0.5f).toInt() })
     }
 }

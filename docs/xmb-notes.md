@@ -148,7 +148,9 @@ visualizer's instead of one fading over the other.
 
 The ribbon mesh is drawn 8 times at an eighth of its strength, each pass offset by one of the
 standard 8x multisampling positions: `drawVertices` has no anti-aliasing, and where the sheet turns
-edge-on (crests and troughs) its triangles get thinner than a pixel and the silk lines stepped.
+edge-on (crests and troughs) its triangles get thinner than a pixel and the silk lines stepped. Colors are 8-bit,
+so each pass's share is nudged by a different fraction of a step (`ribbonPassAlpha`): plain eighths
+rounded alike in every pass, kept 32 of 256 levels and showed as blocky patches in the sheet.
 
 | Constant | Value | Reason |
 |---|---|---|

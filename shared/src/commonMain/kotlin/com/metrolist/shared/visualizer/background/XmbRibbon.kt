@@ -137,7 +137,7 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
             ribbonVertex(column * 2f / (n - 1) - 1f, row * 2f / (n - 1) - 1f, frame.time, ratio, frame.amplitude, frame.folds)
         }
     val positions = ArrayList<Offset>(n * n)
-    val colors = ArrayList<Color>(n * n)
+    val alphas = FloatArray(n * n)
     for (column in 0 until n) {
         for (row in 0 until n) {
             val index = column * n + row
@@ -147,7 +147,7 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
             val alongY = if (row < n - 1) grid[index + 1] else mirror(here, grid[index - 1])
             val alpha = ribbonAlpha(here, alongX, alongY, frame.opacity).coerceIn(0f, 1f)
             positions += Offset((here[0] + 1f) / 2f * size.width, (1f - here[1] - frame.lift) / 2f * size.height)
-            colors += Color(frame.tint.red, frame.tint.green, frame.tint.blue, alpha / RIBBON_SAMPLE_OFFSETS.size)
+            alphas[index] = alpha
         }
     }
     // Vertex colors are multiplied by the paint color, so it must be white.
@@ -159,9 +159,11 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
     // drawVertices has no anti-aliasing. Where the sheet turns edge-on (its crests and troughs) the
     // triangles get thinner than a pixel and the silk lines would step, so the mesh is drawn once per
     // sub-pixel offset at a fraction of its strength: added up, that's 8x multisampling.
-    val vertices = Vertices(VertexMode.Triangles, positions, positions, colors, ribbonIndices)
+    val passes = RIBBON_SAMPLE_OFFSETS.size
     drawIntoCanvas { canvas ->
-        for (offset in RIBBON_SAMPLE_OFFSETS) {
+        RIBBON_SAMPLE_OFFSETS.forEachIndexed { pass, offset ->
+            val colors = List(n * n) { Color(frame.tint.red, frame.tint.green, frame.tint.blue, ribbonPassAlpha(alphas[it], pass, passes)) }
+            val vertices = Vertices(VertexMode.Triangles, positions, positions, colors, ribbonIndices)
             canvas.save()
             canvas.translate(offset.x, offset.y)
             canvas.drawVertices(vertices, BlendMode.Modulate, paint)
@@ -169,6 +171,18 @@ internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
         }
     }
 }
+
+/**
+ * One pass's share of [alpha]. Colors are 8-bit, so a plain eighth would round to whole steps
+ * in every pass and the sum would keep only 32 of the 256 levels: the dim body of the ribbon
+ * showed blocky bands along the mesh cells. Each pass is nudged by a different fraction of one
+ * step instead, so the passes round at different points and add up to [alpha] at full precision.
+ */
+internal fun ribbonPassAlpha(
+    alpha: Float,
+    pass: Int,
+    passes: Int,
+): Float = (alpha / passes + (pass - (passes - 1) / 2f) / passes / 255f).coerceIn(0f, 1f)
 
 /** Sub-pixel sample positions for the ribbon's passes: the standard 8x multisampling pattern. */
 internal val RIBBON_SAMPLE_OFFSETS =
