@@ -24,9 +24,12 @@ import com.metrolist.shared.visualizer.background.drawRibbonParticles
 @Composable
 fun WavesVisualizer(
     audio: VisualizerAudio,
+    seconds: () -> Float,
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier) {
+        // The audio fields are plain values; reading the frame clock is what redraws every frame.
+        seconds()
         drawRect(Brush.verticalGradient(*SKY))
         val rush = 1f + VisualizerAudio.PARTICLE_RUSH * audio.energy + VisualizerAudio.PARTICLE_BEAT_RUSH * audio.beat
         val frame =

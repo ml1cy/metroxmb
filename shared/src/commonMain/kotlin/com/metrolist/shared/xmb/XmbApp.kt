@@ -50,6 +50,7 @@ import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import com.metrolist.shared.auth.AuthManager
@@ -717,6 +718,8 @@ fun XmbApp(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
+                        // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
+                        if (event.type == PointerEventType.Press && !suspended) focusRequester.requestFocus()
                         if (event.type != PointerEventType.Scroll) continue
                         val delta = event.changes.fold(Offset.Zero) { sum, change -> sum + change.scrollDelta }
                         xmbActionForScroll(delta.x, delta.y)?.let {
@@ -759,6 +762,7 @@ fun XmbApp(
         if (visualizerMode != null || visualizerShown > 0f) {
             WavesVisualizer(
                 audio = audio,
+                seconds = { seconds.floatValue },
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
             )
         }
@@ -851,7 +855,9 @@ fun XmbApp(
         keyboard?.let { XmbKeyboardView(it.keyboard, metrics, fontFamily) }
     }
 
-    LaunchedEffect(suspended) { if (!suspended) focusRequester.requestFocus() }
+    // Keys belong to the XMB whenever the window is active and no stock dialog is over it.
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(suspended, windowFocused) { if (!suspended && windowFocused) focusRequester.requestFocus() }
 }
 
 /** The account as `Settings.shared` has it; reads are snapshot state, so sign-in changes recompose. */
