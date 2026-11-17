@@ -11,15 +11,26 @@ import androidx.compose.ui.input.key.Key
 fun xmbActionFor(key: Key): XmbAction? =
     when (key) {
         Key.DirectionUp -> XmbAction.UP
+
         Key.DirectionDown -> XmbAction.DOWN
+
         Key.DirectionLeft -> XmbAction.LEFT
+
         Key.DirectionRight -> XmbAction.RIGHT
+
         Key.Enter, Key.NumPadEnter, Key.DirectionCenter, Key.ButtonA -> XmbAction.SELECT
+
         Key.Escape, Key.Backspace, Key.Back, Key.ButtonB -> XmbAction.BACK
+
         Key.Tab, Key.Menu, Key.ButtonY -> XmbAction.OPTIONS
-        Key.Spacebar, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> XmbAction.PLAY_PAUSE
+
+        // Space plays and pauses through Keyboard Shortcuts, so it can be changed.
+        Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> XmbAction.PLAY_PAUSE
+
         Key.MediaNext -> XmbAction.NEXT_TRACK
+
         Key.MediaPrevious -> XmbAction.PREVIOUS_TRACK
+
         else -> null
     }
 

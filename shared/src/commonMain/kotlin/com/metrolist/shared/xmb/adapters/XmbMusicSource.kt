@@ -203,7 +203,7 @@ class DefaultXmbMusicSource(
             }
 
             // Settings rows come from the settings registry, which XmbApp builds in composition.
-            is XmbList.SettingsPage -> {
+            is XmbList.SettingsPage, is XmbList.XmbSettings -> {
                 flowOf(XmbListState.loaded(emptyList()))
             }
         }.catch { error ->

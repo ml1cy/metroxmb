@@ -52,6 +52,9 @@ class DesktopXmbSoundPlayer :
     private val scope = CoroutineScope(SupervisorJob() + audio)
     private val clips = HashMap<String, Clip>()
 
+    @Volatile
+    private var volume = 1f
+
     init {
         scope.launch {
             val failed = mutableListOf<String>()
@@ -77,6 +80,11 @@ class DesktopXmbSoundPlayer :
         }
     }
 
+    override fun setVolume(volume: Float) {
+        this.volume = volume.coerceIn(0f, 1f)
+        scope.launch { clips.values.forEach(::applyGain) }
+    }
+
     override fun close() {
         scope
             .launch {
@@ -89,11 +97,15 @@ class DesktopXmbSoundPlayer :
         val format = AudioFormat(pcm.sampleRate.toFloat(), 16, pcm.channels, true, false)
         return AudioSystem.getClip().apply {
             open(format, pcm.data, 0, pcm.data.size)
-            if (isControlSupported(FloatControl.Type.MASTER_GAIN)) {
-                val gain = getControl(FloatControl.Type.MASTER_GAIN) as FloatControl
-                gain.value = (20f * log10(EFFECT_VOLUME)).coerceIn(gain.minimum, gain.maximum)
-            }
+            applyGain(this)
         }
+    }
+
+    private fun applyGain(clip: Clip) {
+        if (!clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) return
+        val gain = clip.getControl(FloatControl.Type.MASTER_GAIN) as FloatControl
+        val level = EFFECT_VOLUME * volume
+        gain.value = if (level <= 0f) gain.minimum else (20f * log10(level)).coerceIn(gain.minimum, gain.maximum)
     }
 
     private companion object {

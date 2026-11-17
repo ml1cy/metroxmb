@@ -61,6 +61,7 @@ import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
+import com.metrolist.shared.xmb.settings.XmbSettingsPageId
 import com.metrolist.shared.xmb.theme.XmbIcons
 import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbPalette
@@ -210,6 +211,34 @@ class XmbSnapshotCapture {
                         animate = false,
                         initialLevels = listOf(homeLevel.copy(focus = 1), sectionLevel.copy(focus = 2)),
                         initialOptions = true,
+                    )
+                },
+                Screen("xmb-theme-settings") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels =
+                            listOf(
+                                XmbLevel(XmbList.XmbSettings(XmbSettingsPageId.THEME), "Theme Settings", XmbIcon.Vector(XmbIcons.Theme)),
+                            ),
+                    )
+                },
+                Screen("keyboard-shortcuts") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels =
+                            listOf(
+                                XmbLevel(
+                                    XmbList.XmbSettings(XmbSettingsPageId.SHORTCUTS),
+                                    "Keyboard Shortcuts",
+                                    XmbIcon.Vector(XmbIcons.Keyboard),
+                                ).copy(focus = 1),
+                            ),
                     )
                 },
             ) +

@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -64,6 +65,7 @@ import com.metrolist.shared.generated.resources.xmb_users_sign_out_confirm
 import com.metrolist.shared.generated.resources.xmb_value_off
 import com.metrolist.shared.generated.resources.xmb_value_on
 import com.metrolist.shared.generated.resources.yes
+import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
@@ -85,6 +87,7 @@ import com.metrolist.shared.xmb.adapters.matches
 import com.metrolist.shared.xmb.adapters.memberEntries
 import com.metrolist.shared.xmb.adapters.plainNumber
 import com.metrolist.shared.xmb.adapters.toXmbEntries
+import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.adapters.xmbSettingStep
 import com.metrolist.shared.xmb.bar.XmbBar
 import com.metrolist.shared.xmb.bar.XmbBarGeometry
@@ -100,9 +103,11 @@ import com.metrolist.shared.xmb.nav.XmbItemAction
 import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
+import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
+import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
 import com.metrolist.shared.xmb.nav.xmbActionFor
@@ -117,8 +122,22 @@ import com.metrolist.shared.xmb.screens.XmbLyricsView
 import com.metrolist.shared.xmb.screens.XmbNoticeView
 import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.screens.XmbPickerView
+import com.metrolist.shared.xmb.screens.XmbToast
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
+import com.metrolist.shared.xmb.settings.XmbKeyChord
+import com.metrolist.shared.xmb.settings.XmbPrefs
+import com.metrolist.shared.xmb.settings.XmbSettingsHooks
+import com.metrolist.shared.xmb.settings.XmbShortcut
+import com.metrolist.shared.xmb.settings.XmbShortcutCapture
+import com.metrolist.shared.xmb.settings.XmbTrackOverlay
+import com.metrolist.shared.xmb.settings.rememberXmbShortcutText
+import com.metrolist.shared.xmb.settings.title
+import com.metrolist.shared.xmb.settings.xmbClockText
+import com.metrolist.shared.xmb.settings.xmbOwnSettingsItems
+import com.metrolist.shared.xmb.settings.xmbSettingsRows
+import com.metrolist.shared.xmb.settings.xmbShortcutCapture
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
+import com.metrolist.shared.xmb.sound.SilentXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.XmbSound
 import com.metrolist.shared.xmb.sound.sound
 import com.metrolist.shared.xmb.theme.XmbMetrics
@@ -133,6 +152,7 @@ import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 
 /** Local wall-clock time, which picks the month's color, the brightness and the clock text. */
@@ -184,17 +204,32 @@ fun XmbApp(
     initialKeyboard: XmbKeyboard? = null,
     initialFullScreen: XmbFullScreen? = null,
 ) {
-    val sounds = LocalXmbSoundPlayer.current
+    // The XMB's own settings (Settings column: Theme, Date and Time, Sound, Keyboard Shortcuts, Music Player).
+    val prefs = XmbPrefs.current()
+    val platformSounds = LocalXmbSoundPlayer.current
+    val sounds = if (prefs.menuSounds) platformSounds else SilentXmbSoundPlayer
+    LaunchedEffect(platformSounds, prefs.menuSoundVolume) { platformSounds.setVolume(prefs.menuSoundVolume) }
     val now = rememberXmbTime(time)
     val fontFamily = rememberXmbFontFamily()
     val motion = remember { XmbWaveMotion() }
     var fullScreen by remember { mutableStateOf(initialFullScreen) }
     val visualizerMode = fullScreen as? XmbFullScreen.Visualizer
     val audio = rememberVisualizerAudio(active = visualizerMode != null && animate)
-    val seconds = rememberAnimationSeconds(animate, motion, audio)
+    val waveSpeed by rememberUpdatedState(prefs.waveSpeed)
+    val seconds = rememberAnimationSeconds(animate, motion, audio) { waveSpeed }
     // The full-screen visualizer's track overlay shows until this time, then fades.
     var overlayUntil by remember { mutableFloatStateOf(VISUALIZER_OVERLAY_SECONDS) }
     val focusRequester = remember { FocusRequester() }
+    // Keyboard Shortcuts: the shortcut waiting for its new key, and whether the last key was refused.
+    var recording by remember { mutableStateOf<XmbShortcut?>(null) }
+    var recordingRefused by remember { mutableStateOf(false) }
+    // A short message at the top ("Shuffle on", "Volume 70%") until [toastUntil].
+    var toast by remember { mutableStateOf<String?>(null) }
+    var toastUntil by remember { mutableFloatStateOf(0f) }
+    // Visualizer when idle: the last key or click, and whether the open visualizer came from idling.
+    var lastInput by remember { mutableFloatStateOf(0f) }
+    var idleVisualizer by remember { mutableStateOf(false) }
+    var unmuteLevel by remember { mutableFloatStateOf(DEFAULT_UNMUTE_VOLUME) }
     // A host notice (playback error, expired sign-in) takes the keys until a button is chosen.
     val noticeId = notice?.notice?.id
     var noticeFocus by remember(noticeId) { mutableIntStateOf(notice?.notice?.focus ?: 0) }
@@ -225,10 +260,11 @@ fun XmbApp(
             ?.collectAsState()
             ?.value
     val text = rememberXmbM6Text()
+    val shortcutText = rememberXmbShortcutText()
     val categories =
         xmbCategories(
             users = xmbUserItems(account),
-            settings = registry?.let(::xmbSettingsItems).orEmpty(),
+            settings = xmbOwnSettingsItems() + registry?.let(::xmbSettingsItems).orEmpty(),
             search = xmbSearchItems(history),
             friends = xmbFriendItems(friends),
         )
@@ -249,16 +285,38 @@ fun XmbApp(
 
     val level = navigation.level
     val settingsPage = (level?.list as? XmbList.SettingsPage)?.page
+    val xmbPage = (level?.list as? XmbList.XmbSettings)?.page
     val musicState by remember(level?.list?.key, services) {
         val list = level?.list
-        if (list == null || services == null || settingsPage != null || list == XmbList.CastDevices || list == XmbList.RoomMembers) {
+        if (list == null || services == null || settingsPage != null || xmbPage != null || list == XmbList.CastDevices ||
+            list == XmbList.RoomMembers
+        ) {
             flowOf(XmbListState.loaded(emptyList()))
         } else {
             services.music.open(list)
         }
     }.collectAsState(XmbListState())
+    val wallpapers = services?.wallpaper
+    val settingsHooks =
+        XmbSettingsHooks(
+            pickWallpaper =
+                wallpapers?.let { picker ->
+                    {
+                        picker.pick { path ->
+                            Settings.shared.xmbWallpaper = path
+                            Settings.shared.xmbBackground = XmbPrefs.IMAGE_BACKGROUND
+                        }
+                    }
+                },
+            recordShortcut = {
+                recording = it
+                recordingRefused = false
+            },
+        )
     val listState =
-        if (settingsPage != null) {
+        if (xmbPage != null) {
+            XmbListState.loaded(xmbSettingsRows(xmbPage, prefs, settingsHooks).map { it.toXmbEntry(labels) })
+        } else if (settingsPage != null) {
             val page = registry?.get(settingsPage)
             // Slider formatters are composable, so their labels are made here.
             val sliderLabels = mutableMapOf<String, String>()
@@ -293,6 +351,21 @@ fun XmbApp(
         if (castListOpen) playback?.startCastDiscovery()
         onDispose { if (castListOpen) playback?.stopCastDiscovery() }
     }
+    // Visualizer when idle: while music plays and nothing is open, Waves after the chosen time.
+    val idleAfter = prefs.idleVisualizerSeconds
+    val playing = playbackState?.isPlaying == true
+    val idleReady =
+        idleAfter > 0 && animate && playing && !suspended && fullScreen == null && keyboard == null &&
+            picker == null && options == null && notice == null && recording == null
+    LaunchedEffect(idleReady, idleAfter) {
+        if (!idleReady) return@LaunchedEffect
+        lastInput = seconds.floatValue
+        while (seconds.floatValue - lastInput < idleAfter) delay(IDLE_CHECK_MS)
+        fullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.WAVES)
+        idleVisualizer = true
+        overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+    }
+    LaunchedEffect(fullScreen) { if (fullScreen == null) idleVisualizer = false }
     val drill by animateFloatAsState(if (navigation.stack.isEmpty()) 0f else 1f, tween(XmbMotion.FADE_MS))
     val pickerShown by animateFloatAsState(if (picker != null) 1f else 0f, tween(XmbMotion.FADE_MS))
     val keyboardShown by animateFloatAsState(if (keyboard != null) 1f else 0f, tween(XmbMotion.FADE_MS))
@@ -340,7 +413,7 @@ fun XmbApp(
                 XmbFeedback.ERROR -> XmbWaveNudge.ERROR
                 XmbFeedback.NONE -> null
             }
-        nudge?.let(motion::nudge)
+        if (prefs.waveReacts) nudge?.let(motion::nudge)
     }
 
     fun openKeyboard(session: KeyboardSession) {
@@ -507,9 +580,8 @@ fun XmbApp(
 
     fun selectSetting(index: Int): XmbFeedback {
         val entry = listState.entries.getOrNull(index) ?: return XmbFeedback.ERROR
-        val page = settingsPage ?: return XmbFeedback.ERROR
-        val currentRegistry = registry ?: return XmbFeedback.ERROR
-        when (val step = xmbSettingStep(entry, page, currentRegistry, labels)) {
+        if (xmbPage == null && (settingsPage == null || registry == null)) return XmbFeedback.ERROR
+        when (val step = xmbSettingStep(entry, settingsPage, registry, labels)) {
             XmbSettingStep.Unavailable -> {
                 return XmbFeedback.ERROR
             }
@@ -527,7 +599,7 @@ fun XmbApp(
             }
 
             is XmbSettingStep.Open -> {
-                val target = currentRegistry[step.page] ?: return XmbFeedback.ERROR
+                val target = registry?.get(step.page) ?: return XmbFeedback.ERROR
                 navigation =
                     navigation.push(
                         XmbLevel(XmbList.SettingsPage(step.page), target.title, XmbIcon.Drawable(Res.drawable.xmb_item_subsetting)),
@@ -674,6 +746,151 @@ fun XmbApp(
         return true
     }
 
+    fun showToast(message: String) {
+        toast = message
+        toastUntil = seconds.floatValue + TOAST_SECONDS
+    }
+
+    fun setVolume(level: Float) {
+        val volume = services?.volume ?: return
+        volume.set(level.coerceIn(0f, 1f))
+        showToast(if (level <= 0f) shortcutText.muted else shortcutText.volume((level * 100).roundToInt()))
+    }
+
+    /** Runs a keyboard shortcut (Settings > Keyboard Shortcuts). Playback ones work everywhere, like media keys. */
+    fun runShortcut(shortcut: XmbShortcut) {
+        val playback = services?.playback
+        val state = playback?.state?.value
+        if (fullScreen != null) overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+        when (shortcut) {
+            XmbShortcut.PLAY_PAUSE -> {
+                dispatch(XmbAction.PLAY_PAUSE)
+            }
+
+            XmbShortcut.NEXT_TRACK -> {
+                dispatch(XmbAction.NEXT_TRACK)
+            }
+
+            XmbShortcut.PREVIOUS_TRACK -> {
+                dispatch(XmbAction.PREVIOUS_TRACK)
+            }
+
+            XmbShortcut.SEEK_FORWARD, XmbShortcut.SEEK_BACK -> {
+                if (playback == null || state?.currentSong == null) return
+                val delta = if (shortcut == XmbShortcut.SEEK_FORWARD) SEEK_STEP_MS else -SEEK_STEP_MS
+                val target = (playback.currentPositionMs() + delta).coerceAtLeast(0L)
+                playback.seekTo(if (state.durationMs > 0) target.coerceAtMost(state.durationMs) else target)
+            }
+
+            XmbShortcut.SHUFFLE -> {
+                if (playback == null || state == null) return
+                playback.toggleShuffle()
+                showToast(if (state.isShuffled) shortcutText.shuffleOff else shortcutText.shuffleOn)
+            }
+
+            XmbShortcut.REPEAT -> {
+                if (playback == null || state == null) return
+                playback.toggleRepeat()
+                showToast(
+                    when (state.repeatMode) {
+                        RepeatMode.OFF -> shortcutText.repeatAll
+                        RepeatMode.ALL -> shortcutText.repeatOne
+                        RepeatMode.ONE -> shortcutText.repeatOff
+                    },
+                )
+            }
+
+            XmbShortcut.VOLUME_UP, XmbShortcut.VOLUME_DOWN -> {
+                val volume = services?.volume ?: return
+                setVolume(volume.level + if (shortcut == XmbShortcut.VOLUME_UP) VOLUME_STEP else -VOLUME_STEP)
+            }
+
+            XmbShortcut.MUTE -> {
+                val volume = services?.volume ?: return
+                if (volume.level > 0f) {
+                    unmuteLevel = volume.level
+                    setVolume(0f)
+                } else {
+                    setVolume(unmuteLevel)
+                }
+            }
+
+            XmbShortcut.LIKE -> {
+                val song = state?.currentSong ?: return
+                val liked = services.isLiked(song.id)
+                services.toggleLike(song)
+                showToast(if (liked) shortcutText.unliked else shortcutText.liked)
+            }
+
+            XmbShortcut.VISUALIZER -> {
+                if (fullScreen == XmbFullScreen.Video) playback?.setVideoMode(false)
+                fullScreen = if (fullScreen is XmbFullScreen.Visualizer) null else XmbFullScreen.Visualizer(XmbVisualizerKind.WAVES)
+                sounds.play(if (fullScreen == null) XmbSound.BACK else XmbSound.SELECT)
+            }
+
+            XmbShortcut.LYRICS -> {
+                if (services?.lyrics == null) return
+                when (val mode = fullScreen) {
+                    is XmbFullScreen.Visualizer -> {
+                        fullScreen = mode.copy(lyrics = !mode.lyrics)
+                    }
+
+                    XmbFullScreen.Lyrics -> {
+                        fullScreen = null
+                    }
+
+                    else -> {
+                        if (mode == XmbFullScreen.Video) playback?.setVideoMode(false)
+                        fullScreen = XmbFullScreen.Lyrics
+                    }
+                }
+                sounds.play(if (fullScreen == null) XmbSound.BACK else XmbSound.SELECT)
+            }
+
+            XmbShortcut.SEARCH -> {
+                if (services?.search == null || fullScreen != null || keyboard != null) return
+                options = null
+                picker = null
+                openKeyboard(KeyboardSession(XmbKeyboard(title = shortcutText.search), forSearch = true, onSubmit = ::search))
+                sounds.play(XmbSound.SELECT)
+            }
+        }
+    }
+
+    /** A key while a shortcut waits for its new key: Esc cancels, Backspace clears, menu keys need a modifier. */
+    fun recordKey(
+        shortcut: XmbShortcut,
+        event: KeyEvent,
+    ) {
+        when (val result = xmbShortcutCapture(XmbKeyChord.of(event))) {
+            XmbShortcutCapture.Wait -> {
+                Unit
+            }
+
+            XmbShortcutCapture.Cancel -> {
+                recording = null
+                sounds.play(XmbSound.BACK)
+            }
+
+            XmbShortcutCapture.Clear -> {
+                Settings.shared.xmbShortcuts = prefs.shortcuts.bind(shortcut, null).encode()
+                recording = null
+                sounds.play(XmbSound.SELECT)
+            }
+
+            XmbShortcutCapture.Reserved -> {
+                recordingRefused = true
+                sounds.play(XmbSound.ERROR)
+            }
+
+            is XmbShortcutCapture.Bind -> {
+                Settings.shared.xmbShortcuts = prefs.shortcuts.bind(shortcut, result.chord).encode()
+                recording = null
+                sounds.play(XmbSound.SELECT)
+            }
+        }
+    }
+
     BoxWithConstraints(
         modifier
             .fillMaxSize()
@@ -681,6 +898,11 @@ fun XmbApp(
             .focusable()
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || suspended) return@onKeyEvent false
+                lastInput = seconds.floatValue
+                recording?.let { shortcut ->
+                    recordKey(shortcut, event)
+                    return@onKeyEvent true
+                }
                 if (notice != null) {
                     val action = xmbActionFor(event.key) ?: return@onKeyEvent true
                     val step = notice.notice.reduce(action, noticeFocus)
@@ -694,7 +916,25 @@ fun XmbApp(
                     }
                     return@onKeyEvent true
                 }
+                // Shortcuts (not while typing on the keyboard, where letters are text).
+                if (keyboard == null) {
+                    prefs.shortcuts.match(XmbKeyChord.of(event))?.let { shortcut ->
+                        runShortcut(shortcut)
+                        return@onKeyEvent true
+                    }
+                }
                 val mode = fullScreen
+                // A visualizer the idle timer opened goes away on any menu key, like a screen saver.
+                if (mode != null && idleVisualizer) {
+                    val action = xmbActionFor(event.key)
+                    if (action != null && action !in MEDIA_ACTIONS) {
+                        fullScreen = null
+                        idleVisualizer = false
+                        overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                        feedback(action, XmbFeedback.BACK)
+                        return@onKeyEvent true
+                    }
+                }
                 if (mode != null) {
                     // Full screen: ○ steps back (lyrics off, then the XMB), △ toggles lyrics over a
                     // visualizer, media keys still work, and anything else shows the track.
@@ -742,7 +982,10 @@ fun XmbApp(
                         while (true) {
                             val event = awaitPointerEvent()
                             // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
-                            if (event.type == PointerEventType.Press && !suspended) focusRequester.requestFocus()
+                            if (event.type == PointerEventType.Press && !suspended) {
+                                focusRequester.requestFocus()
+                                lastInput = seconds.floatValue
+                            }
                             if (event.type != PointerEventType.Scroll) continue
                             val delta = event.changes.fold(Offset.Zero) { sum, change -> sum + change.scrollDelta }
                             xmbActionForScroll(delta.x, delta.y)?.let {
@@ -774,7 +1017,11 @@ fun XmbApp(
                 )
             }
         val styles = rememberXmbRowStyles(metrics, fontFamily)
-        val backgroundColors = XmbPalette.backgroundColors(now.month, now.hourOfDay)
+        val backgroundColors = prefs.backgroundColors(now.month, now.hourOfDay)
+        val wallpaperPath = prefs.wallpaperPath
+        val wallpaper by produceState<ImageBitmap?>(null, wallpaperPath, wallpapers) {
+            value = wallpaperPath?.let { path -> wallpapers?.load(path) }
+        }
         if (videoShown < 1f) {
             // One picture for both: opening Waves turns the home sky and wave into it.
             XmbBackdrop(
@@ -784,6 +1031,10 @@ fun XmbApp(
                 waves = { visualizerShown },
                 seconds = { seconds.floatValue },
                 modifier = Modifier.fillMaxSize(),
+                wave = prefs.wave,
+                sparkles = prefs.sparkles,
+                wallpaper = wallpaper,
+                wallpaperDim = prefs.wallpaperDim,
             )
         }
         val video = services?.video
@@ -840,22 +1091,31 @@ fun XmbApp(
                 fontFamily = fontFamily,
                 expand = { fullShown },
                 alpha = {
-                    // Full screen, the track shows after opening and each key press, then fades out.
-                    val overlay = ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
-                    1f + (overlay - 1f) * fullShown
+                    // Full screen, the track shows after opening and each key press, then fades out
+                    // (or always, or never: Music Player Settings). The menu's card can be turned off.
+                    val overlay =
+                        when (prefs.trackOverlay) {
+                            XmbTrackOverlay.BRIEF -> ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
+                            XmbTrackOverlay.ALWAYS -> 1f
+                            XmbTrackOverlay.NEVER -> 0f
+                        }
+                    val card = if (prefs.nowPlayingCard) 1f else 0f
+                    card + (overlay - card) * fullShown
                 },
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        XmbClock(
-            now,
-            metrics,
-            fontFamily,
-            Modifier.align(Alignment.TopEnd).padding(top = metrics.clockBoxTop).graphicsLayer {
-                alpha =
-                    menuAlpha()
-            },
-        )
+        if (prefs.clock) {
+            XmbClock(
+                xmbClockText(now.month, now.day, now.hour, now.minute, prefs.hour24, prefs.dateFormat),
+                metrics,
+                fontFamily,
+                Modifier.align(Alignment.TopEnd).padding(top = metrics.clockBoxTop).graphicsLayer {
+                    alpha =
+                        menuAlpha()
+                },
+            )
+        }
         XmbOptionsPanelView(options, metrics, fontFamily)
         picker?.let { current ->
             val rowTitle =
@@ -866,6 +1126,30 @@ fun XmbApp(
         }
         keyboard?.let { XmbKeyboardView(it.keyboard, metrics, fontFamily) }
         notice?.let { XmbNoticeView(it.notice, noticeFocus, metrics, fontFamily) }
+        recording?.let { shortcut ->
+            XmbNoticeView(
+                XmbNotice(
+                    id = "record_shortcut",
+                    title = stringResource(shortcut.title()),
+                    message = shortcutText.press,
+                    details = if (recordingRefused) shortcutText.reserved else shortcutText.hint,
+                    buttons = emptyList(),
+                ),
+                focus = 0,
+                metrics = metrics,
+                fontFamily = fontFamily,
+            )
+        }
+        toast?.let { message ->
+            XmbToast(
+                message,
+                metrics,
+                fontFamily,
+                Modifier.align(Alignment.TopCenter).padding(top = metrics.clockBoxTop).graphicsLayer {
+                    alpha = ((toastUntil - seconds.floatValue) / TOAST_FADE_SECONDS).coerceIn(0f, 1f)
+                },
+            )
+        }
     }
 
     // Keys belong to the XMB whenever the window is active and no stock dialog is over it.
@@ -890,7 +1174,7 @@ private fun xmbAccountInfo(): XmbAccountInfo {
  */
 @Composable
 private fun XmbClock(
-    now: XmbTime,
+    text: String,
     metrics: XmbMetrics,
     fontFamily: FontFamily,
     modifier: Modifier = Modifier,
@@ -915,7 +1199,7 @@ private fun XmbClock(
             modifier = Modifier.padding(end = metrics.clockEndPadding - metrics.clockIcon),
         ) {
             BasicText(
-                text = now.clockText,
+                text = text,
                 style = TextStyle(color = Color.White, fontFamily = fontFamily, fontSize = with(density) { metrics.clockSize.toSp() }),
             )
             Spacer(Modifier.width(metrics.unit * 10))
@@ -956,6 +1240,7 @@ private fun rememberAnimationSeconds(
     animate: Boolean,
     motion: XmbWaveMotion,
     audio: VisualizerAudio,
+    waveSpeed: () -> Float,
 ): MutableFloatState {
     val seconds = remember { mutableFloatStateOf(0f) }
     val visibility = LocalVisualWorkActive.current
@@ -967,7 +1252,8 @@ private fun rememberAnimationSeconds(
             while (true) {
                 withFrameMillis {
                     val next = (it - origin) / 1000f
-                    motion.advance(next - seconds.floatValue)
+                    // Wave speed (Theme Settings) scales the home wave's clock.
+                    motion.advance((next - seconds.floatValue) * waveSpeed())
                     audio.step(next - seconds.floatValue)
                     seconds.floatValue = next
                 }
@@ -985,6 +1271,18 @@ private const val VISUALIZER_FADE_MS = 900
 private const val MENU_FADE_SHARE = 0.6f
 private const val VISUALIZER_OVERLAY_SECONDS = 4f
 private const val VISUALIZER_OVERLAY_FADE = 0.6f
+
+/** Keyboard shortcuts: seek and volume steps, the volume after unmuting from zero, and the toast's timing. */
+private const val SEEK_STEP_MS = 10_000L
+private const val VOLUME_STEP = 0.05f
+private const val DEFAULT_UNMUTE_VOLUME = 0.7f
+private const val TOAST_SECONDS = 1.6f
+private const val TOAST_FADE_SECONDS = 0.4f
+
+/** How often the idle timer checks for the visualizer. */
+private const val IDLE_CHECK_MS = 1000L
+
+private val MEDIA_ACTIONS = setOf(XmbAction.PLAY_PAUSE, XmbAction.NEXT_TRACK, XmbAction.PREVIOUS_TRACK)
 
 /** How often the lyrics view reads the playback position. */
 private const val LYRICS_POLL_MS = 100L

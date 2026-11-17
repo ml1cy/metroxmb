@@ -64,6 +64,18 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   right. Switches and choices open a value list, sliders a slider, text the on-screen keyboard;
   nothing changes until ✕ confirms. Pages with their own screens (storage, backup, updates, about,
   MetroEQ, fonts) open the standard settings window over the XMB.
+- **XMB settings.** Five pages at the top of the Settings column:
+  - **Theme Settings:** color (the console's monthly color, any one month's color all year, or a
+    custom hue), dim at night, a background image with dimming, and the wave, sparkles, the wave
+    reacting to the menu, and wave speed.
+  - **Date and Time Settings:** show the clock, 12- or 24-hour time, date order or no date.
+  - **Sound Settings:** menu sounds on or off, and their volume.
+  - **Keyboard Shortcuts:** remappable keys, with Ctrl, Shift and Alt combinations:
+    - Playback: play/pause, next, previous, seek ±10 s, shuffle, repeat.
+    - Volume: up, down, mute.
+    - Other: like, visualizer, lyrics, search.
+  - **Music Player Settings:** the now-playing card, the track info over the visualizer
+    (briefly, always or never), and opening Waves after the menu is left alone while music plays.
 - **Search.** New search opens the on-screen keyboard: type on your keyboard or pick keys with
   the arrows, with suggestions in a column on the right. Results open as folders (top result,
   songs, albums, artists...). Recent searches are listed under New search.
@@ -100,10 +112,20 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
 | Enter | Select (✕) |
 | Esc, Backspace | Back (○); also Left inside a folder |
 | Tab | Options (△) |
-| Space, media keys | Play/pause, next, previous |
+| Media keys | Play/pause, next, previous (always) |
+| Space | Play/pause |
+| Ctrl+Right / Ctrl+Left | Next / previous track |
+| Shift+Right / Shift+Left | Forward / back 10 seconds |
+| Ctrl+Up / Ctrl+Down, M | Volume up / down, mute |
+| Ctrl+S, Ctrl+R | Shuffle, repeat |
+| H, V, L, Ctrl+F | Like, visualizer, lyrics, search |
 | Mouse wheel | Move up and down |
 | Typing (keyboard open) | Letters go straight into the text, Backspace deletes, Enter submits, Esc cancels |
 | Full screen (visualizer, video, lyrics) | ○ goes back, △ shows or hides lyrics over a visualizer, any other key shows the track |
+
+Every shortcut can be changed in Settings > Keyboard Shortcuts: select it and press the new key
+(hold Ctrl, Shift or Alt for a combination; Esc cancels, Backspace clears). Arrow keys, Enter,
+Esc, Tab and media keys need a modifier there, because they move through the menu.
 
 Controllers work on Android (M7); on desktop the UI toolkit has no gamepad input yet.
 

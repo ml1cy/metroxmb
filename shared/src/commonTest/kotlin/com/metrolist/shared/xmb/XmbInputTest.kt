@@ -33,9 +33,11 @@ class XmbInputTest {
                 Key.ButtonY to XmbAction.OPTIONS,
             )
         expected.forEach { (key, action) -> assertEquals(action, xmbActionFor(key), key.toString()) }
-        for (key in listOf(Key.Spacebar, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause)) {
+        for (key in listOf(Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause)) {
             assertEquals(XmbAction.PLAY_PAUSE, xmbActionFor(key), key.toString())
         }
+        // Space plays and pauses as a keyboard shortcut (XmbShortcutsTest), so it can be remapped.
+        assertNull(xmbActionFor(Key.Spacebar))
         assertEquals(XmbAction.NEXT_TRACK, xmbActionFor(Key.MediaNext))
         assertEquals(XmbAction.PREVIOUS_TRACK, xmbActionFor(Key.MediaPrevious))
         for (key in listOf(Key.A, Key.F5, Key.ShiftLeft)) assertNull(xmbActionFor(key), key.toString())

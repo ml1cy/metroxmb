@@ -109,18 +109,22 @@ sealed interface XmbSettingStep {
     ) : XmbSettingStep
 }
 
-/** Decides what selecting [entry] (a row of settings [page]) does. */
+/**
+ * Decides what selecting [entry] (a row of settings [page]) does. The XMB's own pages have no
+ * registry [page]: their rows always have handlers, and anything else is unavailable there.
+ */
 fun xmbSettingStep(
     entry: XmbEntry,
-    page: SettingsPageId,
-    registry: SettingsUiRegistry,
+    page: SettingsPageId?,
+    registry: SettingsUiRegistry?,
     labels: XmbSettingLabels,
 ): XmbSettingStep {
     val item = entry.setting ?: return XmbSettingStep.Unavailable
+    val stock = page?.let(XmbSettingStep::Stock) ?: XmbSettingStep.Unavailable
     if (!entry.enabled) return XmbSettingStep.Unavailable
     return when (item.control) {
         SettingsControl.SWITCH, SettingsControl.MAIN_SWITCH -> {
-            val change = item.onCheckedChange ?: return XmbSettingStep.Stock(page)
+            val change = item.onCheckedChange ?: return stock
             XmbSettingStep.Pick(
                 XmbPicker.Choice(item.title, listOf(labels.on, labels.off), focus = if (item.checked == true) 0 else 1) { change(it == 0) },
             )
@@ -128,7 +132,7 @@ fun xmbSettingStep(
 
         SettingsControl.CHOICE -> {
             val select = item.onChoiceSelected
-            if (select == null || item.choices.isEmpty()) return XmbSettingStep.Stock(page)
+            if (select == null || item.choices.isEmpty()) return stock
             val focus = item.choices.indexOfFirst { it.id == item.selectedChoiceId }.coerceAtLeast(0)
             XmbSettingStep.Pick(XmbPicker.Choice(item.title, item.choices.map { it.label }, focus) { select(item.choices[it].id) })
         }
@@ -136,19 +140,19 @@ fun xmbSettingStep(
         SettingsControl.SLIDER -> {
             val change = item.onSliderChanged
             val range = item.sliderRange
-            if (change == null || range == null) return XmbSettingStep.Stock(page)
+            if (change == null || range == null) return stock
             val value = (item.sliderValue ?: range.start).coerceIn(range.start, range.endInclusive)
             XmbSettingStep.Pick(XmbPicker.Slider(item.title, value, range, item.sliderSteps, item.sliderValueFormatter, change))
         }
 
         SettingsControl.TEXT -> {
-            val change = item.onTextChanged ?: return XmbSettingStep.Stock(page)
+            val change = item.onTextChanged ?: return stock
             XmbSettingStep.Type(item.title, item.textValue.orEmpty(), item.secret, change)
         }
 
         SettingsControl.NAVIGATION -> {
             val destination = item.destination ?: return XmbSettingStep.Unavailable
-            val target = registry[destination]
+            val target = registry?.get(destination)
             if (target != null && !target.custom) XmbSettingStep.Open(destination) else XmbSettingStep.Stock(destination)
         }
 
@@ -163,7 +167,7 @@ fun xmbSettingStep(
         }
 
         SettingsControl.CUSTOM -> {
-            XmbSettingStep.Stock(page)
+            stock
         }
     }
 }

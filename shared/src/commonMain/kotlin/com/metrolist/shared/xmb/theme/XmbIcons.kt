@@ -33,6 +33,34 @@ object XmbIcons {
         }
     }
 
+    /** Theme Settings: a color wheel with paint dots. */
+    val Theme: ImageVector by lazy {
+        xmbIcon("XmbTheme") {
+            stroke("M18,64 a46,46 0 1,0 92,0 a46,46 0 1,0 -92,0", 9f, StrokeCap.Round)
+            for ((x, y) in listOf(64f to 38f, 42f to 52f, 86f to 52f, 48f to 80f)) {
+                fill("M${x - 8},$y a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0")
+            }
+        }
+    }
+
+    /** Date and Time Settings: a clock face. */
+    val Clock: ImageVector by lazy {
+        xmbIcon("XmbClock") {
+            stroke("M18,64 a46,46 0 1,0 92,0 a46,46 0 1,0 -92,0", 9f, StrokeCap.Round)
+            stroke("M64,64 L64,36 M64,64 L84,76", 9f, StrokeCap.Round)
+        }
+    }
+
+    /** Keyboard Shortcuts: a keyboard. */
+    val Keyboard: ImageVector by lazy {
+        xmbIcon("XmbKeyboard") {
+            stroke("M22,34 h84 a8,8 0 0 1 8,8 v44 a8,8 0 0 1 -8,8 h-84 a8,8 0 0 1 -8,-8 v-44 a8,8 0 0 1 8,-8 z", 8f, StrokeCap.Round)
+            for (x in listOf(28f, 44f, 60f, 76f, 92f)) fill("M$x,46 h10 v10 h-10 z")
+            for (x in listOf(36f, 52f, 68f, 84f)) fill("M$x,62 h10 v10 h-10 z")
+            fill("M40,78 h48 v8 h-48 z")
+        }
+    }
+
     private const val CANVAS = 128f
     private const val CENTER = 64f
     private const val BAR_WIDTH = 11f

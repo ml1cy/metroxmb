@@ -312,6 +312,28 @@ class Settings(
     var themePaletteStyle by preference(ThemePaletteStyle.TONAL_SPOT)
 
     var appFont by preference(FontOption.SYSTEM)
+
+    // XMB Music: the XMB's own settings (Settings column: Theme, Date and Time, Sound, Keyboard
+    // Shortcuts, Music Player). Plain values the XMB parses (com.metrolist.shared.xmb.settings).
+    var xmbColor by preference("original")
+    var xmbCustomHue by preference(210f)
+    var xmbDimAtNight by preference(true)
+    var xmbBackground by preference("gradient")
+    var xmbWallpaper by preference("")
+    var xmbWallpaperDim by preference(0.3f)
+    var xmbWave by preference(true)
+    var xmbSparkles by preference(true)
+    var xmbWaveReacts by preference(true)
+    var xmbWaveSpeed by preference(1f)
+    var xmbClock by preference(true)
+    var xmb24HourClock by preference(true)
+    var xmbDateFormat by preference("md")
+    var xmbMenuSounds by preference(true)
+    var xmbMenuSoundVolume by preference(1f)
+    var xmbShortcuts by preference("")
+    var xmbNowPlayingCard by preference(true)
+    var xmbTrackOverlay by preference("brief")
+    var xmbIdleVisualizer by preference(0)
     var androidCustomFontFile by preference(AndroidCustomFontFileKey, "")
     var androidCustomFontName by preference(AndroidCustomFontNameKey, "")
     var androidActiveFontId by preference(AndroidActiveFontIdKey, "")

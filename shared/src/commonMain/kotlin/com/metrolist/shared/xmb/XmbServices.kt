@@ -2,6 +2,7 @@ package com.metrolist.shared.xmb
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
@@ -60,6 +61,23 @@ interface XmbLyrics {
     fun lines(songId: String): List<LyricsEntry>?
 }
 
+/** The player's volume, 0 to 1, for the volume and mute shortcuts. */
+interface XmbVolume {
+    val level: Float
+
+    fun set(level: Float)
+}
+
+/**
+ * Background images (Theme Settings): [pick] asks the user for an image file and passes its
+ * path on; [load] reads one (null when it can't).
+ */
+interface XmbWallpaper {
+    fun pick(onPicked: (String) -> Unit)
+
+    suspend fun load(path: String): ImageBitmap?
+}
+
 /** Listen Together: the platform's room manager, and a way to copy the invite link. */
 class XmbListenTogether(
     val manager: ListenTogetherManager,
@@ -84,4 +102,6 @@ class XmbServices(
     val video: XmbVideo? = null,
     val lyrics: XmbLyrics? = null,
     val listenTogether: XmbListenTogether? = null,
+    val volume: XmbVolume? = null,
+    val wallpaper: XmbWallpaper? = null,
 )

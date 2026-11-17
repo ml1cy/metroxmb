@@ -36,6 +36,9 @@ enum class XmbSound(
 /** Plays XMB sound effects. Platforms provide one through [LocalXmbSoundPlayer]. */
 fun interface XmbSoundPlayer {
     fun play(sound: XmbSound)
+
+    /** Menu sound volume, 0 to 1 (Sound Settings). */
+    fun setVolume(volume: Float) = Unit
 }
 
 val SilentXmbSoundPlayer = XmbSoundPlayer { }
