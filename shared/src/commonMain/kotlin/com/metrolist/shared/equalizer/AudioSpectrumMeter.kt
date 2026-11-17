@@ -52,6 +52,9 @@ object AudioSpectrumMeter {
 
     @Volatile private var currentLevels = FloatArray(centers.size)
 
+    // The last frame's levels before smoothing (XMB visualizers: sharper beats than the EQ bars).
+    @Volatile private var frameLevels = FloatArray(centers.size)
+
     @Volatile private var collecting = false
 
     @Volatile
@@ -154,6 +157,12 @@ object AudioSpectrumMeter {
 
     fun snapshotLevels(): FloatArray = currentLevels.copyOf()
 
+    /**
+     * The levels of the last frame [levels] analyzed, without the smoothing the EQ bars use:
+     * visualizers smooth on their own and need sharp onsets for beats. Call after [levels].
+     */
+    fun frameLevels(): FloatArray = frameLevels.copyOf()
+
     fun levels(): FloatArray {
         val snapshot =
             synchronized(lock) {
@@ -177,6 +186,7 @@ object AudioSpectrumMeter {
             gainReductionDb = 0f
             frameChannels = 1
             currentLevels = FloatArray(centers.size)
+            frameLevels = FloatArray(centers.size)
         }
 
     private fun analyzeFrame(
@@ -205,6 +215,7 @@ object AudioSpectrumMeter {
             val level = ((20.0 * ln(max(magnitude, 0.000001)) / ln(10.0) + 60.0) / 60.0).coerceIn(0.0, 1.0)
             next[band] = level.toFloat()
         }
+        frameLevels = next
         val previous = currentLevels
         currentLevels =
             FloatArray(centers.size) { index ->

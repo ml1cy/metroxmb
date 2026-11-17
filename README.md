@@ -25,7 +25,7 @@ next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M6 done (desktop); M4 and M5 on hold.** The XMB runs on desktop (Windows,
+**Current milestone: M4 and M6 done (desktop); M7 (Android) in progress; M5 on hold.** The XMB runs on desktop (Windows,
 macOS, Linux): music, podcasts, music videos, search, Listen Together, lyrics, casting, every
 setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. Android keeps
 the stock Metrolist interface until M7 replaces it. iOS was removed.
@@ -36,7 +36,7 @@ the stock Metrolist interface until M7 replaces it. iOS was removed.
 | M1 | XMB shell on desktop: category row, item columns, focus motion, monthly background, wave, sounds, Rodin font, interface-style switch | ✅ Done |
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
-| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | On hold: matched to the owner's videos, not yet checked with real music |
+| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Done: matched to the owner's videos, checked with real music |
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | On hold (reference stills saved) |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Planned |

@@ -139,6 +139,8 @@ long-press = options.
 - Full Waves shader: layered translucent ribbons, soft edges, glossy crests, drifting sparkles,
   subtle reactivity; idle motion when no meter data is available
 - Full-screen visualizer mode (hide the XMB, show a fading track overlay)
+- Done after M6: checked with real music through the meter (adaptive levels, sharper beats),
+  allocation-free ribbon drawing, bigger particles in loud passages
 
 ### M5: Valley and Gaia
 - Valley: raymarched heightfield, fog, gliding camera

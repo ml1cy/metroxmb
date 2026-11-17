@@ -4,7 +4,8 @@ import com.metrolist.shared.visualizer.background.RIBBON_RESOLUTION
 import com.metrolist.shared.visualizer.background.RIBBON_SAMPLE_OFFSETS
 import com.metrolist.shared.visualizer.background.ribbonAlpha
 import com.metrolist.shared.visualizer.background.ribbonIndices
-import com.metrolist.shared.visualizer.background.ribbonPassAlpha
+import com.metrolist.shared.visualizer.background.ribbonPassColors
+import com.metrolist.shared.visualizer.background.ribbonPassLevel
 import com.metrolist.shared.visualizer.background.ribbonVertex
 import kotlin.math.cos
 import kotlin.test.Test
@@ -17,8 +18,8 @@ class XmbRibbonTest {
     fun meshCoversTheGridWithTwoTrianglesPerCell() {
         val n = RIBBON_RESOLUTION
         assertEquals(6 * (n - 1) * (n - 1), ribbonIndices.size)
-        assertEquals(n * n - 1, ribbonIndices.max())
-        assertEquals(0, ribbonIndices.min())
+        assertEquals(n * n - 1, ribbonIndices.max().toInt())
+        assertEquals(0, ribbonIndices.min().toInt())
     }
 
     @Test
@@ -65,13 +66,13 @@ class XmbRibbonTest {
     @Test
     fun ribbonPassesKeepFullEightBitPrecision() {
         val passes = RIBBON_SAMPLE_OFFSETS.size
+        // Each pass's share is stored in 8 bits; the shares add back up to every level exactly.
         for (level in 0..255) {
-            val alpha = level / 255f
-            // Each pass's color is stored in 8 bits, rounded as Compose's Color does.
-            val sum = (0 until passes).sumOf { pass -> (ribbonPassAlpha(alpha, pass, passes) * 255f + 0.5f).toInt() }
-            assertTrue(kotlin.math.abs(sum - level) <= 1, "level $level came back as $sum")
+            assertEquals(level, (0 until passes).sumOf { pass -> ribbonPassLevel(level, pass, passes) }, "level $level")
         }
-        // Nothing where the sheet is clear: no haze from the nudges.
-        assertEquals(0, (0 until passes).sumOf { pass -> (ribbonPassAlpha(0f, pass, passes) * 255f + 0.5f).toInt() })
+        val colors = IntArray(2)
+        ribbonPassColors(intArrayOf(255, 0), 0x00FFD1FF, pass = passes - 1, out = colors)
+        assertEquals(0x20FFD1FF, colors[0], "a full level's last share, with the tint")
+        assertEquals(0x00FFD1FF, colors[1], "no haze where the sheet is clear")
     }
 }

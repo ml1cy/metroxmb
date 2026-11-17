@@ -50,6 +50,8 @@ internal fun wavesRibbonFrame(audio: VisualizerAudio): RibbonFrame {
         particleTime = RIBBON_START + audio.particleFlow * WAVES_SPEED,
         // A trail as long as the particle moves in about a twentieth of a second.
         streak = WAVES_SPEED * rush / 20f,
+        // The console's loud particles are bigger as well as brighter.
+        particleSize = 1f + 0.5f * audio.energy + 0.4f * audio.beat,
     )
 }
 

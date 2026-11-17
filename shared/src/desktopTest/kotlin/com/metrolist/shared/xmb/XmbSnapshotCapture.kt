@@ -176,7 +176,9 @@ class XmbSnapshotCapture {
                 },
                 Screen("waves-loud") {
                     val loud =
+                        // A quiet passage, then a loud hit: the visualizer reacts to change, not to level.
                         VisualizerAudio().apply {
+                            repeat(90) { update(FloatArray(18) { 0.3f }, 1f / 60f) }
                             repeat(12) { update(FloatArray(18) { band -> if (band < 4) 0.95f else 0.75f }, 1f / 60f) }
                         }
                     WavesVisualizer(loud, { 3f }, Modifier.fillMaxSize())

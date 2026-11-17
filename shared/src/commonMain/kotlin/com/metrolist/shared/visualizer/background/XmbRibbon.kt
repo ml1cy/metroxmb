@@ -13,15 +13,17 @@
 package com.metrolist.shared.visualizer.background
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.VertexMode
-import androidx.compose.ui.graphics.Vertices
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
@@ -51,6 +53,8 @@ internal class RibbonFrame(
     val particleTime: Float = time,
     /** How far back along its path (in particle-clock time) each particle's trail reaches; 0 draws dots. */
     val streak: Float = 0f,
+    /** Particle size, 1 at rest; loud passages make them bigger, as on the console. */
+    val particleSize: Float = 1f,
 )
 
 internal const val RIBBON_FOLDS = 4f
@@ -80,11 +84,24 @@ internal fun ribbonVertex(
     ratio: Float,
     amplitude: Float = 1f,
     folds: Float = RIBBON_FOLDS,
-): FloatArray {
+): FloatArray = FloatArray(3).also { ribbonVertexInto(it, x, y, time, ratio, amplitude, folds) }
+
+/** [ribbonVertex] written to [out], for the per-frame mesh. */
+internal fun ribbonVertexInto(
+    out: FloatArray,
+    x: Float,
+    y: Float,
+    time: Float,
+    ratio: Float,
+    amplitude: Float,
+    folds: Float,
+) {
     var vy = cos(y * folds) * cos(y + time / 5f + x) / 8f * amplitude
     val c = noise(x * 7f / 4f, vy * 7f, y * 7f) / 15f
     vy += c + cos(x * 2f - time) * ratio / 2f - 0.3f
-    return floatArrayOf(x, vy, y + c)
+    out[0] = x
+    out[1] = vy
+    out[2] = y + c
 }
 
 /**
@@ -96,13 +113,27 @@ internal fun ribbonAlpha(
     alongX: FloatArray,
     alongY: FloatArray,
     opacity: Float,
+): Float =
+    edgeOnAlpha(
+        alongX[0] - here[0],
+        alongX[1] - here[1],
+        alongX[2] - here[2],
+        alongY[0] - here[0],
+        alongY[1] - here[1],
+        alongY[2] - here[2],
+        opacity,
+    )
+
+/** [ribbonAlpha] from the two edge vectors (a along x, b along y). */
+private fun edgeOnAlpha(
+    ax: Float,
+    ay: Float,
+    az: Float,
+    bx: Float,
+    by: Float,
+    bz: Float,
+    opacity: Float,
 ): Float {
-    val ax = alongX[0] - here[0]
-    val ay = alongX[1] - here[1]
-    val az = alongX[2] - here[2]
-    val bx = alongY[0] - here[0]
-    val by = alongY[1] - here[1]
-    val bz = alongY[2] - here[2]
     val nx = ay * bz - az * by
     val ny = az * bx - ax * bz
     val nz = ax * by - ay * bx
@@ -112,87 +143,129 @@ internal fun ribbonAlpha(
     return (1f - cos(edgeOn * edgeOn)) * opacity
 }
 
-/** Triangle indices for the ribbon grid, two per cell. */
-internal val ribbonIndices: List<Int> by lazy {
+/** Triangle indices for the ribbon grid, two per cell (2,500 vertices fit a short). */
+internal val ribbonIndices: ShortArray by lazy {
     val n = RIBBON_RESOLUTION
-    buildList(6 * (n - 1) * (n - 1)) {
-        for (column in 0 until n - 1) {
-            for (row in 0 until n - 1) {
-                val a = column * n + row
-                val b = a + n
-                addAll(listOf(a, b, a + 1, a + 1, b, b + 1))
-            }
+    val indices = ShortArray(6 * (n - 1) * (n - 1))
+    var i = 0
+    for (column in 0 until n - 1) {
+        for (row in 0 until n - 1) {
+            val a = column * n + row
+            val b = a + n
+            for (index in intArrayOf(a, b, a + 1, a + 1, b, b + 1)) indices[i++] = index.toShort()
         }
     }
-}
-
-/** Draws the ribbon sheet, added onto what's below. */
-internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
-    val n = RIBBON_RESOLUTION
-    val ratio = (size.width / size.height).coerceIn(1f, 2f) * 0.375f
-    val grid =
-        Array(n * n) { index ->
-            val column = index / n
-            val row = index % n
-            ribbonVertex(column * 2f / (n - 1) - 1f, row * 2f / (n - 1) - 1f, frame.time, ratio, frame.amplitude, frame.folds)
-        }
-    val positions = ArrayList<Offset>(n * n)
-    val alphas = FloatArray(n * n)
-    for (column in 0 until n) {
-        for (row in 0 until n) {
-            val index = column * n + row
-            val here = grid[index]
-            // Neighbors along each grid direction; the last row and column look backwards.
-            val alongX = if (column < n - 1) grid[index + n] else mirror(here, grid[index - n])
-            val alongY = if (row < n - 1) grid[index + 1] else mirror(here, grid[index - 1])
-            val alpha = ribbonAlpha(here, alongX, alongY, frame.opacity).coerceIn(0f, 1f)
-            positions += Offset((here[0] + 1f) / 2f * size.width, (1f - here[1] - frame.lift) / 2f * size.height)
-            alphas[index] = alpha
-        }
-    }
-    // Vertex colors are multiplied by the paint color, so it must be white.
-    val paint =
-        Paint().apply {
-            color = Color.White
-            blendMode = BlendMode.Plus
-        }
-    // drawVertices has no anti-aliasing. Where the sheet turns edge-on (its crests and troughs) the
-    // triangles get thinner than a pixel and the silk lines would step, so the mesh is drawn once per
-    // sub-pixel offset at a fraction of its strength: added up, that's 8x multisampling.
-    val passes = RIBBON_SAMPLE_OFFSETS.size
-    drawIntoCanvas { canvas ->
-        RIBBON_SAMPLE_OFFSETS.forEachIndexed { pass, offset ->
-            val colors = List(n * n) { Color(frame.tint.red, frame.tint.green, frame.tint.blue, ribbonPassAlpha(alphas[it], pass, passes)) }
-            val vertices = Vertices(VertexMode.Triangles, positions, positions, colors, ribbonIndices)
-            canvas.save()
-            canvas.translate(offset.x, offset.y)
-            canvas.drawVertices(vertices, BlendMode.Modulate, paint)
-            canvas.restore()
-        }
-    }
+    indices
 }
 
 /**
- * One pass's share of [alpha]. Colors are 8-bit, so a plain eighth would round to whole steps
- * in every pass and the sum would keep only 32 of the 256 levels: the dim body of the ribbon
- * showed blocky bands along the mesh cells. Each pass is nudged by a different fraction of one
- * step instead, so the passes round at different points and add up to [alpha] at full precision.
+ * The ribbon's per-frame buffers, kept between frames: the sheet is 2,500 vertices drawn eight
+ * times a frame, and building lists of boxed points and colors for that cost about 1.7 MB of
+ * garbage a frame. Drawing happens on the UI thread, one ribbon at a time.
  */
-internal fun ribbonPassAlpha(
-    alpha: Float,
+private object RibbonMesh {
+    const val N = RIBBON_RESOLUTION
+    val gx = FloatArray(N * N)
+    val gy = FloatArray(N * N)
+    val gz = FloatArray(N * N)
+    val positions = FloatArray(2 * N * N)
+    val levels = IntArray(N * N)
+    val vertex = FloatArray(3)
+}
+
+/**
+ * Draws the ribbon sheet, added onto what's below. drawVertices has no anti-aliasing: where the
+ * sheet turns edge-on (its crests and troughs) the triangles get thinner than a pixel and the silk
+ * lines would step, so the mesh is drawn once per sub-pixel offset at a share of its strength,
+ * which adds up to 8x multisampling.
+ */
+internal fun DrawScope.drawRibbon(frame: RibbonFrame) {
+    val n = RibbonMesh.N
+    val ratio = (size.width / size.height).coerceIn(1f, 2f) * 0.375f
+    val (gx, gy, gz) = Triple(RibbonMesh.gx, RibbonMesh.gy, RibbonMesh.gz)
+    val vertex = RibbonMesh.vertex
+    for (index in 0 until n * n) {
+        ribbonVertexInto(
+            vertex,
+            (index / n) * 2f / (n - 1) - 1f,
+            (index % n) * 2f / (n - 1) - 1f,
+            frame.time,
+            ratio,
+            frame.amplitude,
+            frame.folds,
+        )
+        gx[index] = vertex[0]
+        gy[index] = vertex[1]
+        gz[index] = vertex[2]
+    }
+    val positions = RibbonMesh.positions
+    val levels = RibbonMesh.levels
+    for (column in 0 until n) {
+        for (row in 0 until n) {
+            val index = column * n + row
+            // Neighbors along each grid direction; the last row and column look backwards.
+            val x = if (column < n - 1) index + n else index - n
+            val y = if (row < n - 1) index + 1 else index - 1
+            val xSign = if (column < n - 1) 1f else -1f
+            val ySign = if (row < n - 1) 1f else -1f
+            val alpha =
+                edgeOnAlpha(
+                    (gx[x] - gx[index]) * xSign,
+                    (gy[x] - gy[index]) * xSign,
+                    (gz[x] - gz[index]) * xSign,
+                    (gx[y] - gx[index]) * ySign,
+                    (gy[y] - gy[index]) * ySign,
+                    (gz[y] - gz[index]) * ySign,
+                    frame.opacity,
+                ).coerceIn(0f, 1f)
+            positions[2 * index] = (gx[index] + 1f) / 2f * size.width
+            positions[2 * index + 1] = (1f - gy[index] - frame.lift) / 2f * size.height
+            levels[index] = (alpha * 255f + 0.5f).toInt()
+        }
+    }
+    val tint = frame.tint
+    val rgb = ((tint.red * 255f + 0.5f).toInt() shl 16) or ((tint.green * 255f + 0.5f).toInt() shl 8) or (tint.blue * 255f + 0.5f).toInt()
+    drawRibbonMesh(positions, levels, rgb, ribbonIndices)
+}
+
+/** Pass [pass]'s vertex colors (ARGB): [rgb] with that pass's share of each vertex's [levels]. */
+internal fun ribbonPassColors(
+    levels: IntArray,
+    rgb: Int,
+    pass: Int,
+    out: IntArray,
+) {
+    val passes = RIBBON_SAMPLE_OFFSETS.size
+    for (index in levels.indices) out[index] = (ribbonPassLevel(levels[index], pass, passes) shl 24) or rgb
+}
+
+/**
+ * One pass's share of an 8-bit [level]. Colors are 8-bit, so plain shares rounded alike in every
+ * pass would add up to only 32 of the 256 levels (blocky bands along the mesh cells); spreading
+ * the remainder over the passes adds up to [level] exactly.
+ */
+internal fun ribbonPassLevel(
+    level: Int,
     pass: Int,
     passes: Int,
-): Float = (alpha / passes + (pass - (passes - 1) / 2f) / passes / 255f).coerceIn(0f, 1f)
+): Int = (level + pass) / passes
 
 /** Sub-pixel sample positions for the ribbon's passes: the standard 8x multisampling pattern. */
 internal val RIBBON_SAMPLE_OFFSETS =
     listOf(1 to -3, -1 to 3, 5 to 1, -3 to -5, -5 to 5, -7 to -1, 3 to 7, 7 to -7)
         .map { (x, y) -> Offset(x / 16f, y / 16f) }
 
-private fun mirror(
-    here: FloatArray,
-    previous: FloatArray,
-) = floatArrayOf(2 * here[0] - previous[0], 2 * here[1] - previous[1], 2 * here[2] - previous[2])
+/**
+ * Draws the ribbon mesh added onto what's below, once per [RIBBON_SAMPLE_OFFSETS] offset with
+ * [ribbonPassColors], straight from the arrays ([positions] as x, y pairs; [levels] per vertex,
+ * 0..255; [rgb] the tint). Platform code: Skia on desktop, the framework canvas on Android.
+ */
+internal expect fun DrawScope.drawRibbonMesh(
+    positions: FloatArray,
+    levels: IntArray,
+    rgb: Int,
+    indices: ShortArray,
+)
 
 private class ParticleSeed(
     val x: Float,
@@ -205,51 +278,88 @@ private val particleSeeds: List<ParticleSeed> =
         List(PARTICLE_COUNT) { ParticleSeed(random.nextFloat(), random.nextFloat(), random.nextFloat().pow(10) * PARTICLE_SIZE + 3f) }
     }
 
+/** A particle's place this frame, reused so drawing 400 particles allocates nothing. */
+private class ParticlePoint {
+    var x = 0f
+    var y = 0f
+    var alpha = 0f
+}
+
+private val particleNow = ParticlePoint()
+private val particleTrail = ParticlePoint()
+
+/** One soft glow (white center, 60% halfway, clear edge), drawn scaled for every particle. */
+private val particleSprite: ImageBitmap by lazy {
+    ImageBitmap(SPRITE_SIZE, SPRITE_SIZE).also { image ->
+        val half = SPRITE_SIZE / 2f
+        CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(image), Size(SPRITE_SIZE.toFloat(), SPRITE_SIZE.toFloat())) {
+            drawCircle(
+                Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0.6f), Color.Transparent), Offset(half, half), half),
+                radius = half,
+                center = Offset(half, half),
+            )
+        }
+    }
+}
+
+private const val SPRITE_SIZE = 64
+
 /** Particles drifting along the ribbon and twinkling, added onto what's below. */
 internal fun DrawScope.drawRibbonParticles(frame: RibbonFrame) {
     val ratio = (size.width / size.height).coerceIn(1f, 2f) * 0.375f
     val pixel = size.height / 1080f
-    particleSeeds.forEach { seed ->
-        val now = particlePosition(seed, frame.particleTime, frame, ratio) ?: return@forEach
-        val center = Offset((now[0] + 1f) / 2f * size.width, (1f - now[1] - frame.lift) / 2f * size.height)
-        val alpha = now[2]
-        val radius = seed.size * pixel / 2f
-        val trail = if (frame.streak > 0f) particlePosition(seed, frame.particleTime - frame.streak, frame, ratio) else null
-        if (trail != null && abs(trail[0] - now[0]) < 0.5f) {
-            // Fast particles leave a short trail, like the console's streaks in loud passages.
-            val start = Offset((trail[0] + 1f) / 2f * size.width, (1f - trail[1] - frame.lift) / 2f * size.height)
-            drawLine(
-                Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = alpha)), start = start, end = center),
-                start = start,
-                end = center,
-                strokeWidth = radius,
-                cap = StrokeCap.Round,
-                blendMode = BlendMode.Plus,
-            )
+    val sprite = particleSprite
+    for (seed in particleSeeds) {
+        val now = particleNow
+        if (!particlePosition(seed, frame.particleTime, frame, ratio, now)) continue
+        val centerX = (now.x + 1f) / 2f * size.width
+        val centerY = (1f - now.y - frame.lift) / 2f * size.height
+        val radius = seed.size * pixel / 2f * frame.particleSize
+        val trail = particleTrail
+        if (frame.streak > 0f && particlePosition(seed, frame.particleTime - frame.streak, frame, ratio, trail) &&
+            abs(trail.x - now.x) < 0.5f
+        ) {
+            // Fast particles leave a short trail, like the console's streaks in loud passages:
+            // three segments brightening toward the particle.
+            val startX = (trail.x + 1f) / 2f * size.width
+            val startY = (1f - trail.y - frame.lift) / 2f * size.height
+            for (segment in 0 until TRAIL_SEGMENTS) {
+                val from = segment.toFloat() / TRAIL_SEGMENTS
+                val to = (segment + 1f) / TRAIL_SEGMENTS
+                drawLine(
+                    Color.White,
+                    start = Offset(startX + (centerX - startX) * from, startY + (centerY - startY) * from),
+                    end = Offset(startX + (centerX - startX) * to, startY + (centerY - startY) * to),
+                    strokeWidth = radius,
+                    alpha = now.alpha * to * 0.8f,
+                    blendMode = BlendMode.Plus,
+                )
+            }
         }
-        drawCircle(
-            Brush.radialGradient(
-                listOf(Color.White.copy(alpha = alpha), Color.White.copy(alpha = alpha * 0.6f), Color.Transparent),
-                center = center,
-                radius = radius,
-            ),
-            radius = radius,
-            center = center,
-            blendMode = BlendMode.Plus,
-        )
+        val scale = 2f * radius / SPRITE_SIZE
+        withTransform({
+            translate(centerX - radius, centerY - radius)
+            scale(scale, scale, Offset.Zero)
+        }) {
+            drawImage(sprite, alpha = now.alpha, blendMode = BlendMode.Plus)
+        }
     }
 }
 
+private const val TRAIL_SEGMENTS = 3
+
 /**
- * A particle's (x, y, alpha) in normalized device units at particle-clock [time]: it drifts and
- * bobs on its own clock and rides the ribbon's wave on the ribbon's clock. Null when it's dark.
+ * A particle's place (x, y, alpha in normalized device units) at particle-clock [time], written
+ * to [out]: it drifts and bobs on its own clock and rides the ribbon's wave on the ribbon's
+ * clock. False when it's dark.
  */
 private fun particlePosition(
     seed: ParticleSeed,
     time: Float,
     frame: RibbonFrame,
     ratio: Float,
-): FloatArray? {
+    out: ParticlePoint,
+): Boolean {
     val x = fract(time * (seed.x - 0.5f) / 15f + seed.y * 50f - frame.drift) * 2f - 1f
     var y = sin(time * (seed.y + 1.5f) / 4f + seed.x * 100f)
     y /= (6f - seed.x * 4f * seed.y) / ratio
@@ -261,10 +371,13 @@ private fun particlePosition(
         ) *
             seed.x + seed.y
     val alpha = (frame.particleOpacity * variance * variance).coerceIn(0f, 1f)
-    if (alpha <= 0.01f) return null
+    if (alpha <= 0.01f) return false
     val wave = frame.time
     y += cos(seed.y * 4f) * cos(x + seed.y + wave / 5f) / 8f * frame.amplitude + cos(x * 2f - wave) * ratio / 2f - 0.28f
-    return floatArrayOf(x, y, alpha)
+    out.x = x
+    out.y = y
+    out.alpha = alpha
+    return true
 }
 
 private fun fract(value: Float) = value - floor(value)

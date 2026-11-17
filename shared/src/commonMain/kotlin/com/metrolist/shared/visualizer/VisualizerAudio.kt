@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.Volatile
 import kotlin.math.exp
+import kotlin.math.max
 
 /**
  * What the visualizers react to, taken from [AudioSpectrumMeter]'s 18 bands: smoothed [bass],
@@ -41,7 +42,14 @@ class VisualizerAudio {
     @Volatile
     var input: FloatArray? = null
 
+    private val bassRange = RangeFollower()
+    private val midRange = RangeFollower()
+    private val trebleRange = RangeFollower()
     private var slowBass = 0f
+
+    // A beat fires on a bass rise, then waits for the rise to settle before it can fire again,
+    // so a long crescendo is one beat rather than one every [MIN_BEAT_GAP].
+    private var armed = true
     private var sinceBeat = MIN_BEAT_GAP
 
     /** Advances by [seconds] using [input]. */
@@ -53,19 +61,22 @@ class VisualizerAudio {
         seconds: Float,
     ) {
         val dt = seconds.coerceIn(0f, MAX_STEP)
-        bass = follow(bass, levels.shaped(BASS), dt)
-        mid = follow(mid, levels.shaped(MID), dt)
-        treble = follow(treble, levels.shaped(TREBLE), dt)
+        bass = follow(bass, bassRange.normalize(levels.average(BASS), dt), dt)
+        mid = follow(mid, midRange.normalize(levels.average(MID), dt), dt)
+        treble = follow(treble, trebleRange.normalize(levels.average(TREBLE), dt), dt)
         energy = follow(energy, (bass + mid + treble) / 3f, dt)
         slowBass += (bass - slowBass) * (1f - exp(-dt / SLOW_BASS_SECONDS))
         sinceBeat += dt
-        if (bass - slowBass > BEAT_RISE && bass > BEAT_FLOOR && sinceBeat >= MIN_BEAT_GAP) {
+        val rise = bass - slowBass
+        if (armed && rise > BEAT_RISE && bass > BEAT_FLOOR && sinceBeat >= MIN_BEAT_GAP) {
             beat = 1f
             sinceBeat = 0f
+            armed = false
         } else {
             beat *= exp(-dt * BEAT_DECAY)
             if (beat < REST) beat = 0f
         }
+        if (rise < BEAT_RISE * REARM) armed = true
         flow += dt * (1f + FLOW_BOOST * energy)
         particleFlow += dt * (1f + PARTICLE_RUSH * energy + PARTICLE_BEAT_RUSH * beat)
     }
@@ -88,15 +99,15 @@ class VisualizerAudio {
         val MID = 4..10
         val TREBLE = 11..17
 
-        /** Meter levels map −60..0 dB to 0..1; music mostly sits above this floor. */
-        const val LEVEL_FLOOR = 0.35f
-        const val LEVEL_RANGE = 0.55f
         const val ATTACK = 18f
         const val RELEASE = 4f
         const val SLOW_BASS_SECONDS = 0.6f
         const val BEAT_RISE = 0.08f
         const val BEAT_FLOOR = 0.2f
         const val MIN_BEAT_GAP = 0.18f
+
+        /** The share of [BEAT_RISE] the rise must fall under before another beat. */
+        const val REARM = 0.5f
         const val BEAT_DECAY = 5f
         const val FLOW_BOOST = 1.5f
         const val PARTICLE_RUSH = 5f
@@ -104,14 +115,61 @@ class VisualizerAudio {
         const val MAX_STEP = 0.1f
         private const val REST = 0.001f
 
-        /** A band group's average, stretched so quiet passages read near 0 and loud ones near 1. */
-        internal fun FloatArray?.shaped(bands: IntRange): Float {
+        /** A band group's average meter level (−60..0 dB as 0..1); 0 without data or bands. */
+        internal fun FloatArray?.average(bands: IntRange): Float {
             if (this == null || isEmpty()) return 0f
             val used = bands.filter { it < size }
             if (used.isEmpty()) return 0f
-            val average = used.sumOf { this[it].toDouble() }.toFloat() / used.size
-            return ((average - LEVEL_FLOOR) / LEVEL_RANGE).coerceIn(0f, 1f)
+            return used.sumOf { this[it].toDouble() }.toFloat() / used.size
         }
+    }
+}
+
+/**
+ * A band group's recent range: [ceiling] jumps to each new peak and sinks back over
+ * [CEILING_SECONDS]; [floor] drops to each new low and rises over [FLOOR_SECONDS]; both start
+ * at the first sound after silence. [normalize]
+ * places a level within that range, so a quiet recording (the console's menu music sits around
+ * 0.2–0.35 on the meter) and a loud one (0.5–0.8) both move the visualizer across 0..1. A range
+ * narrower than [MIN_RANGE] isn't stretched further, and levels under [SILENCE] read as 0.
+ */
+internal class RangeFollower {
+    var floor = 0f
+        private set
+    var ceiling = 0f
+        private set
+
+    private var started = false
+
+    fun normalize(
+        level: Float,
+        dt: Float,
+    ): Float {
+        // Silence ends the range: the next sound (another track, say) starts a new one from itself.
+        if (level < SILENCE) {
+            started = false
+            return 0f
+        }
+        if (!started) {
+            floor = level
+            ceiling = level
+            started = true
+        }
+        ceiling = if (level >= ceiling) level else ceiling + (level - ceiling) * (1f - exp(-dt / CEILING_SECONDS))
+        floor = if (level <= floor) level else floor + (level - floor) * (1f - exp(-dt / FLOOR_SECONDS))
+        if (level < SILENCE) return 0f
+        return ((level - floor) / max(ceiling - floor, MIN_RANGE)).coerceIn(0f, 1f)
+    }
+
+    companion object {
+        const val CEILING_SECONDS = 6f
+        const val FLOOR_SECONDS = 3f
+
+        /** About 7 dB: smaller swings aren't blown up to full scale. */
+        const val MIN_RANGE = 0.12f
+
+        /** About −57 dB. */
+        const val SILENCE = 0.05f
     }
 }
 
@@ -133,7 +191,13 @@ fun rememberVisualizerAudio(active: Boolean): VisualizerAudio {
         }
         LaunchedEffect(audio) {
             while (true) {
-                audio.input = withContext(Dispatchers.Default) { AudioSpectrumMeter.levels() }
+                // levels() analyzes the newest frame (and keeps the EQ bars' smoothing as is); the
+                // visualizer reads that frame unsmoothed, for sharp beats.
+                audio.input =
+                    withContext(Dispatchers.Default) {
+                        AudioSpectrumMeter.levels()
+                        AudioSpectrumMeter.frameLevels()
+                    }
                 delay(POLL_MS)
             }
         }

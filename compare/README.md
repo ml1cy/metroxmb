@@ -62,8 +62,7 @@ text sizes, the clock box, and no halo on focused icons. Still different:
   difference
 - **Sparkle motion, wave reactions and every timing** need video frames at 2 fps or more
 - The on-screen keyboard and value pickers have no reference frames yet
-- **Waves**: the console's loud particles are a little bigger and brighter than here, and the speeds
-  are judged from phone video, so they're approximate
+- **Waves** speeds are judged from phone video, so they're approximate
 
 ## Remaining differences (M2)
 

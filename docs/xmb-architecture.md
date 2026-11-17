@@ -392,6 +392,11 @@ the ribbon from the audio; `screens/XmbVisualizerOverlay.kt` is the track overla
 page is unchanged: both read the same smoothed levels, so a second consumer doesn't take frames
 from it. The home-screen ribbon stays navigation-driven.
 
+Finished after M6: the meter gained `frameLevels()` (the analyzed frame before the EQ bars'
+smoothing; `levels()` is unchanged), `VisualizerAudio` follows each band group's range instead of
+a fixed floor, and the ribbon draws from reused arrays through an `expect` mesh call (Skia on
+desktop; the framework canvas on Android, with a software fallback below Android 10).
+
 ## 18. M6: podcasts, video, friends, lyrics, casting
 
 - **Podcasts** come from the repository (`getLibraryPodcasts`, `getNewPodcastEpisodes`,

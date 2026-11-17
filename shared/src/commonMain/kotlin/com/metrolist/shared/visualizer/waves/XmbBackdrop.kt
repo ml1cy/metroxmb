@@ -67,6 +67,7 @@ fun XmbBackdrop(
                 tint = lerp(home.tint, music.tint, t),
                 particleTime = particleClock.blend(home.particleTime, music.particleTime, t),
                 streak = lerp(home.streak, music.streak, t),
+                particleSize = lerp(home.particleSize, music.particleSize, t),
             )
         if (waveShown > 0f) drawRibbon(frame)
         if (sparklesShown > 0f) drawRibbonParticles(frame)
