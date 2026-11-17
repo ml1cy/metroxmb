@@ -131,7 +131,24 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Option spacing | 22 units | Roomy list like the console's option menu |
 | Slide | `FADE_MS` with the scroll easing | Matches the level transition |
 
-## Now playing (`xmb/screens/XmbNowPlaying.kt`, M2)
+## Now playing and the move to full screen (`xmb/screens/XmbTrackInfo.kt`)
+
+One view draws the track in both places: the card at the bottom right (below) and, full screen,
+the console's overlay (Waves section). Opening a full screen moves it from one to the other on the
+same 900 ms ease as the backdrop: the artwork and titles slide left and grow, the bar grows into the
+console's green one, the artist line crosses over in place, the card's time leaves (10–40%) before
+the overlay's arrives (50–85%) so the two never overlap, and the queue position and codec badge
+come in over the second half. The menu and clock fade over the first 60%. Going back runs it in
+reverse, with the track shown even if its overlay had faded.
+
+The backdrop (`visualizer/waves/XmbBackdrop.kt`) is one picture for home and Waves: the sky blends
+from the home gradient to the Waves violet at the Waves stops, every ribbon setting blends, and
+`RibbonClockBlend` hands the ribbon's clocks over without a jump, so the home wave turns into the
+visualizer's instead of one fading over the other.
+
+The ribbon mesh is drawn 8 times at an eighth of its strength, each pass offset by one of the
+standard 8x multisampling positions: `drawVertices` has no anti-aliasing, and where the sheet turns
+edge-on (crests and troughs) its triangles get thinner than a pixel and the silk lines stepped.
 
 | Constant | Value | Reason |
 |---|---|---|

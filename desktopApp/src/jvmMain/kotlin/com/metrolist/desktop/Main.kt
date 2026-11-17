@@ -320,11 +320,12 @@ private fun WindowScope.AppContent(
             } catch (_: Exception) {
             }
         }
+        // The XMB fills the window, title-bar strip included: the caption buttons sit on its sky.
+        key(UiState.appRefreshKey) {
+            XmbDesktopHost(checkDarkMode)
+        }
         Box(Modifier.fillMaxSize().windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Top))) {
             LastFmArtistBrowserHost(lastFmBrowser)
-            key(UiState.appRefreshKey) {
-                XmbDesktopHost(checkDarkMode)
-            }
             DesktopWebViewError()
             if (UiState.showIntegrationsSettings) {
                 IntegrationsOverlay(colorScheme)
@@ -341,68 +342,7 @@ private fun WindowScope.AppContent(
                     },
                 )
             }
-            PopupVisibility(visible = YouTubeSessionState.showExpiredSessionNotice) {
-                AlertDialog(
-                    onDismissRequest = YouTubeSessionState::dismissExpiredSessionNotice,
-                    title = { Text(stringResource(Res.string.youtube_session_expired_title)) },
-                    text = { Text(stringResource(Res.string.youtube_session_expired_message)) },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                YouTubeSessionState.dismissExpiredSessionNotice()
-                                UiState.showSignIn = true
-                                UiState.showSwitchChannel = false
-                            },
-                            shapes = ButtonDefaults.shapes(),
-                        ) {
-                            Text(stringResource(Res.string.action_login))
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = YouTubeSessionState::dismissExpiredSessionNotice, shapes = ButtonDefaults.shapes()) {
-                            Text(stringResource(Res.string.action_not_now))
-                        }
-                    },
-                )
-            }
-            PopupVisibility(visible = PlayerState.showPlayerError) {
-                AlertDialog(
-                    onDismissRequest = { PlayerState.showPlayerError = false },
-                    title = { Text(stringResource(Res.string.playback_error)) },
-                    text = {
-                        val details = PlayerState.playerErrorDetails
-                        Column(Modifier.heightIn(max = 360.dp).verticalScrollWithDrag(rememberScrollState())) {
-                            Text(PlayerState.playerErrorMessage)
-                            if (details.isNotBlank()) {
-                                Text(
-                                    stringResource(Res.string.technical_information),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                                )
-                                SelectionContainer {
-                                    Text(details, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { PlayerState.showPlayerError = false }, shapes = ButtonDefaults.shapes()) {
-                            Text(stringResource(Res.string.ok))
-                        }
-                    },
-                    dismissButton =
-                        PlayerState.playerErrorDetails.takeIf { it.isNotBlank() }?.let { details ->
-                            {
-                                TextButton(
-                                    onClick = { AppState.copyToClipboard("${PlayerState.playerErrorMessage}\n\n$details") },
-                                    shapes = ButtonDefaults.shapes(),
-                                ) {
-                                    Text(stringResource(Res.string.copy))
-                                }
-                            }
-                        },
-                )
-            }
+            // The session-expired and playback-error notices are drawn by the XMB (XmbDesktopHost).
             if (UiState.isRefreshingApp) {
                 Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface.copy(alpha = 0.94f)) {
                     LoadingScreen()

@@ -173,7 +173,8 @@ XMB code lives in the shared module; platform glue sits in each app.
 
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
   yet.
-- The Windows portable build was assembled on Linux and hasn't been run on Windows yet.
+- The Windows portable build is assembled on Linux. The title bar over the XMB and the
+  keys-after-Alt+Tab fix were checked on Linux only.
 - Sign-in on Linux needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), as in the standard interface.
 - Searches made in the XMB show up in the standard search screen's history after a restart.
 - The on-screen keyboard and value pickers have no console frames to match yet.

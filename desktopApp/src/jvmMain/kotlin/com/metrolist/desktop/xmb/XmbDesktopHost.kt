@@ -27,7 +27,16 @@ import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.utils.DesktopImageLoader
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
+import com.metrolist.shared.auth.YouTubeSessionState
 import com.metrolist.shared.db.MusicDatabase
+import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.action_login
+import com.metrolist.shared.generated.resources.action_not_now
+import com.metrolist.shared.generated.resources.copy
+import com.metrolist.shared.generated.resources.ok
+import com.metrolist.shared.generated.resources.playback_error
+import com.metrolist.shared.generated.resources.youtube_session_expired_message
+import com.metrolist.shared.generated.resources.youtube_session_expired_title
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.Settings
@@ -44,6 +53,8 @@ import com.metrolist.shared.xmb.XmbSettingsHost
 import com.metrolist.shared.xmb.XmbVideo
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
+import com.metrolist.shared.xmb.nav.XmbNotice
+import com.metrolist.shared.xmb.nav.XmbNoticeRequest
 import com.metrolist.shared.xmb.sound.DesktopXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,6 +62,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.core.context.GlobalContext
 
 /**
@@ -96,7 +108,10 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
             CompositionLocalProvider(LocalXmbSoundPlayer provides sounds) {
                 XmbApp(
                     services = services,
-                    suspended = UiState.showSettings || UiState.showSignIn || UiState.showSwitchChannel,
+                    suspended =
+                        UiState.showSettings || UiState.showSignIn || UiState.showSwitchChannel ||
+                            UiState.showLogViewer || UiState.showTokenLogin || UiState.showIntegrationsSettings,
+                    notice = desktopXmbNotice(),
                 )
             }
             if (UiState.showSettings) SettingsOverlay(MaterialTheme.colorScheme)
@@ -122,6 +137,62 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     isSwitchingChannel = UiState.showSwitchChannel,
                 )
             }
+        }
+    }
+}
+
+/**
+ * The desktop's popups as XMB notices: a playback error (OK, or Copy when there are details) and
+ * an expired YouTube sign-in (Log in or Not now). Main.kt no longer draws its own dialogs for these.
+ */
+@Composable
+private fun desktopXmbNotice(): XmbNoticeRequest? {
+    val ok = stringResource(Res.string.ok)
+    val copy = stringResource(Res.string.copy)
+    val errorTitle = stringResource(Res.string.playback_error)
+    val expiredTitle = stringResource(Res.string.youtube_session_expired_title)
+    val expiredMessage = stringResource(Res.string.youtube_session_expired_message)
+    val logIn = stringResource(Res.string.action_login)
+    val notNow = stringResource(Res.string.action_not_now)
+    return when {
+        PlayerState.showPlayerError -> {
+            val message = PlayerState.playerErrorMessage
+            val details = PlayerState.playerErrorDetails.takeIf(String::isNotBlank)
+            XmbNoticeRequest(
+                XmbNotice(
+                    id = "player_error:$message",
+                    title = errorTitle,
+                    message = message,
+                    details = details,
+                    buttons = listOfNotNull(ok, copy.takeIf { details != null }),
+                    cancel = 0,
+                ),
+            ) { chosen ->
+                if (chosen == 1) AppState.copyToClipboard("$message\n\n$details")
+                PlayerState.showPlayerError = false
+            }
+        }
+
+        YouTubeSessionState.showExpiredSessionNotice -> {
+            XmbNoticeRequest(
+                XmbNotice(
+                    id = "session_expired",
+                    title = expiredTitle,
+                    message = expiredMessage,
+                    buttons = listOf(logIn, notNow),
+                    cancel = 1,
+                ),
+            ) { chosen ->
+                YouTubeSessionState.dismissExpiredSessionNotice()
+                if (chosen == 0) {
+                    UiState.showSignIn = true
+                    UiState.showSwitchChannel = false
+                }
+            }
+        }
+
+        else -> {
+            null
         }
     }
 }

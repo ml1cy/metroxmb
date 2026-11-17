@@ -408,4 +408,13 @@ from it. The home-screen ribbon stays navigation-driven.
 - **Casting** uses `PlaybackController`'s discovery, device list, `castTo` and `disconnectCast`.
 - Full-screen state is one `XmbFullScreen` value (visualizer, video, lyrics); `XmbApp` routes keys
   to it before the menu.
+- **Moving to full screen** is one animated value: `XmbBackdrop` blends the home background into
+  Waves (sky colors, ribbon settings, clocks via `RibbonClockBlend`), and `XmbTrackInfo` moves the
+  now-playing card into the full-screen overlay. Details in `docs/xmb-notes.md`.
+- **Notices**: the host passes an `XmbNoticeRequest` (message, buttons, which one ○ picks); `XmbApp`
+  draws it as a console-style band and routes keys to it first. Desktop uses it for playback errors
+  and an expired YouTube sign-in instead of Material dialogs.
+- **Desktop window**: the XMB fills the window, under the caption buttons. Its whole-screen pointer
+  handler is an `XmbBackdropInput`, which the Windows caption hit test ignores, so the top strip
+  still drags and maximizes the window.
 

@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
@@ -833,6 +834,8 @@ fun CaptionButton(
             modifier
                 .size(46.dp, 32.dp)
                 .semantics { contentDescription = label }
+                // Mouse only: a focused caption button would take Space and Enter from the XMB.
+                .focusProperties { canFocus = false }
                 .clickable(
                     onClick = onClick,
                     role = Role.Button,
