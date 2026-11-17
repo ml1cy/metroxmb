@@ -414,6 +414,10 @@ from it. The home-screen ribbon stays navigation-driven.
 - **Notices**: the host passes an `XmbNoticeRequest` (message, buttons, which one ○ picks); `XmbApp`
   draws it as a console-style band and routes keys to it first. Desktop uses it for playback errors
   and an expired YouTube sign-in instead of Material dialogs.
+- **XMB settings** live in `shared/.../xmb/settings`: pages built as registry rows, read through
+  `XmbPrefs` from `Settings.shared`, plus keyboard shortcuts (`XmbShortcuts`). The host supplies
+  `XmbVolume` (volume shortcuts) and `XmbWallpaper` (background images); desktop uses
+  `PlayerState`'s volume and the system file dialog.
 - **Desktop window**: the XMB fills the window, under the caption buttons. Its whole-screen pointer
   handler is an `XmbBackdropInput`, which the Windows caption hit test ignores, so the top strip
   still drags and maximizes the window.

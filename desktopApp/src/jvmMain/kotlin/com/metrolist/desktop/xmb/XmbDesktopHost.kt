@@ -11,6 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import coil3.compose.setSingletonImageLoaderFactory
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
@@ -24,6 +26,7 @@ import com.metrolist.desktop.ui.components.VideoRenderer
 import com.metrolist.desktop.ui.screens.LoginDialog
 import com.metrolist.desktop.ui.screens.settings.SettingsOverlay
 import com.metrolist.desktop.ui.theme.MetrolistTheme
+import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.desktop.utils.DesktopImageLoader
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
@@ -51,19 +54,27 @@ import com.metrolist.shared.xmb.XmbLyrics
 import com.metrolist.shared.xmb.XmbServices
 import com.metrolist.shared.xmb.XmbSettingsHost
 import com.metrolist.shared.xmb.XmbVideo
+import com.metrolist.shared.xmb.XmbVolume
+import com.metrolist.shared.xmb.XmbWallpaper
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
 import com.metrolist.shared.xmb.sound.DesktopXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.context.GlobalContext
+import java.awt.FileDialog
+import java.awt.Frame
+import java.io.File
+import org.jetbrains.skia.Image as SkiaImage
 
 /**
  * Desktop glue for the XMB, which `App()` in Main.kt shows once onboarding is done. Supplies the playback controller `App()`
@@ -101,6 +112,8 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     video = DesktopXmbVideo,
                     lyrics = DesktopXmbLyrics,
                     listenTogether = XmbListenTogether(ListenTogetherState.listenTogetherManager, AppState::copyToClipboard),
+                    volume = DesktopXmbVolume,
+                    wallpaper = DesktopXmbWallpaper,
                 )
             }
         DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())
@@ -219,6 +232,36 @@ private object DesktopXmbLyrics : XmbLyrics {
 
     override fun lines(songId: String): List<LyricsEntry>? =
         if (LyricsState.currentLyricsSongId == songId && !LyricsState.isLyricsLoading) LyricsState.currentLyricsEntries else null
+}
+
+/** The player's volume, as the stock volume slider sets it. */
+private object DesktopXmbVolume : XmbVolume {
+    override val level: Float get() = PlayerState.volumeState.value
+
+    override fun set(level: Float) = PlayerState.setVolumeLevel(level)
+}
+
+/** Background images: the system file dialog, then decoded with Skia. */
+private object DesktopXmbWallpaper : XmbWallpaper {
+    override fun pick(onPicked: (String) -> Unit) {
+        val dialog = FileDialog(null as Frame?, "", FileDialog.LOAD)
+        dialog.setFilenameFilter { _, name -> name.substringAfterLast('.').lowercase() in IMAGE_EXTENSIONS }
+        // Windows ignores the filter above; this pattern narrows its dialog instead.
+        dialog.file = IMAGE_EXTENSIONS.joinToString(";") { "*.$it" }
+        dialog.isVisible = true
+        val file = dialog.file ?: return
+        val directory = dialog.directory ?: return
+        onPicked(File(directory, file).absolutePath)
+    }
+
+    override suspend fun load(path: String): ImageBitmap? =
+        withContext(Dispatchers.IO) {
+            runCatching { SkiaImage.makeFromEncoded(File(path).readBytes()).toComposeImageBitmap() }
+                .onFailure { AppLogger.warning("XmbWallpaper", "Could not load $path", it) }
+                .getOrNull()
+        }
+
+    private val IMAGE_EXTENSIONS = listOf("png", "jpg", "jpeg", "webp", "bmp", "gif")
 }
 
 private object DesktopXmbAccount : XmbAccount {

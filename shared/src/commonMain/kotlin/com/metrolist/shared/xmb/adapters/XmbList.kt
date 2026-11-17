@@ -7,6 +7,7 @@ import com.metrolist.shared.model.PlaylistItem
 import com.metrolist.shared.model.PodcastItem
 import com.metrolist.shared.model.SearchSummary
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.xmb.settings.XmbSettingsPageId
 
 /** A list the XMB can open as a drill-down level. [key] identifies it for animation and state. */
 sealed interface XmbList {
@@ -117,6 +118,13 @@ sealed interface XmbList {
         val page: SettingsPageId,
     ) : XmbList {
         override val key = "settings:${page.name}"
+    }
+
+    /** One of the XMB's own settings pages (Theme, Date and Time...), built by XmbApp in composition. */
+    data class XmbSettings(
+        val page: XmbSettingsPageId,
+    ) : XmbList {
+        override val key = "xmb_settings:${page.name}"
     }
 
     /** Search results for [query]: one folder per result shelf (top result, songs, albums...). */

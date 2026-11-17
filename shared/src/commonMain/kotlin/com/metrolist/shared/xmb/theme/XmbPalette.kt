@@ -66,16 +66,19 @@ object XmbPalette {
     fun backgroundColors(
         month: Int,
         hour: Float,
-    ): XmbBackgroundColors {
-        val base = monthColor(month)
-        val light = brightness(hour)
+    ): XmbBackgroundColors = colorsFor(monthColor(month), brightness(hour))
+
+    /** The background for [base] at brightness [light] (1 by day). */
+    fun colorsFor(
+        base: Color,
+        light: Float,
+    ): XmbBackgroundColors =
         // RetroArch's ribbon background: the color at 0.375 at the top rising to 1.625 at the bottom.
-        return XmbBackgroundColors(
+        XmbBackgroundColors(
             top = base.scaled(light * TOP_FACTOR),
             bottom = base.scaled(light * BOTTOM_FACTOR),
             base = base.scaled(light),
         )
-    }
 
     private fun Color.scaled(factor: Float): Color =
         Color(

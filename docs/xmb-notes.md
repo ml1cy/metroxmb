@@ -131,6 +131,30 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Option spacing | 22 units | Roomy list like the console's option menu |
 | Slide | `FADE_MS` with the scroll easing | Matches the level transition |
 
+## XMB settings and keyboard shortcuts (`xmb/settings/`)
+
+The Settings column starts with the XMB's own pages (Theme, Date and Time, Sound, Keyboard
+Shortcuts, Music Player). Their rows are `SettingsItemRegistration`s, so the XMB's settings rows
+and value pickers draw them like the registry's; each writes its value to `Settings.shared`
+(`xmb*` properties), whose reads recompose the XMB. `XmbPrefs.current()` reads them all.
+
+| Setting | Values | Notes |
+|---|---|---|
+| Color | Original, the 12 monthly colors, Custom | Custom is `Color.hsv(hue, 0.8, 0.8)`, about as strong as the monthly colors |
+| Background image | file chosen by the platform (`XmbWallpaper`) | Drawn to cover the screen, dimmed by Image dimming, faded out as Waves opens |
+| Wave / sparkles off | home only | Waves always draws them; they fade in with the move |
+| Wave speed | 0.5, 1, 1.75 | Scales the home wave's clock |
+| Menu sound volume | 0–100% | Desktop sets each clip's gain (`EFFECT_VOLUME` × volume) |
+| Visualizer when idle | off, 30 s, 1, 3, 5 min | Only while music plays and nothing is open; any menu key closes it again, media keys don't |
+
+Shortcuts are saved by key name (`"PLAY_PAUSE=Space;NEXT_TRACK=Ctrl+Right;..."`), so a save means
+the same keys on any platform; a shortcut missing from a save gets its default, an empty one
+stays cleared. Defaults follow common music players (Spotify's Ctrl/Shift+arrows, Ctrl+S/R).
+Space is now a shortcut rather than a fixed key, so it can be moved. Menu keys and media keys
+can only be used with a modifier, and taking a key from another shortcut clears it there.
+Shortcuts run before the menu but not while the on-screen keyboard is open, and show a short
+message (shuffle, repeat, volume, like) under the clock.
+
 ## Now playing and the move to full screen (`xmb/screens/XmbTrackInfo.kt`)
 
 One view draws the track in both places: the card at the bottom right (below) and, full screen,
@@ -148,7 +172,9 @@ visualizer's instead of one fading over the other.
 
 The ribbon mesh is drawn 8 times at an eighth of its strength, each pass offset by one of the
 standard 8x multisampling positions: `drawVertices` has no anti-aliasing, and where the sheet turns
-edge-on (crests and troughs) its triangles get thinner than a pixel and the silk lines stepped.
+edge-on (crests and troughs) its triangles get thinner than a pixel and the silk lines stepped. Colors are 8-bit,
+so each pass's share is nudged by a different fraction of a step (`ribbonPassAlpha`): plain eighths
+rounded alike in every pass, kept 32 of 256 levels and showed as blocky patches in the sheet.
 
 | Constant | Value | Reason |
 |---|---|---|
