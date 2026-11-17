@@ -144,6 +144,19 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Option spacing | 22 units | Roomy list like the console's option menu |
 | Slide | `FADE_MS` with the scroll easing | Matches the level transition |
 
+## Touch and portrait (M7)
+
+| Constant | Value | Reason |
+|---|---|---|
+| Drag step | one category spacing across, one item spacing down; the first step half a step past the touch slop | Same steps as the arrow keys; short drags still move |
+| Direction | drag up = next item, drag left = next category | The content follows the finger |
+| Tap | within 0.75 item steps of the focused row: select; on the category row: move along it; elsewhere: one step toward the tap | Predictable without per-row hit testing |
+| Long press | 500 ms without moving: options (△) | |
+| Mouse | unchanged (click takes focus, wheel moves) | A click shouldn't select by accident on desktop |
+| Portrait unit | min(height / 900, width / 480): about 0.86 dp on a 411 dp phone | The landscape rule (width / 960) made titles 10 sp |
+| Portrait anchor | focused category at 20% of the width; values 220 units after the text | Room for the row and for values on screen |
+| Portrait full screen | artwork and titles above the queue position; the time and a full-width bar below, with the card's 32-unit margins | The console's side-by-side layout doesn't fit upright |
+
 ## XMB settings and keyboard shortcuts (`xmb/settings/`)
 
 The Settings column starts with the XMB's own pages (Theme, Date and Time, Sound, Keyboard

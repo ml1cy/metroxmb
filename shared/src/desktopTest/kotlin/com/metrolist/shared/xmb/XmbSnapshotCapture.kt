@@ -215,6 +215,18 @@ class XmbSnapshotCapture {
                         initialOptions = true,
                     )
                 },
+                // An upright phone (411 dp wide): the menu, and the full-screen track info stacked.
+                Screen("phone-portrait", 1080, 2340, density = 2.625f) {
+                    XmbApp(services = demoServices, time = { day }, animate = false, initialItem = 2)
+                },
+                Screen("phone-visualizer", 1080, 2340, density = 2.625f) {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day.copy(month = 9) },
+                        animate = false,
+                        initialFullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.WAVES),
+                    )
+                },
                 Screen("xmb-theme-settings") {
                     XmbApp(
                         services = demoServices,
@@ -250,7 +262,7 @@ class XmbSnapshotCapture {
                 }
         for (screen in screens) {
             if (only != null && screen.name != only) continue
-            val density = if (screen.width >= 1920) 1.5f else 1f
+            val density = screen.density ?: if (screen.width >= 1920) 1.5f else 1f
             val scene = ImageComposeScene(screen.width, screen.height, Density(density), content = screen.content)
             try {
                 var image = scene.render(0)
@@ -439,6 +451,7 @@ class XmbSnapshotCapture {
         val name: String,
         val width: Int = 1920,
         val height: Int = 1080,
+        val density: Float? = null,
         val content: @Composable () -> Unit,
     )
 

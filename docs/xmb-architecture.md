@@ -397,6 +397,24 @@ smoothing; `levels()` is unchanged), `VisualizerAudio` follows each band group's
 a fixed floor, and the ribbon draws from reused arrays through an `expect` mesh call (Skia on
 desktop; the framework canvas on Android, with a software fallback below Android 10).
 
+## 19. M7: Android (started)
+
+`MetrolistApp` keeps everything it sets up (player connection, playback controller, Listen
+Together, incoming links, permissions) and, while its navigation is at a top-level route, draws
+`XmbAndroidHost` and returns before its stock layout. Anything the XMB opens through the
+navigator (`Screen.Login`, `Screen.SwitchChannel`, `Screen.SettingsPage`) shows the stock screen,
+and back returns to the XMB. The host supplies the shared services from Android's own: the
+playback controller, the music database and `SongDownloadManager`, a minimal `SharedSettingsHost`
+for the registry, the player's volume, the photo picker for background images (copied into app
+files), the clipboard, and `AndroidXmbSoundPlayer` (SoundPool). It hides the system bars, pauses
+animation below `STARTED`, and forwards Android's back to the XMB through `XmbInputController`
+while the XMB has somewhere to go back to (the XMB then leaves the Back key alone, so it isn't
+handled twice). Lyrics and video aren't wired on Android yet.
+
+Shared input: `XmbApp.act(action)` handles an action from a key, a touch or the controller the
+same way (notice, full screen, then the menu). `XmbTouchTracker` turns touch into steps; the mouse
+keeps its click-to-focus and wheel. `XmbMetrics.forSize` has a portrait variant.
+
 ## 18. M6: podcasts, video, friends, lyrics, casting
 
 - **Podcasts** come from the repository (`getLibraryPodcasts`, `getNewPodcastEpisodes`,

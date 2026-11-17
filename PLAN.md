@@ -155,6 +155,10 @@ long-press = options.
 - Quality settings and FPS cap; pause when hidden (per `docs/rendering.md`); shader fallback
   below the API level the existing shaders require
 - The XMB replaces Android's stock UI; then remove the stock Android screens the XMB doesn't borrow
+- Started: the XMB at Android's top level (`XmbAndroidHost`), touch, portrait layout, system back,
+  SoundPool sounds, full screen, pausing in the background, and the ribbon's software fallback
+  below Android 10. To do: lyrics and video on Android, quality settings and an FPS cap, tablet
+  and TV checks on devices, XMB versions of the borrowed screens, removing the stock screens
 
 ## Extra features (after the core is done)
 - Theme picker: monthly colors, fixed colors, custom, or album-art tint
