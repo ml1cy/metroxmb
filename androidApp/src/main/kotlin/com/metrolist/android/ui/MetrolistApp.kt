@@ -194,23 +194,11 @@ import com.metrolist.android.ui.components.shouldUseDesktopMiniPlayer
 import com.metrolist.android.ui.player.AndroidPlayerPlatform
 import com.metrolist.android.ui.player.MusicVideoSurface
 import com.metrolist.android.ui.player.PictureInPictureHelper
-import com.metrolist.android.ui.screens.AboutArtistScreen
-import com.metrolist.android.ui.screens.AlbumScreen
-import com.metrolist.android.ui.screens.ArtistScreenHost
-import com.metrolist.android.ui.screens.AutoPlaylistScreen
 import com.metrolist.android.ui.screens.BrowseScreen
-import com.metrolist.android.ui.screens.DownloadsScreen
-import com.metrolist.android.ui.screens.HistoryScreen
-import com.metrolist.android.ui.screens.HomeScreen
-import com.metrolist.android.ui.screens.HomeSectionScreen
 import com.metrolist.android.ui.screens.IntegrationsScreen
-import com.metrolist.android.ui.screens.LibraryScreen
 import com.metrolist.android.ui.screens.LoginScreen
-import com.metrolist.android.ui.screens.PlaylistScreen
-import com.metrolist.android.ui.screens.PodcastScreen
 import com.metrolist.android.ui.screens.RecognitionHistoryScreen
 import com.metrolist.android.ui.screens.RecognitionScreen
-import com.metrolist.android.ui.screens.SearchScreen
 import com.metrolist.android.ui.screens.SettingsScreen
 import com.metrolist.android.ui.screens.settings.AndroidAboutScreen
 import com.metrolist.android.ui.screens.settings.AndroidAutoScreen
@@ -2446,54 +2434,16 @@ fun getEntryProvider(
     libraryViewModel: LibraryViewModel,
     onSearchResultsVisible: (Boolean) -> Unit = {},
 ): (NavKey) -> NavEntry<NavKey> =
-    entryProvider<NavKey> {
-        entry<Screen.Home>(metadata = navTabMetadata) {
-            HomeScreen(
-                floatingActionsBottomInset = floatingActionsBottomInset,
-                onNavigateToAlbum = { albumId -> navigator.navigate(Screen.Album(albumId)) },
-                onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
-                onNavigateToPlaylist = { id, thumbnail -> navigator.navigate(Screen.Playlist(id, thumbnailHint = thumbnail)) },
-                onNavigateToPodcast = { podcastId -> navigator.navigate(Screen.Podcast(podcastId)) },
-                onNavigateToRecognition = { navigator.navigate(Screen.Recognition) },
-                onNavigateToLibrary = { filter ->
-                    filter?.let { Settings.shared.libraryFilter = it }
-                    navigator.navigate(Screen.Library)
-                },
-                onNavigateToBrowse = { browseId, params, title ->
-                    navigator.navigate(Screen.Browse(browseId, params, title))
-                },
-                onNavigateToVideoBrowse = { browseId, params, title ->
-                    navigator.navigate(Screen.Browse(browseId, params, title))
-                },
-                onNavigateToHomeSection = { shelf ->
-                    navigator.navigate(Screen.HomeSection(shelf.pageKey, shelf.title, shelf.toHomeSection()))
-                },
-                scrollToTopEvents = homeScrollToTopEvents,
-            )
-        }
-
-        entry<Screen.EasterEgg>(metadata = navTabMetadata) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(Res.string.mysterious_fourth_tab_description))
+    // XMB Music: the stock home, library, search, collection, history and downloads screens are gone;
+    // the XMB shows those (Navigator.redirect sends their routes there). One still in a restored back
+    // stack goes back to the XMB.
+    entryProvider<NavKey>(
+        fallback = { key ->
+            NavEntry(key) {
+                LaunchedEffect(key) { navigator.goBack() }
             }
-        }
-
-        entry<Screen.HomeSection>(metadata = navTabMetadata + detailViewModelMetadata) { section ->
-            HomeSectionScreen(
-                sectionKey = section.key,
-                section = section.section,
-                title = section.title,
-                onBackClick = { navigator.goBack() },
-                onNavigateToAlbum = { albumId -> navigator.navigate(Screen.Album(albumId)) },
-                onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
-                onNavigateToPlaylist = { id, thumbnail -> navigator.navigate(Screen.Playlist(id, thumbnailHint = thumbnail)) },
-                onNavigateToPodcast = { podcastId -> navigator.navigate(Screen.Podcast(podcastId)) },
-                onNavigateToBrowse = { browseId, params, title ->
-                    navigator.navigate(Screen.Browse(browseId, params, title))
-                },
-            )
-        }
-
+        },
+    ) {
         entry<Screen.Browse>(metadata = navTabMetadata + detailViewModelMetadata) { browse ->
             BrowseScreen(
                 browseId = browse.browseId,
@@ -2511,33 +2461,6 @@ fun getEntryProvider(
             )
         }
 
-        entry<Screen.Library>(metadata = navTabMetadata) {
-            LibraryScreen(
-                viewModel = libraryViewModel,
-                floatingActionsBottomInset = floatingActionsBottomInset,
-                scrollToTopEvents = libraryScrollToTopEvents,
-                onNavigateToAlbum = { albumId -> navigator.navigate(Screen.Album(albumId)) },
-                onNavigateToArtist = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
-                onNavigateToPlaylist = { id, thumbnail -> navigator.navigate(Screen.Playlist(id, thumbnailHint = thumbnail)) },
-                onNavigateToPodcast = { podcastId -> navigator.navigate(Screen.Podcast(podcastId)) },
-                onNavigateToPlaylistImport = { navigator.navigate(Screen.PlaylistImport) },
-                onNavigateToAutoPlaylist = { type ->
-                    // Keep podcast auto playlists on the Library stack so Back returns to the podcast library.
-                    navigator.navigate(Screen.Library)
-                    navigator.navigate(Screen.AutoPlaylist(type))
-                },
-            )
-        }
-
-        entry<Screen.Search>(metadata = navTabMetadata) {
-            SearchScreen(
-                navigator = navigator,
-                floatingActionsBottomInset = floatingActionsBottomInset,
-                initialQuery = pendingSearchQuery,
-                onSearchResultsVisible = onSearchResultsVisible,
-            )
-        }
-
         entry<Screen.Recognition>(metadata = navTabMetadata) {
             RecognitionScreen(
                 onNavigateBack = { navigator.goBack() },
@@ -2547,10 +2470,6 @@ fun getEntryProvider(
         entry<Screen.RecognitionHistory>(metadata = navTabMetadata) {
             RecognitionHistoryScreen(onNavigateBack = { navigator.goBack() })
         }
-        entry<Screen.History>(metadata = navTabMetadata) {
-            HistoryScreen(onNavigateBack = { navigator.goBack() })
-        }
-
         entry<Screen.Login>(metadata = navTabMetadata) {
             LoginScreen(
                 onNavigateBack = { navigator.goBack() },
@@ -2574,62 +2493,6 @@ fun getEntryProvider(
             )
         }
 
-        entry<Screen.Album>(metadata = navTabMetadata + detailViewModelMetadata) { album ->
-            CompositionLocalProvider(
-                LocalNavVisibilityScope provides LocalNavAnimatedContentScope.current,
-                LocalAlbumArtworkSource provides album.artworkSource,
-            ) {
-                AlbumScreen(
-                    albumId = album.id,
-                    onBackClick = { navigator.goBack() },
-                    onArtistClick = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
-                    onAlbumClick = { newAlbumId -> navigator.navigate(Screen.Album(newAlbumId)) },
-                    onAlbumArtworkClick = { id, token -> navigator.navigate(Screen.Album(id, artworkSource = token)) },
-                )
-            }
-        }
-
-        entry<Screen.Artist>(metadata = navTabMetadata + detailViewModelMetadata) { artist ->
-            CompositionLocalProvider(LocalNavVisibilityScope provides LocalNavAnimatedContentScope.current) {
-                ArtistScreenHost(
-                    artistId = artist.id,
-                    onBackClick = { navigator.goBack() },
-                    onNavigateToAlbum = { albumId, albums, token ->
-                        navigator.navigateFrom(
-                            artist,
-                            Screen.Album(
-                                id = albumId,
-                                gallery = albums.map { AlbumSeed(it.id, it.title, it.thumbnail) },
-                                artworkSource = token,
-                            ),
-                        )
-                    },
-                    onNavigateToPlaylist = { id, thumbnail ->
-                        navigator.navigateFrom(artist, Screen.Playlist(id, thumbnailHint = thumbnail))
-                    },
-                    onNavigateToArtist = { artistId -> navigator.navigateFrom(artist, Screen.Artist(artistId)) },
-                    onNavigateToPodcast = { podcastId -> navigator.navigateFrom(artist, Screen.Podcast(podcastId)) },
-                    onNavigateToBrowse = { browseId, params, title ->
-                        navigator.navigateFrom(artist, Screen.Browse(browseId, params, title))
-                    },
-                    onNavigateToAboutArtist = { item ->
-                        navigator.navigateFrom(artist, Screen.AboutArtist(item.id, item.title, item))
-                    },
-                )
-            }
-        }
-
-        entry<Screen.AboutArtist>(metadata = navTabMetadata + detailViewModelMetadata) { aboutArtist ->
-            CompositionLocalProvider(LocalNavVisibilityScope provides LocalNavAnimatedContentScope.current) {
-                AboutArtistScreen(
-                    artistId = aboutArtist.id,
-                    artistName = aboutArtist.name,
-                    initialInfo = aboutArtist.artist,
-                    onBackClick = { navigator.goBack() },
-                )
-            }
-        }
-
         entry<Screen.Integrations>(metadata = navTabMetadata) {
             IntegrationsScreen(
                 onNavigateBack = { navigator.goBack() },
@@ -2642,52 +2505,6 @@ fun getEntryProvider(
                 onNavigateBack = { navigator.goBack() },
                 onNavigateToListenTogether = { navigator.navigate(Screen.ListenTogetherSettings) },
                 initialPage = SettingsPageId.DISCORD,
-            )
-        }
-
-        entry<Screen.Playlist>(metadata = navTabMetadata + detailViewModelMetadata) { playlist ->
-            val builtin = BuiltinPlaylist.fromId(playlist.id)
-            val collectionType = builtin?.collectionType
-            when {
-                builtin == BuiltinPlaylist.HISTORY -> {
-                    HistoryScreen(onNavigateBack = { navigator.goBack() })
-                }
-
-                collectionType != null -> {
-                    AutoPlaylistScreen(
-                        type = collectionType,
-                        onBackClick = { navigator.goBack() },
-                        onArtistClick = { navigator.navigate(Screen.Artist(it)) },
-                        onOpenDownloadQueue = { navigator.navigate(Screen.Downloads) },
-                    )
-                }
-
-                else -> {
-                    PlaylistScreen(
-                        playlistId = playlist.id,
-                        thumbnailHint = playlist.thumbnailHint,
-                        onBackClick = { navigator.goBack() },
-                        onArtistClick = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
-                        onAlbumClick = { albumId -> navigator.navigate(Screen.Album(albumId)) },
-                    )
-                }
-            }
-        }
-
-        entry<Screen.Podcast>(metadata = navTabMetadata) { podcast ->
-            PodcastScreen(
-                podcastId = podcast.id,
-                onNavigateBack = { navigator.goBack() },
-                onChannelClick = { navigator.navigate(Screen.Artist(it)) },
-            )
-        }
-
-        entry<Screen.AutoPlaylist>(metadata = navTabMetadata) { autoPlaylist ->
-            AutoPlaylistScreen(
-                type = autoPlaylist.type,
-                onBackClick = { navigator.goBack() },
-                onArtistClick = { artistId -> navigator.navigate(Screen.Artist(artistId)) },
-                onOpenDownloadQueue = { navigator.navigate(Screen.Downloads) },
             )
         }
 
@@ -2825,10 +2642,6 @@ fun getEntryProvider(
         }
         entry<Screen.PlaybackBenchmark>(metadata = navTabMetadata) {
             PlaybackBenchmarkSettingsScreen(onNavigateBack = { navigator.goBack() })
-        }
-
-        entry<Screen.Downloads>(metadata = navTabMetadata) {
-            DownloadsScreen(onNavigateBack = { navigator.goBack() })
         }
 
         entry<Screen.Storage>(metadata = navTabMetadata) {
