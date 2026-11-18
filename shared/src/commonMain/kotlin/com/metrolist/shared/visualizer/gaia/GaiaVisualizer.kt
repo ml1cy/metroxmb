@@ -22,7 +22,15 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.VisualizerQuality
 import com.metrolist.shared.visualizer.shader.XmbShader
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -51,7 +59,14 @@ fun GaiaVisualizer(
     val procedural = remember { XmbShader(GAIA_SHADER) }
     val earth = remember { XmbShader(GAIA_EARTH_SHADER) }
     val maps by produceState<GaiaMaps?>(null, earth) {
-        if (earth.available) value = runCatching { loadGaiaMaps() }.getOrNull()?.also { it.bind(earth) }
+        if (!earth.available) return@produceState
+        holdGaiaMaps()
+        try {
+            value = runCatching { loadGaiaMaps() }.getOrNull()?.also { it.bind(earth) }
+            awaitCancellation()
+        } finally {
+            releaseGaiaMaps()
+        }
     }
     Canvas(modifier) {
         val textured = maps
@@ -184,6 +199,37 @@ internal class GaiaMaps(
 
 private var gaiaMaps: GaiaMaps? = null
 private val gaiaMapsLock = Mutex()
+
+// The maps are about 85 MB of bitmaps: they're kept while a Gaia view is shown and for a minute
+// after the last one closes (auto-cycle comes back to Gaia), then dropped.
+private var gaiaMapUsers = 0
+private var gaiaMapRelease: Job? = null
+private val gaiaMapScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+private fun holdGaiaMaps() {
+    synchronizedGaia {
+        gaiaMapUsers++
+        gaiaMapRelease?.cancel()
+        gaiaMapRelease = null
+    }
+}
+
+private fun releaseGaiaMaps() {
+    synchronizedGaia {
+        if (--gaiaMapUsers > 0) return@synchronizedGaia
+        gaiaMapRelease =
+            gaiaMapScope.launch {
+                delay(GAIA_MAPS_KEEP_MS)
+                gaiaMapsLock.withLock { if (gaiaMapUsers == 0) gaiaMaps = null }
+            }
+    }
+}
+
+private val gaiaUseLock = SynchronizedObject()
+
+private inline fun synchronizedGaia(block: () -> Unit) = synchronized(gaiaUseLock, block)
+
+private const val GAIA_MAPS_KEEP_MS = 60_000L
 
 @OptIn(ExperimentalResourceApi::class)
 internal suspend fun loadGaiaMaps(): GaiaMaps =

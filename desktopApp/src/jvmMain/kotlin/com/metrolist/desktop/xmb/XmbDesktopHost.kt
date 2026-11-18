@@ -11,8 +11,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import coil3.compose.setSingletonImageLoaderFactory
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.AppState
@@ -277,12 +284,27 @@ private object DesktopXmbWallpaper : XmbWallpaper {
 
     override suspend fun load(path: String): ImageBitmap? =
         withContext(Dispatchers.IO) {
-            runCatching { SkiaImage.makeFromEncoded(File(path).readBytes()).toComposeImageBitmap() }
+            runCatching { SkiaImage.makeFromEncoded(File(path).readBytes()).toComposeImageBitmap().fitWithin(MAX_WALLPAPER_SIDE) }
                 .onFailure { AppLogger.warning("XmbWallpaper", "Could not load $path", it) }
                 .getOrNull()
         }
 
     private val IMAGE_EXTENSIONS = listOf("png", "jpg", "jpeg", "webp", "bmp", "gif")
+
+    /** Wallpapers larger than 4K are scaled down: a camera photo would otherwise hold hundreds of MB. */
+    private const val MAX_WALLPAPER_SIDE = 3840
+}
+
+/** This image scaled down (smoothly) so its longer side is at most [limit] pixels. */
+private fun ImageBitmap.fitWithin(limit: Int): ImageBitmap {
+    val longest = maxOf(width, height)
+    if (longest <= limit) return this
+    val scale = limit.toFloat() / longest
+    val target = ImageBitmap((width * scale).toInt().coerceAtLeast(1), (height * scale).toInt().coerceAtLeast(1))
+    CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(target), Size(target.width.toFloat(), target.height.toFloat())) {
+        drawImage(this@fitWithin, dstSize = IntSize(target.width, target.height), filterQuality = FilterQuality.High)
+    }
+    return target
 }
 
 private object DesktopXmbAccount : XmbAccount {
