@@ -3,6 +3,7 @@ package com.metrolist.shared.xmb
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
@@ -122,6 +123,8 @@ class XmbServices(
     val video: XmbVideo? = null,
     val lyrics: XmbLyrics? = null,
     val listenTogether: XmbListenTogether? = null,
+    /** Device Connect: the user's other devices, listed with the cast devices to move playback to. */
+    val deviceConnect: DeviceConnectManager? = null,
     val volume: XmbVolume? = null,
     val wallpaper: XmbWallpaper? = null,
 )

@@ -38,14 +38,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.metrolist.android.LocalStartupPresentation
+import com.metrolist.android.deviceconnect.AndroidDeviceConnect
 import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.ui.player.MusicVideoSurface
-import com.metrolist.android.viewmodels.HomeViewModel
-import org.koin.compose.viewmodel.koinViewModel
 import com.metrolist.android.ui.screens.rememberAndroidSettingsHost
 import com.metrolist.android.ui.screens.settings.rememberAndroidIntegrationsHost
+import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
@@ -85,6 +85,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.compose.viewmodel.koinViewModel
 import java.io.File
 
 /**
@@ -190,6 +191,7 @@ internal fun XmbAndroidHost(
                 wallpaper = wallpaper,
                 lyrics = lyrics,
                 video = video,
+                deviceConnect = AndroidDeviceConnect.manager,
             )
         }
     ImmersiveSystemBars()

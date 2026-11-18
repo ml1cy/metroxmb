@@ -292,3 +292,10 @@ and draw as a notice band over the XMB's sky and wave: "Setup n/m", the title an
 choices as buttons (wrapping in portrait). ←/→ choose, ✕/Enter/Space confirms, ○/Esc goes back a
 page; buttons take taps. The language, lyrics and playback pages are left out: those settings are in
 the XMB's Settings column.
+
+## Devices (M7)
+
+The device list (△ on the playing song, or the cast item) shows the cast devices, then the
+user's other devices that Device Connect has connected (`peerEntries`). Selecting one moves
+playback there; selecting the one playing hands playback back to this device. Device Connect is
+switched on in Settings > Integrations > Device Connect.

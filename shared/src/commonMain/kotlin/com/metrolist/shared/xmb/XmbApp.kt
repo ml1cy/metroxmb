@@ -65,6 +65,7 @@ import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.album
 import com.metrolist.shared.generated.resources.artist
+import com.metrolist.shared.generated.resources.device_connect_title
 import com.metrolist.shared.generated.resources.downloads
 import com.metrolist.shared.generated.resources.history
 import com.metrolist.shared.generated.resources.liked_songs
@@ -107,6 +108,8 @@ import com.metrolist.shared.xmb.adapters.castEntries
 import com.metrolist.shared.xmb.adapters.currentLyricIndex
 import com.metrolist.shared.xmb.adapters.matches
 import com.metrolist.shared.xmb.adapters.memberEntries
+import com.metrolist.shared.xmb.adapters.peerEntries
+import com.metrolist.shared.xmb.adapters.peerId
 import com.metrolist.shared.xmb.adapters.plainNumber
 import com.metrolist.shared.xmb.adapters.toXmbEntries
 import com.metrolist.shared.xmb.adapters.toXmbEntry
@@ -328,6 +331,7 @@ fun XmbApp(
             ?.collectAsState()
             ?.value
     val text = rememberXmbM6Text()
+    val deviceConnectLabel = stringResource(Res.string.device_connect_title)
     val shortcutText = rememberXmbShortcutText()
     val categories =
         xmbCategories(
@@ -408,8 +412,18 @@ fun XmbApp(
             }
             XmbListState.loaded(page?.toXmbEntries(labels, sliderLabels).orEmpty())
         } else if (level?.list == XmbList.CastDevices) {
-            val devices =
+            val casts =
                 castEntries(playbackState?.castDevices.orEmpty(), playbackState?.castState ?: CastState(), text.connected, text.connecting)
+            // The user's other devices (Device Connect) follow the cast devices.
+            val peers =
+                services
+                    ?.deviceConnect
+                    ?.let { manager ->
+                        val state by manager.state.collectAsState()
+                        val sync by manager.remote.state.collectAsState()
+                        peerEntries(state.peers, state.localDeviceId, sync.targetId, deviceConnectLabel, text.connected)
+                    }.orEmpty()
+            val devices = casts + peers
             XmbListState(devices, isLoading = devices.isEmpty())
         } else if (level?.list == XmbList.RoomMembers) {
             val room =
@@ -652,8 +666,18 @@ fun XmbApp(
         return XmbFeedback.SELECT
     }
 
-    /** Connects to a cast device, or disconnects from the one in use. */
+    /** Connects to a cast device, or disconnects from the one in use; moves playback to or back from another device. */
     fun selectCastDevice(entry: XmbEntry): XmbFeedback {
+        entry.peerId()?.let { peer ->
+            val manager = services?.deviceConnect ?: return XmbFeedback.ERROR
+            // The device playing now hands playback back here; another takes it.
+            if (manager.remote.state.value.targetId == peer) {
+                manager.remote.transferTo(manager.state.value.localDeviceId)
+                return XmbFeedback.BACK
+            }
+            manager.remote.transferTo(peer)
+            return XmbFeedback.SELECT
+        }
         val playback = services?.playback ?: return XmbFeedback.ERROR
         val state = playback.state.value
         val current = state.castState.device

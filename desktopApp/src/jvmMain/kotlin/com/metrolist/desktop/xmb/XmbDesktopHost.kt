@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import coil3.compose.setSingletonImageLoaderFactory
+import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.auth.AuthState
@@ -124,6 +125,7 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     listenTogether = XmbListenTogether(ListenTogetherState.listenTogetherManager, AppState::copyToClipboard),
                     volume = DesktopXmbVolume,
                     wallpaper = DesktopXmbWallpaper,
+                    deviceConnect = DesktopDeviceConnect.manager,
                 )
             }
         DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())
