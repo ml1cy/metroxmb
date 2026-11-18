@@ -40,9 +40,6 @@ jobs:
           distribution: temurin
           java-version: "25"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK platforms (37.1), build-tools, NDK, and CMake
         run: |
           yes | sdkmanager --licenses > /dev/null || true
