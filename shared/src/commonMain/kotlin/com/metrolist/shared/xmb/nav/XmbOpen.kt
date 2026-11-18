@@ -17,8 +17,13 @@ data class XmbOpen(
     val category: XmbCategoryId,
     val list: XmbList? = null,
     val title: String = "",
+    /** Show the playing song full screen (its last visualizer, with the track) over the XMB. */
+    val nowPlaying: Boolean = false,
 ) {
     companion object {
+        /** The player: a notification or the "open player" shortcut. */
+        fun nowPlaying() = XmbOpen(XmbCategoryId.MUSIC, nowPlaying = true)
+
         fun album(
             id: String,
             title: String,

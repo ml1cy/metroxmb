@@ -1136,6 +1136,23 @@ fun XmbApp(
     val pendingOpen = input?.pendingOpen
     LaunchedEffect(pendingOpen) {
         val target = input?.takeOpen() ?: return@LaunchedEffect
+        if (target.nowPlaying) {
+            // The player, the XMB way: the last visualizer full screen with the track, over whatever is open.
+            if (services
+                    ?.playback
+                    ?.state
+                    ?.value
+                    ?.currentSong == null
+            ) {
+                return@LaunchedEffect
+            }
+            options = null
+            picker = null
+            keyboard = null
+            if (fullScreen == null) fullScreen = XmbFullScreen.Visualizer(lastVisualizer)
+            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            return@LaunchedEffect
+        }
         options = null
         picker = null
         keyboard = null

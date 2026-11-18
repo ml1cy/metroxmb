@@ -18,8 +18,8 @@ import org.jetbrains.compose.resources.getString
 /**
  * Links, app shortcuts and notifications for the XMB. `MetrolistApp` hands over each place the
  * XMB can show ([xmbOpenFor]) and goes to its top level; `XmbAndroidHost` passes it to the XMB.
- * The rest (sign-in, song recognition, browse pages, playlist import, joining a room by link)
- * still open their stock screens.
+ * The player opens the XMB's full-screen visualizer. The rest (sign-in, song recognition, browse
+ * pages, playlist import, joining a room by link) still open their stock screens.
  */
 internal object AndroidXmbLinks {
     val pending = MutableStateFlow<XmbOpen?>(null)
@@ -32,6 +32,10 @@ internal object AndroidXmbLinks {
 /** Where the XMB shows [destination], or null when only a stock screen can. */
 internal suspend fun xmbOpenFor(destination: IncomingDestination): XmbOpen? =
     when (destination) {
+        IncomingDestination.Player -> {
+            XmbOpen.nowPlaying()
+        }
+
         IncomingDestination.Home, IncomingDestination.Library -> {
             XmbOpen(XmbCategoryId.MUSIC)
         }

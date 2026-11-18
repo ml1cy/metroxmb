@@ -764,7 +764,9 @@ fun MetrolistApp(
                 navigationSuiteType.isNavigationBar
         val isImeVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
         val shouldHideMiniPlayerForIme = isLandscape && isImeVisible
-        val shouldShowMiniPlayer = hasMedia
+        // XMB Music: the stock mini player and player never show; the XMB has its own now-playing,
+        // and the stock screens it borrows (sign-in, a settings page) are left without them.
+        val shouldShowMiniPlayer = false
         val immersiveContent = remember { mutableStateOf(false) }
         val shouldRenderMiniPlayer = shouldShowMiniPlayer && !shouldHideMiniPlayerForIme
 
@@ -1783,143 +1785,145 @@ fun MetrolistApp(
                             }
                         }
 
-                        BottomSheet(
-                            state = playerBottomSheetState,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .drawWithContent {
-                                        val bottomInset =
-                                            if (playerBottomSheetState.progress <= 0f) {
-                                                navigationBottomInset.toPx()
-                                            } else {
-                                                0f
+                        if (shouldShowMiniPlayer) {
+                            BottomSheet(
+                                state = playerBottomSheetState,
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .drawWithContent {
+                                            val bottomInset =
+                                                if (playerBottomSheetState.progress <= 0f) {
+                                                    navigationBottomInset.toPx()
+                                                } else {
+                                                    0f
+                                                }
+                                            clipRect(bottom = (size.height - bottomInset).coerceAtLeast(0f)) {
+                                                this@drawWithContent.drawContent()
                                             }
-                                        clipRect(bottom = (size.height - bottomInset).coerceAtLeast(0f)) {
-                                            this@drawWithContent.drawContent()
-                                        }
-                                    }.then(
-                                        if (!isAndroidTv ||
-                                            (isLandscape && (Settings.shared.immersivePlayer || playerBottomSheetState.progress > 0f))
-                                        ) {
-                                            Modifier
-                                        } else {
-                                            Modifier.windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
-                                        },
-                                    ).zIndex(
-                                        if (playerBottomSheetState.isDismissed || !shouldShowMiniPlayer || immersiveContent.value) {
-                                            -1f
-                                        } else {
-                                            1f
-                                        },
-                                    ),
-                            collapsedHeaderHeight = miniPlayerHeight,
-                            background = {
-                                if (hasMedia && !playerBottomSheetState.isCollapsed) {
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .fillMaxSize()
-                                                .drawBehind {
-                                                    if (!playerBackgroundOpaque || !playerBottomSheetState.isSettledExpanded) {
-                                                        drawRect(Color.Black.copy(alpha = 0.5f))
-                                                    }
-                                                },
-                                    )
-                                }
-                            },
-                            prepareDismissal = {
-                                val stopDismissedRequest = playerConnection.prepareDismissal()
-                                val onComplete: () -> Unit = {
-                                    hapticManager.perform(HapticEvent.CONFIRM)
-                                    stopDismissedRequest()
-                                }
-                                onComplete
-                            },
-                            isCollapsedContentClickable = false,
-                            isExpandable = true,
-                            isDraggableWhenCollapsed = true,
-                            preserveContentWhenCollapsed = true,
-                            morphCollapsedContainer = true,
-                            collapsedContent = {
-                                if (shouldRenderMiniPlayer) {
-                                    MiniPlayer(
-                                        useDesktopLayout = useDesktopMiniPlayer,
-                                        onExpand = {
-                                            focusManager.clearFocus(force = true)
-                                            keyboardController?.hide()
-                                            focusPlayPauseOnPlayerExpand = false
-                                            playerBottomSheetState.expandSoft()
-                                        },
-                                        onDpadExpand = {
-                                            focusManager.clearFocus(force = true)
-                                            keyboardController?.hide()
-                                            focusPlayPauseOnPlayerExpand = true
-                                            playerBottomSheetState.expandSoft()
-                                        },
-                                        bottomSheetState = playerBottomSheetState,
-                                        cardFocusRequester = miniPlayerFocusRequester,
-                                        modifier =
-                                            Modifier
-                                                .windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
-                                                .semantics {
-                                                    customActions =
-                                                        listOf(
-                                                            CustomAccessibilityAction(stopPlaybackLabel) {
-                                                                playerBottomSheetState.dismiss(playerConnection.prepareDismissal())
-                                                                true
-                                                            },
-                                                        )
-                                                }.onPreviewKeyEvent { event ->
-                                                    if (isAndroidTv && event.key == Key.DirectionUp) {
-                                                        event.type == KeyEventType.KeyUp ||
-                                                            contentFocusRequester.requestFocus(FocusDirection.Up)
-                                                    } else {
-                                                        false
-                                                    }
-                                                }.layout { measurable, constraints ->
-                                                    val start = miniPlayerRailPadding().roundToPx()
-                                                    val child = measurable.measure(constraints.offset(horizontal = -start))
-                                                    layout(child.width + start, child.height) { child.placeRelative(start, 0) }
-                                                },
-                                    )
-                                }
-                            },
-                        ) {
-                            val playerLifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
-                            PlayerScreen(
-                                isScreenVisible = playerLifecycleState.isAtLeast(Lifecycle.State.STARTED),
-                                viewModel = playerViewModel,
-                                bottomSheetState = playerBottomSheetState,
-                                requestPlayPauseFocus = focusPlayPauseOnPlayerExpand,
-                                onPlayPauseFocusRequested = { focusPlayPauseOnPlayerExpand = false },
-                                onLyricsVisibleChange = { lyricsVisible = it },
-                                onClose = {
-                                    playerBottomSheetState.collapseSoft()
-                                    if (usesDirectionalNavigation) {
-                                        coroutineScope.launch {
-                                            delay(250.milliseconds)
-                                            runCatching { miniPlayerFocusRequester.requestFocus() }
-                                        }
+                                        }.then(
+                                            if (!isAndroidTv ||
+                                                (isLandscape && (Settings.shared.immersivePlayer || playerBottomSheetState.progress > 0f))
+                                            ) {
+                                                Modifier
+                                            } else {
+                                                Modifier.windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
+                                            },
+                                        ).zIndex(
+                                            if (playerBottomSheetState.isDismissed || !shouldShowMiniPlayer || immersiveContent.value) {
+                                                -1f
+                                            } else {
+                                                1f
+                                            },
+                                        ),
+                                collapsedHeaderHeight = miniPlayerHeight,
+                                background = {
+                                    if (hasMedia && !playerBottomSheetState.isCollapsed) {
+                                        Box(
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxSize()
+                                                    .drawBehind {
+                                                        if (!playerBackgroundOpaque || !playerBottomSheetState.isSettledExpanded) {
+                                                            drawRect(Color.Black.copy(alpha = 0.5f))
+                                                        }
+                                                    },
+                                        )
                                     }
                                 },
-                                onNavigateToAlbum = { albumId ->
-                                    playerBottomSheetState.collapseSoft()
-                                    navigator.navigate(Screen.Album(albumId))
+                                prepareDismissal = {
+                                    val stopDismissedRequest = playerConnection.prepareDismissal()
+                                    val onComplete: () -> Unit = {
+                                        hapticManager.perform(HapticEvent.CONFIRM)
+                                        stopDismissedRequest()
+                                    }
+                                    onComplete
                                 },
-                                onNavigateToArtist = { artistId ->
-                                    playerBottomSheetState.collapseSoft()
-                                    navigator.navigate(Screen.Artist(artistId))
+                                isCollapsedContentClickable = false,
+                                isExpandable = true,
+                                isDraggableWhenCollapsed = true,
+                                preserveContentWhenCollapsed = true,
+                                morphCollapsedContainer = true,
+                                collapsedContent = {
+                                    if (shouldRenderMiniPlayer) {
+                                        MiniPlayer(
+                                            useDesktopLayout = useDesktopMiniPlayer,
+                                            onExpand = {
+                                                focusManager.clearFocus(force = true)
+                                                keyboardController?.hide()
+                                                focusPlayPauseOnPlayerExpand = false
+                                                playerBottomSheetState.expandSoft()
+                                            },
+                                            onDpadExpand = {
+                                                focusManager.clearFocus(force = true)
+                                                keyboardController?.hide()
+                                                focusPlayPauseOnPlayerExpand = true
+                                                playerBottomSheetState.expandSoft()
+                                            },
+                                            bottomSheetState = playerBottomSheetState,
+                                            cardFocusRequester = miniPlayerFocusRequester,
+                                            modifier =
+                                                Modifier
+                                                    .windowInsetsPadding(horizontalSystemBars.only(WindowInsetsSides.Horizontal))
+                                                    .semantics {
+                                                        customActions =
+                                                            listOf(
+                                                                CustomAccessibilityAction(stopPlaybackLabel) {
+                                                                    playerBottomSheetState.dismiss(playerConnection.prepareDismissal())
+                                                                    true
+                                                                },
+                                                            )
+                                                    }.onPreviewKeyEvent { event ->
+                                                        if (isAndroidTv && event.key == Key.DirectionUp) {
+                                                            event.type == KeyEventType.KeyUp ||
+                                                                contentFocusRequester.requestFocus(FocusDirection.Up)
+                                                        } else {
+                                                            false
+                                                        }
+                                                    }.layout { measurable, constraints ->
+                                                        val start = miniPlayerRailPadding().roundToPx()
+                                                        val child = measurable.measure(constraints.offset(horizontal = -start))
+                                                        layout(child.width + start, child.height) { child.placeRelative(start, 0) }
+                                                    },
+                                        )
+                                    }
                                 },
-                                onNavigateToListenTogether = {
-                                    playerBottomSheetState.collapseSoft()
-                                    navigator.navigate(Screen.ListenTogether)
-                                },
-                                onNavigateToIntegrations = {
-                                    playerBottomSheetState.collapseSoft()
-                                    navigator.navigate(Screen.Integrations)
-                                },
-                            )
+                            ) {
+                                val playerLifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
+                                PlayerScreen(
+                                    isScreenVisible = playerLifecycleState.isAtLeast(Lifecycle.State.STARTED),
+                                    viewModel = playerViewModel,
+                                    bottomSheetState = playerBottomSheetState,
+                                    requestPlayPauseFocus = focusPlayPauseOnPlayerExpand,
+                                    onPlayPauseFocusRequested = { focusPlayPauseOnPlayerExpand = false },
+                                    onLyricsVisibleChange = { lyricsVisible = it },
+                                    onClose = {
+                                        playerBottomSheetState.collapseSoft()
+                                        if (usesDirectionalNavigation) {
+                                            coroutineScope.launch {
+                                                delay(250.milliseconds)
+                                                runCatching { miniPlayerFocusRequester.requestFocus() }
+                                            }
+                                        }
+                                    },
+                                    onNavigateToAlbum = { albumId ->
+                                        playerBottomSheetState.collapseSoft()
+                                        navigator.navigate(Screen.Album(albumId))
+                                    },
+                                    onNavigateToArtist = { artistId ->
+                                        playerBottomSheetState.collapseSoft()
+                                        navigator.navigate(Screen.Artist(artistId))
+                                    },
+                                    onNavigateToListenTogether = {
+                                        playerBottomSheetState.collapseSoft()
+                                        navigator.navigate(Screen.ListenTogether)
+                                    },
+                                    onNavigateToIntegrations = {
+                                        playerBottomSheetState.collapseSoft()
+                                        navigator.navigate(Screen.Integrations)
+                                    },
+                                )
+                            }
                         }
                     }
 
