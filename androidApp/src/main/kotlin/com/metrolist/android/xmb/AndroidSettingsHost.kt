@@ -86,7 +86,6 @@ import com.metrolist.shared.settings.FontOption
 import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.state.applyContentRegion
 import com.metrolist.shared.state.contentCountryCodes
-import com.metrolist.shared.ui.settings.PlayerLyricsSettingsPreview
 import com.metrolist.shared.ui.settings.SettingsChangeEffect
 import com.metrolist.shared.ui.settings.SettingsChoice
 import com.metrolist.shared.ui.settings.SettingsHostAction
@@ -94,7 +93,6 @@ import com.metrolist.shared.ui.settings.SettingsHostChoice
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
-import com.metrolist.shared.ui.settings.SharedSettingsScreen
 import com.metrolist.shared.ui.settings.settingsHomeSections
 import com.metrolist.shared.ui.utils.rememberFileSizeFormatter
 import com.metrolist.shared.viewmodels.PlayerViewModel

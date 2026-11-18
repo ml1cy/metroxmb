@@ -45,7 +45,7 @@ class XmbCatalogTest {
         assertEquals(listOf("account"), xmbUserItems(null).map { it.id })
         assertFalse(xmbUserItems(null).single().isAvailable)
         val signedOut = xmbUserItems(XmbAccountInfo(signedIn = false))
-        assertEquals(listOf(XmbItemAction.SignIn), signedOut.map { it.action })
+        assertEquals(listOf(XmbItemAction.SignIn, XmbItemAction.TokenSignIn), signedOut.map { it.action })
         val signedIn =
             xmbUserItems(XmbAccountInfo(signedIn = true, name = "Ada", detail = "ada@example.com", thumbnail = "https://img/a.jpg"))
         assertEquals(listOf("account", "switch_channel", "sign_out"), signedIn.map { it.id })

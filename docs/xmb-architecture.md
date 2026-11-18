@@ -474,3 +474,23 @@ Later in M7 (both platforms unless noted):
   handler is an `XmbBackdropInput`, which the Windows caption hit test ignores, so the top strip
   still drags and maximizes the window.
 
+## 17. No stock UI (M8)
+
+The owner asked for every original screen to go. Now:
+
+- **Android:** `MetrolistApp` is a thin host for `XmbAndroidHost` (setup, links, PiP, messages as
+  XMB toasts). Google's sign-in is `XmbLoginScreen` (an `XmbWebFrame` over the XMB, from
+  `AndroidXmbOverlays`); a token can be pasted in Users → Token login. The crash screen
+  (`CrashActivity`) is an XMB notice. The settings and integrations hosts live in `android/xmb/`.
+- **Desktop:** `XmbDesktopHost` draws `DesktopXmbSignIn` over the XMB (Google's page in an
+  `XmbWebFrame` on macOS/Linux, the WebView2 helper on Windows, XMB notices for the rest). The
+  stock overlays, dialogs, mini player and macOS menu bar are gone; the tray's Settings opens the
+  XMB's. The crash window is an XMB notice.
+- **Settings column:** custom pages the XMB doesn't draw are left out (only pages outside the app,
+  like Android's link settings, open elsewhere); there is no stock fallback.
+- **Shared:** stock composables nothing reaches were deleted (package-aware reachability from the
+  apps, the XMB and shared logic). What stays in `shared/ui` is referenced by the settings
+  registry or view models and is never shown.
+- **Not yet in the XMB:** importing playlists from a Spotify/Apple Music/Deezer/Tidal/Amazon
+  account (links to public playlists import from Settings → Backup); importing CSV/M3U files.
+

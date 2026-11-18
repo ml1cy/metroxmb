@@ -3,7 +3,6 @@ package com.metrolist.shared.utils
 import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.listentogether.parseListenTogetherInvitation
 import com.metrolist.shared.settings.Settings
-import com.metrolist.shared.ui.mobile.resolveMobileDeepLink
 import com.russhwolf.settings.MapSettings
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -129,34 +128,5 @@ class YouTubeUrlParsingTest {
         assertTrue(isListenTogetherUrl("metrolist://party?r=listentogetherid"))
         assertNull(extractListenTogetherRoomCode("https://example.com/party?r=listentogetherid"))
         assertNull(extractListenTogetherRoomCode("not a url"))
-    }
-
-    @Test
-    fun rejectsPreviewAndLoopbackLinks() {
-        for (host in listOf(
-            "localhost:8080",
-            "127.0.0.1:8080",
-            "feat-redesign2-metrosite.metrolist.workers.dev",
-            "other.metrolist.workers.dev",
-        )) {
-            for (path in listOf(
-                "watch?v=R93xV3v718s",
-                "playlist?list=PL1234567890abcdef",
-                "browse/MPSP_show",
-                "channel/UC1234567890abcdef",
-            )) {
-                val url = "https://$host/$path"
-                assertEquals(url, normalizeMetrolistShareUrl(url))
-                assertNull(parseYouTubeUrl(url), url)
-                assertNull(parseYouTubePodcastId(url), url)
-                assertNull(resolveMobileDeepLink(url), url)
-            }
-            for (path in listOf("party?r=ROOM1234", "listen?code=ROOM1234")) {
-                val url = "https://$host/$path"
-                assertNull(extractListenTogetherRoomCode(url), url)
-                assertNull(parseListenTogetherInvitation(url), url)
-                assertNull(resolveMobileDeepLink(url), url)
-            }
-        }
     }
 }

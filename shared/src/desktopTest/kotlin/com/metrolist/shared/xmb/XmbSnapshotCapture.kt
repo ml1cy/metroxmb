@@ -494,7 +494,6 @@ class XmbSnapshotCapture {
                         )
                     },
                     system = XmbSystemPages(storage = DemoStorage, backup = null),
-                    openStockPage = {},
                 ),
             account =
                 object : XmbAccount {

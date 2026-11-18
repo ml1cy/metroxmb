@@ -145,7 +145,7 @@ class XmbSettingsAdapterTest {
         assertEquals(1, choice.focus)
         choice.apply(0)
         assertEquals(listOf<Any>("a"), changes)
-        assertIs<XmbSettingStep.Stock>(step(item(SettingsControl.CHOICE) { copy(onChoiceSelected = {}) }))
+        assertEquals(XmbSettingStep.Unavailable, step(item(SettingsControl.CHOICE) { copy(onChoiceSelected = {}) }))
     }
 
     @Test
@@ -192,12 +192,12 @@ class XmbSettingsAdapterTest {
         assertEquals(listOf<Any>("new"), changes)
         question.apply(0)
         assertEquals("clicked", changes.last())
-        assertEquals(XmbSettingStep.Stock(SettingsPageId.PLAYER), step(item(SettingsControl.CUSTOM)))
+        assertEquals(XmbSettingStep.Unavailable, step(item(SettingsControl.CUSTOM)))
         assertEquals(XmbSettingStep.Unavailable, step(item(SettingsControl.SWITCH, enabled = false) { copy(onCheckedChange = {}) }))
     }
 
     @Test
-    fun navigationOpensRegistryPagesAndHandsCustomOrMissingPagesToTheStockScreen() {
+    fun navigationOpensRegistryPagesAndOtherPagesOutsideTheApp() {
         assertEquals(
             XmbSettingStep.Open(SettingsPageId.PLAYER_QUEUE),
             step(
@@ -207,7 +207,7 @@ class XmbSettingsAdapterTest {
             ),
         )
         assertEquals(
-            XmbSettingStep.Stock(SettingsPageId.STORAGE),
+            XmbSettingStep.External(SettingsPageId.STORAGE),
             step(
                 item(SettingsControl.NAVIGATION) {
                     copy(destination = SettingsPageId.STORAGE)
@@ -215,7 +215,7 @@ class XmbSettingsAdapterTest {
             ),
         )
         assertEquals(
-            XmbSettingStep.Stock(SettingsPageId.FONTS),
+            XmbSettingStep.External(SettingsPageId.FONTS),
             step(
                 item(SettingsControl.NAVIGATION) {
                     copy(destination = SettingsPageId.FONTS)
@@ -225,14 +225,20 @@ class XmbSettingsAdapterTest {
     }
 
     @Test
-    fun settingsColumnListsRootPagesOnceAndCustomPagesOpenStock() {
+    fun settingsColumnListsRootPagesOnceAndLeavesOutCustomPagesItDoesNotDraw() {
         val items = xmbSettingsItems(registry)
-        assertEquals(listOf("settings:PLAYER", "settings:STORAGE"), items.map { it.id })
+        assertEquals(listOf("settings:PLAYER"), items.map { it.id })
         assertEquals(XmbText.Plain("PLAYER"), items[0].title)
         assertEquals(XmbList.SettingsPage(SettingsPageId.PLAYER), items[0].list)
-        assertEquals(XmbItemAction.StockSettings(SettingsPageId.STORAGE), items[1].action)
-        assertNull(items[1].list)
         assertFalse(items.any { !it.isAvailable })
+    }
+
+    @Test
+    fun customPagesOutsideTheAppAreListedAndOpenedByTheHost() {
+        val items = xmbSettingsItems(registry, external = setOf(SettingsPageId.STORAGE))
+        assertEquals(listOf("settings:PLAYER", "settings:STORAGE"), items.map { it.id })
+        assertEquals(XmbItemAction.ExternalSettings(SettingsPageId.STORAGE), items[1].action)
+        assertNull(items[1].list)
     }
 
     @Test

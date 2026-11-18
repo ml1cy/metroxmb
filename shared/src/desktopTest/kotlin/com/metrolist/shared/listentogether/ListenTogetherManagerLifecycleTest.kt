@@ -36,7 +36,6 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.ContentUndoHints
 import com.metrolist.shared.settings.ContentUndoPage
 import com.metrolist.shared.settings.Settings
-import com.metrolist.shared.ui.listentogether.listenTogetherSettingsPage
 import com.metrolist.shared.ui.settings.SettingsPageRegistration
 import com.russhwolf.settings.MapSettings
 import io.ktor.client.HttpClient
@@ -642,83 +641,6 @@ class ListenTogetherManagerLifecycleTest {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    @Test
-    fun settingsRegistryRebuildsAfterEachSwitchChangeWithoutReopening() =
-        runTest {
-            val client = HttpClient(MockEngine { error("Preference changes must not connect") })
-            val manager = handoffManager(backgroundScope, client, sessionPersistenceEnabled = false)
-            val clock = BroadcastFrameClock()
-            val recomposer = Recomposer(coroutineContext + clock)
-            val composition =
-                Composition(
-                    object : AbstractApplier<Unit>(Unit) {
-                        override fun insertBottomUp(
-                            index: Int,
-                            instance: Unit,
-                        ) = error("No UI nodes expected")
-
-                        override fun insertTopDown(
-                            index: Int,
-                            instance: Unit,
-                        ) = error("No UI nodes expected")
-
-                        override fun move(
-                            from: Int,
-                            to: Int,
-                            count: Int,
-                        ) = error("No UI nodes expected")
-
-                        override fun remove(
-                            index: Int,
-                            count: Int,
-                        ) = error("No UI nodes expected")
-
-                        override fun onClear() {}
-                    },
-                    recomposer,
-                )
-            var page: SettingsPageRegistration? = null
-            backgroundScope.launch(clock) { recomposer.runRecomposeAndApplyChanges() }
-            try {
-                composition.setContent {
-                    CompositionLocalProvider(
-                        LocalDensity provides Density(1f),
-                        LocalLayoutDirection provides LayoutDirection.Ltr,
-                    ) {
-                        page = listenTogetherSettingsPage(manager)
-                    }
-                }
-                runCurrent()
-                var frame = 0L
-                for (id in listOf("listenTogetherAutoApproveJoins", "listenTogetherAutoApproveSuggestions", "listenTogetherSyncVolume")) {
-                    repeat(2) {
-                        val item = page!!.groups.flatMap { it.items }.single { it.id == id }
-                        val expected = item.checked != true
-                        item.onCheckedChange!!(expected)
-                        runCurrent()
-                        Snapshot.sendApplyNotifications()
-                        runCurrent()
-                        clock.sendFrame(++frame)
-                        runCurrent()
-                        assertEquals(
-                            expected,
-                            page!!
-                                .groups
-                                .flatMap { it.items }
-                                .single { it.id == id }
-                                .checked,
-                            "$id should update without reopening",
-                        )
-                    }
-                }
-            } finally {
-                composition.dispose()
-                recomposer.close()
-                manager.close()
-                client.close()
-            }
-        }
-
     @Test
     fun localPreferencesPublishAndPersistForHostsAndGuestsWithABlankUsername() =
         runBlocking {

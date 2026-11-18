@@ -1,6 +1,11 @@
 package com.metrolist.desktop.crash
 
-import com.metrolist.desktop.update.DesktopUpdateManager
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import com.metrolist.desktop.utils.desktopRestartCommand
 import com.metrolist.desktop.utils.prepareDesktopRelaunch
 import com.metrolist.shared.BuildConfig
@@ -11,6 +16,7 @@ import com.metrolist.shared.crash.redactCrashReport
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.crash_close
 import com.metrolist.shared.generated.resources.crash_copy_logs
+import com.metrolist.shared.generated.resources.crash_description
 import com.metrolist.shared.generated.resources.crash_imminent_message
 import com.metrolist.shared.generated.resources.crash_imminent_title
 import com.metrolist.shared.generated.resources.crash_let_it_crash
@@ -19,15 +25,13 @@ import com.metrolist.shared.generated.resources.crash_no_log
 import com.metrolist.shared.generated.resources.crash_restart
 import com.metrolist.shared.generated.resources.crash_share_logs
 import com.metrolist.shared.generated.resources.crash_title
-import com.metrolist.shared.generated.resources.crash_updates_action
-import com.metrolist.shared.generated.resources.crash_updates_checking
-import com.metrolist.shared.generated.resources.crash_updates_error
-import com.metrolist.shared.generated.resources.crash_updates_no_updates
 import com.metrolist.shared.utils.XdgUtils
-import com.metrolist.shared.utils.openUrl
+import com.metrolist.shared.xmb.screens.XmbFrameButton
+import com.metrolist.shared.xmb.screens.XmbNoticeScreen
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 import java.awt.BorderLayout
 import java.awt.EventQueue
 import java.awt.GraphicsEnvironment
@@ -94,7 +98,6 @@ object DesktopCrashRecovery {
                     letItCrash,
                 )
             val dialog = pane.createDialog(null, label(Res.string.crash_imminent_title))
-            installCrashScreenshotHint(dialog, onCopy = { copy(report) }, onShare = { share(report) })
             dialog.pack()
             try {
                 dialog.addWindowListener(
@@ -111,72 +114,38 @@ object DesktopCrashRecovery {
             }
         }
 
+    /** The crash screen the XMB way, in its own window: the report's start, and Copy, Share, Restart and Close. */
     fun show(id: String) {
         store.acknowledge(id)
         val report = store.list().firstOrNull { it.id == id }?.text ?: label(Res.string.crash_no_log)
-        EventQueue.invokeLater {
-            val frame = JFrame(label(Res.string.crash_title))
-            frame.defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
-            installCrashScreenshotHint(frame, onCopy = { copy(report) }, onShare = { share(report) })
-            frame.add(
-                JScrollPane(
-                    JTextArea(report).apply {
-                        isEditable = false
-                        caretPosition = 0
-                    },
-                ),
-                BorderLayout.CENTER,
-            )
-            val actions = JPanel()
-
-            fun action(
-                resource: StringResource,
-                block: () -> Unit,
-            ): JButton =
-                JButton(label(resource)).also {
-                    it.addActionListener { block() }
-                    actions.add(it)
-                }
-            action(Res.string.crash_copy_logs) { copy(report) }
-            action(Res.string.crash_share_logs) { share(report) }
-            action(Res.string.crash_restart) {
-                ProcessBuilder(desktopRestartCommand()).prepareDesktopRelaunch().inheritIO().start()
-                exitProcess(0)
+        application {
+            Window(
+                onCloseRequest = { exitProcess(0) },
+                title = label(Res.string.crash_title),
+                state = rememberWindowState(width = 900.dp, height = 650.dp, position = WindowPosition(Alignment.Center)),
+            ) {
+                XmbNoticeScreen(
+                    id = "crash",
+                    title = stringResource(Res.string.crash_title),
+                    message = stringResource(Res.string.crash_description),
+                    details = report.lineSequence().take(CRASH_PREVIEW_LINES).joinToString("\n"),
+                    buttons =
+                        listOf(
+                            XmbFrameButton(stringResource(Res.string.crash_restart)) {
+                                ProcessBuilder(desktopRestartCommand()).prepareDesktopRelaunch().inheritIO().start()
+                                exitProcess(0)
+                            },
+                            XmbFrameButton(stringResource(Res.string.crash_share_logs)) { share(report) },
+                            XmbFrameButton(stringResource(Res.string.crash_copy_logs)) { copy(report) },
+                            XmbFrameButton(stringResource(Res.string.crash_close)) { exitProcess(0) },
+                        ),
+                    onBack = { exitProcess(0) },
+                )
             }
-            action(Res.string.crash_close) { exitProcess(0) }
-            val update = action(Res.string.crash_updates_checking) {}
-            update.isEnabled = false
-            frame.add(actions, BorderLayout.SOUTH)
-            frame.setSize(900, 650)
-            frame.setLocationRelativeTo(null)
-            frame.isVisible = true
-            Thread({
-                val result = runBlocking { DesktopUpdateManager.checkForRecovery() }
-                EventQueue.invokeLater {
-                    val release = result.getOrNull()
-                    update.text =
-                        when {
-                            result.isFailure -> label(Res.string.crash_updates_error)
-                            release == null -> label(Res.string.crash_updates_no_updates)
-                            else -> "${label(Res.string.crash_updates_action)} ·\u00a0${release.version}"
-                        }
-                    update.isEnabled = release != null
-                    if (release != null) {
-                        update.addActionListener {
-                            update.isEnabled = false
-                            Thread({
-                                val installed =
-                                    release.inApp && runBlocking { DesktopUpdateManager.downloadAndLaunch(release.version).isSuccess }
-                                if (installed) exitProcess(0)
-                                openUrl(release.url)
-                                EventQueue.invokeLater { update.isEnabled = true }
-                            }, "CrashUpdate").start()
-                        }
-                    }
-                }
-            }, "CrashUpdateCheck").start()
         }
     }
+
+    private const val CRASH_PREVIEW_LINES = 8
 
     private fun copy(report: String) {
         Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(report), null)

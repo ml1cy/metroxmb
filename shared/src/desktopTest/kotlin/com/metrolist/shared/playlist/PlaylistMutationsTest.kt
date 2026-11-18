@@ -23,7 +23,6 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.playlist.LibraryDeletionTracker
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.toggleAlbumLiked
-import com.metrolist.shared.ui.mobile.MobilePlaylistReorder
 import com.russhwolf.settings.MapSettings
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -342,48 +341,6 @@ class PlaylistMutationsTest {
                 listOf(selected),
             ).getOrThrow()
             assertEquals(rows.take(2).map { it.map }, database.dao().playlistSongMaps(playlist.id, 0))
-        }
-
-    @Test
-    fun projectedRemoteOccurrencesReachTheMobileReorderMutation() =
-        withDatabase { database ->
-            coroutineScope {
-                val playlist = PlaylistEntity(id = "stored", name = "Remote", browseId = "PLremote", isEditable = true)
-                database.dao().insert(playlist)
-                database.dao().insert(SongEntity("same", "Song"))
-                repeat(3) { position ->
-                    database.dao().insert(
-                        PlaylistSongMap(playlistId = playlist.id, songId = "same", position = position, setVideoId = "set-$position"),
-                    )
-                }
-
-                suspend fun entries() =
-                    database
-                        .dao()
-                        .playlistSongs(playlist.id)
-                        .first()
-                        .map { it.toSongItem() to it.map }
-                val original = entries()
-                val repository = authenticatedRepository(MockEngine { respondJson(PLAYLIST_EDIT_SUCCEEDED) })
-                val reloaded = CompletableDeferred<Unit>()
-                val reorder =
-                    MobilePlaylistReorder(
-                        this,
-                        persist = { id, successor -> moveSongInStoredPlaylist(database, repository, playlist.id, id, successor) },
-                        reload = { entries().also { reloaded.complete(Unit) } },
-                    )
-                reorder.update(original)
-                val moving = checkNotNull(original.last().first.playlistLocalMappingId)
-                val target = checkNotNull(original.first().first.playlistLocalMappingId)
-                assertEquals("set-2", original.last().first.playlistSetVideoId)
-                reorder.move(moving, target)
-                reorder.commit { error("Reorder failed") }
-                withTimeout(5_000) { reloaded.await() }
-                assertEquals(
-                    listOf(original[2].second.id, original[0].second.id, original[1].second.id),
-                    database.dao().playlistSongMaps(playlist.id, 0).map { it.id },
-                )
-            }
         }
 
     @Test

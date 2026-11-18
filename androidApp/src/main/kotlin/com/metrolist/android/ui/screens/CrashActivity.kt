@@ -122,9 +122,18 @@ class CrashActivity : ComponentActivity() {
                     )
                     add(XmbFrameButton(stringResource(Res.string.crash_copy_logs)) { scope.launch { clipboard.setText(crashLog) } })
                     when (state) {
-                        CrashUploadState.Idle -> add(XmbFrameButton(stringResource(Res.string.crash_upload), crashViewModel::upload))
-                        CrashUploadState.Failed -> add(XmbFrameButton(stringResource(Res.string.crash_retry), crashViewModel::upload))
-                        is CrashUploadState.Uploaded -> add(XmbFrameButton(stringResource(Res.string.xmb_crash_open_paste)) { openPaste(state.paste.url) })
+                        CrashUploadState.Idle -> {
+                            add(XmbFrameButton(stringResource(Res.string.crash_upload), crashViewModel::upload))
+                        }
+
+                        CrashUploadState.Failed -> {
+                            add(XmbFrameButton(stringResource(Res.string.crash_retry), crashViewModel::upload))
+                        }
+
+                        is CrashUploadState.Uploaded -> {
+                            add(XmbFrameButton(stringResource(Res.string.xmb_crash_open_paste)) { openPaste(state.paste.url) })
+                        }
+
                         CrashUploadState.Uploading -> {}
                     }
                     add(XmbFrameButton(stringResource(Res.string.crash_logs)) { showLogs = true })
@@ -151,7 +160,9 @@ class CrashActivity : ComponentActivity() {
             title = stringResource(Res.string.crash_logs),
             message = if (reports.isEmpty()) stringResource(Res.string.crash_no_log) else stringResource(Res.string.crash_share_logs),
             buttons =
-                reports.map { report -> XmbFrameButton(format.format(Date(report.timestamp))) { shareCrashLog(redactCrashLog(report.text)) } } +
+                reports.map { report ->
+                    XmbFrameButton(format.format(Date(report.timestamp))) { shareCrashLog(redactCrashLog(report.text)) }
+                } +
                     XmbFrameButton(close, onClose),
             onBack = onClose,
         )

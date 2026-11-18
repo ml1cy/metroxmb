@@ -27,9 +27,10 @@ next to the XMB in December (right).</sub>
 
 **Current milestone: M4, M5 and M6 done; M7 (Android) well along.** The XMB runs on desktop (Windows,
 macOS, Linux): music, podcasts, music videos, search, Listen Together, lyrics, casting, every
-setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. On Android
-the XMB is now the interface too (M7, started), with touch and an upright phone layout; the
-standard Android screens open only for sign-in and a few settings pages. iOS was removed.
+setting and sign-in, statistics, song recognition (Android) and the visualizers. On Android the
+XMB is the interface too, with touch and an upright phone layout. Metrolist's original screens
+are gone on both platforms: Google's sign-in shows in an XMB frame, and first-run setup, sign-in
+progress and the crash screen are XMB notices. iOS was removed.
 
 | | Milestone | Status |
 |---|---|---|
@@ -40,7 +41,7 @@ standard Android screens open only for sign-in and a few settings pages. iOS was
 | M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Done: matched to the owner's videos, checked with real music |
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Done: Valley and Gaia (NASA Earth maps), Random and Auto-cycle |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
-| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Started: the XMB is Android's interface, with touch, portrait and back; not yet run on devices |
+| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Well along: the XMB is the only interface, with touch, portrait and back; not yet run on devices |
 
 **After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
 waves, beat-synced colors, party mode, shared visualizers in Listen Together rooms, gamepad-driven

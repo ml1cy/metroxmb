@@ -2,7 +2,7 @@ package com.metrolist.desktop.window
 
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.SuspendingPointerInputModifierNode
-import com.metrolist.desktop.ui.components.DesktopTitleBarHeight
+import com.metrolist.desktop.window.DesktopTitleBarHeight
 import com.metrolist.desktop.window.jna.structure.WinUserConst.HTCAPTION
 import com.metrolist.desktop.window.jna.structure.WinUserConst.HTCLIENT
 import com.metrolist.desktop.window.jna.structure.WinUserConst.HTCLOSE

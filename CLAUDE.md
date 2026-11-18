@@ -60,18 +60,16 @@ These come from how the code actually works, not from upstream policy:
   platform). Format changed Kotlin with `ktlint --format` so the build's lint step passes.
 
 ## Project rules
-- **The XMB is the only interface (owner's decision after M3).** Desktop shows only the XMB; the
-  stock desktop screens are deleted. What the XMB still borrows stays until an XMB version
-  replaces it: first-run onboarding, the settings overlay and its custom pages (storage, backup,
-  updates, about, devtools, MetroEQ, fonts, integrations), the sign-in, token and log dialogs, the
-  mini-player window and the tray. On Android (M7) `MetrolistApp` shows the XMB at its top-level
-  routes and keeps its setup (player connection, Listen Together, incoming links); stock screens
-  show only when the XMB opens one (sign-in, settings pages it doesn't draw) until XMB versions
-  replace them, then the unused stock Android screens go. iOS is removed. Keep Metrolist's features (playback, library, integrations, Listen
-  Together, casting, lyrics, Device Connect) even where the XMB has no screen for them yet.
-  `UPSTREAM_TOUCHPOINTS.md` lists what was deleted; on upstream merges, resolve modify/delete
-  conflicts on those paths by keeping them deleted and delete new upstream files that only serve
-  the removed screens.
+- **The XMB is the only interface (owner's decision).** Both apps show only the XMB; Metrolist's
+  stock screens, dialogs, menus, mini player and player are deleted on Android, desktop and in
+  `shared`. Google's sign-in (a web page) shows in an XMB frame (`XmbWebFrame`); first-run setup,
+  the crash screen, sign-in progress and errors are XMB notices. Don't add stock Compose screens back:
+  anything new the user sees is drawn by the XMB. Stock composables that remain in `shared` are
+  only those the settings registry and view models still reference (never shown). Keep Metrolist's
+  features (playback, library, integrations, Listen Together, casting, lyrics, Device Connect)
+  even where the XMB has no screen for them yet. `UPSTREAM_TOUCHPOINTS.md` lists what was
+  deleted; on upstream merges, resolve modify/delete conflicts on those paths by keeping them
+  deleted and delete new upstream files that only serve the removed screens.
 - **Code location:** XMB and visualizer code go in `shared`, under the packages
   `com.metrolist.shared.xmb` and `com.metrolist.shared.visualizer`; platform glue goes in the
   platform source sets. New Gradle modules only with the owner's OK.

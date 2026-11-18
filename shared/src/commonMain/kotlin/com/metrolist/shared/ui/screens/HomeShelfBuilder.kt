@@ -1,11 +1,34 @@
 package com.metrolist.shared.ui.screens
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
-import com.metrolist.shared.model.AlbumItem
+import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.albums
+import com.metrolist.shared.generated.resources.artist
+import com.metrolist.shared.generated.resources.browse
+import com.metrolist.shared.generated.resources.clear
+import com.metrolist.shared.generated.resources.filter_featured_playlists
+import com.metrolist.shared.generated.resources.forgotten_favorites
+import com.metrolist.shared.generated.resources.home_unavailable
+import com.metrolist.shared.generated.resources.keep_listening
+import com.metrolist.shared.generated.resources.loading
+import com.metrolist.shared.generated.resources.mood_and_genres
+import com.metrolist.shared.generated.resources.most_viewed_videos
+import com.metrolist.shared.generated.resources.new_releases
+import com.metrolist.shared.generated.resources.play
+import com.metrolist.shared.generated.resources.podcasts
+import com.metrolist.shared.generated.resources.podcasts_for_you
+import com.metrolist.shared.generated.resources.quick_picks
+import com.metrolist.shared.generated.resources.recap
+import com.metrolist.shared.generated.resources.retry
+import com.metrolist.shared.generated.resources.shuffle
+import com.metrolist.shared.generated.resources.similar_to
+import com.metrolist.shared.generated.resources.speed_dial
+import com.metrolist.shared.generated.resources.title
 import com.metrolist.shared.model.BrowseItem
+import com.metrolist.shared.model.Chip
 import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.model.PlaylistItem
-import com.metrolist.shared.model.PodcastItem
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.model.YTItem
 import com.metrolist.shared.model.canonicalHomeItemId
@@ -13,6 +36,7 @@ import com.metrolist.shared.model.isLibrarySection
 import com.metrolist.shared.model.isPodcast
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.viewmodels.HomeViewModel.HomeUiState
+import org.jetbrains.compose.resources.stringResource
 
 object HomeShelfBuilder {
     private const val MIN_KEEP_LISTENING_ITEMS = 5
@@ -545,3 +569,87 @@ private fun HomeSection.toHomeShelf(
         headerArtistId = section.headerBrowseId?.takeIf { it.startsWith("UC") },
     )
 }
+
+data class HomeContentText(
+    val moodsAndGenres: String,
+    val speedDial: String,
+    val newReleases: String,
+    val similarTo: String,
+    val podcastsForYou: String,
+    val charts: String,
+    val albumCharts: String,
+    val editorialPlaylists: String,
+    val recapPlaylists: String,
+    val shuffle: String,
+    val playAll: String,
+    val keepListening: String,
+    val quickPicks: String,
+    val forgottenFavorites: String,
+    val loading: String,
+    val tryAgain: String,
+    val homeUnavailable: String,
+)
+
+@Composable
+fun homeContentText() =
+    HomeContentText(
+        moodsAndGenres = stringResource(Res.string.mood_and_genres),
+        speedDial = stringResource(Res.string.speed_dial),
+        newReleases = stringResource(Res.string.new_releases),
+        similarTo = stringResource(Res.string.similar_to),
+        podcastsForYou = stringResource(Res.string.podcasts_for_you),
+        charts = stringResource(Res.string.most_viewed_videos),
+        albumCharts = stringResource(Res.string.albums),
+        editorialPlaylists = stringResource(Res.string.filter_featured_playlists),
+        recapPlaylists = stringResource(Res.string.recap),
+        shuffle = stringResource(Res.string.shuffle),
+        playAll = stringResource(Res.string.play),
+        keepListening = stringResource(Res.string.keep_listening),
+        quickPicks = stringResource(Res.string.quick_picks),
+        forgottenFavorites = stringResource(Res.string.forgotten_favorites),
+        loading = stringResource(Res.string.loading),
+        tryAgain = stringResource(Res.string.retry),
+        homeUnavailable = stringResource(Res.string.home_unavailable),
+    )
+
+enum class HomeShelfStyle {
+    CAROUSEL,
+    SONG_GRID,
+    SPEED_DIAL,
+    MOOD_AND_GENRES,
+    SONG_LIST,
+    ALBUM_CAROUSEL,
+    SIMILAR_TO,
+}
+
+enum class HomeShelfHeaderAction {
+    NONE,
+    BROWSE,
+    LOCAL,
+    LIBRARY,
+    SHUFFLE,
+    PLAY_ALL,
+}
+
+data class HomeShelf(
+    val key: String,
+    val title: String,
+    val items: List<YTItem>,
+    val style: HomeShelfStyle,
+    val headerAction: HomeShelfHeaderAction = HomeShelfHeaderAction.NONE,
+    val rows: Int? = null,
+    val browseId: String? = null,
+    val params: String? = null,
+    val speedDialPinnedIds: List<String>? = null,
+    val speedDialSurprisePinned: Boolean? = null,
+    val label: String? = null,
+    val headerTitle: String? = null,
+    val thumbnail: String? = null,
+    val headerArtistId: String? = null,
+    val visibilityKey: String = key,
+    val compactRows: Boolean = false,
+    val continuation: String? = null,
+    val isPersonal: Boolean = false,
+    val feedChip: Chip? = null,
+    val chipTitle: String? = null,
+)

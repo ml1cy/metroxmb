@@ -128,7 +128,6 @@ import com.metrolist.desktop.utils.configureDesktopJvmErrorFile
 import com.metrolist.desktop.utils.configureLinuxWebKitRenderer
 import com.metrolist.desktop.utils.desktopRenderApiOverride
 import com.metrolist.desktop.utils.isDesktopPlatformSupported
-import com.metrolist.desktop.web.DesktopWebViewError
 import com.metrolist.desktop.web.LastFmArtistBrowser
 import com.metrolist.desktop.web.LastFmArtistBrowserHost
 import com.metrolist.desktop.window.IconResources
@@ -183,11 +182,8 @@ import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.state.applyContentRegion
 import com.metrolist.shared.state.coreModule
 import com.metrolist.shared.ui.YouTubeSyncSnackbar
-import com.metrolist.shared.ui.components.AlertDialog
-import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
 import com.metrolist.shared.ui.components.LocalDownloadedSongIds
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
-import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.navigation.LocalNavigationContainerState
 import com.metrolist.shared.ui.navigation.LocalNavigator
 import com.metrolist.shared.ui.navigation.NavigationContentProvider
@@ -202,6 +198,7 @@ import com.metrolist.shared.utils.OsUtil
 import com.metrolist.shared.utils.XdgUtils
 import com.metrolist.shared.utils.isCrashReportingAvailable
 import com.metrolist.shared.xmb.XmbAppMessages
+import com.metrolist.shared.xmb.screens.XmbBackdropScreen
 import com.metrolist.shared.xmb.screens.XmbBusyOverlay
 import com.metrolist.shared.youtube.di.sharedModule
 import kotlinx.coroutines.CompletableDeferred
@@ -936,18 +933,13 @@ private fun runDesktopApp(args: Array<String>) {
                     MetrolistTheme(seedColor = UiState.seedColor) {
                         WindowsWindowBackground(MaterialTheme.colorScheme.background)
                         val shell: @Composable () -> Unit = {
-                            Surface(
-                                modifier =
-                                    Modifier.fillMaxSize().drawWithContent {
-                                        drawContent()
-                                        startup.frameDrawn(backendReady = false)
-                                    },
-                            ) {
-                                Column(Modifier.padding(24.dp)) {
-                                    Text(stringResource(Res.string.app_name), style = MaterialTheme.typography.titleLarge)
-                                    HomeLoadingPlaceholder(Modifier.fillMaxSize().padding(top = 24.dp))
-                                }
-                            }
+                            // XMB Music: the XMB's sky while the app starts.
+                            XmbBackdropScreen(
+                                Modifier.fillMaxSize().drawWithContent {
+                                    drawContent()
+                                    startup.frameDrawn(backendReady = false)
+                                },
+                            ) { _, _ -> }
                         }
                         if (isLinux) {
                             LinuxWindowFrame(

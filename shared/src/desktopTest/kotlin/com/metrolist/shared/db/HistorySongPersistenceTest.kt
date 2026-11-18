@@ -19,7 +19,6 @@ import com.metrolist.shared.model.resetSongMetadata
 import com.metrolist.shared.model.toEntity
 import com.metrolist.shared.state.SongDisplayMetadata
 import com.metrolist.shared.state.withCustomMetadata
-import com.metrolist.shared.ui.menu.SongEditor
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -224,59 +223,6 @@ class HistorySongPersistenceTest {
             } finally {
                 database.close()
                 Files.deleteIfExists(path)
-            }
-        }
-
-    @Test
-    fun songEditorWaitsForDatabaseTransactionBeforeDismissing() =
-        runBlocking {
-            withTimeout(15_000) {
-                val path = Files.createTempFile("metrolist-song-edit-pending", ".db")
-                Files.deleteIfExists(path)
-                val database = getDesktopDatabaseBuilder(path.toFile()).build()
-                val scope = CoroutineScope(coroutineContext + Job())
-                val locked = CompletableDeferred<Unit>()
-                val release = CompletableDeferred<Unit>()
-                val started = CompletableDeferred<Unit>()
-                val completed = CompletableDeferred<Unit>()
-                try {
-                    val song = SongItem("song", "Remote title", null, emptyList(), null)
-                    val blocker =
-                        launch {
-                            database.withDatabaseTransaction {
-                                locked.complete(Unit)
-                                release.await()
-                            }
-                        }
-                    locked.await()
-                    val editor =
-                        SongEditor(scope, "Edited title", "Edited artist", { title, artist ->
-                            started.complete(Unit)
-                            editSongMetadata(database, song, title, artist)
-                        }, {
-                            completed.complete(Unit)
-                            scope.cancel()
-                        }, {
-                            scope.cancel()
-                        })
-                    editor.confirm()
-                    started.await()
-                    editor.dismiss()
-                    assertTrue(editor.busy)
-                    assertFalse(completed.isCompleted)
-
-                    release.complete(Unit)
-                    blocker.join()
-                    completed.await()
-                    val stored = database.dao().getSongById(song.id)?.song
-                    assertEquals("Edited title", stored?.customTitle)
-                    assertEquals("Edited artist", stored?.customArtist)
-                } finally {
-                    release.complete(Unit)
-                    scope.cancel()
-                    database.close()
-                    Files.deleteIfExists(path)
-                }
             }
         }
 
