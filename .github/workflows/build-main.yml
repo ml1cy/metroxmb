@@ -153,10 +153,13 @@ jobs:
       - name: Assemble Native Windows Portable ZIP
         shell: pwsh
         run: |
-          ./gradlew.bat :desktopApp:assembleWindowsRelease `
-            -Pmetrolist.debug=false `
-            --no-configuration-cache `
-            --console=plain
+          $gradleArgs = @(
+            ":desktopApp:assembleWindowsRelease"
+            "-Pmetrolist.debug=false"
+            "--no-configuration-cache"
+            "--console=plain"
+          )
+          & ./gradlew.bat $gradleArgs
 
       - name: Upload Windows Native Portable ZIP (Metrolist.exe)
         uses: actions/upload-artifact@v4
