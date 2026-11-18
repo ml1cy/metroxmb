@@ -197,6 +197,8 @@ XMB code lives in the shared module; platform glue sits in each app.
 
 ## Known limits
 
+- On Windows the app turns off background power throttling and asks for 1 ms timers, so the XMB
+  and playback stay smooth behind other windows (Windows 11 throttles background apps otherwise).
 - Android (M7, started) shows the XMB but hasn't been run on a phone, tablet or TV here: it builds
   and its touch and layout logic is tested. Lyrics and video aren't wired on Android yet, and
   sign-in and some settings pages open the standard Android screens.

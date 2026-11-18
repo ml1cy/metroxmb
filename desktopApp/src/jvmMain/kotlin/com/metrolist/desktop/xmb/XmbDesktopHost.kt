@@ -86,6 +86,7 @@ import org.jetbrains.skia.Image as SkiaImage
 @Composable
 internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
     SideEffect { checkDarkMode(true) }
+    remember { DesktopXmbPower.keepSmoothInBackground() }
     setSingletonImageLoaderFactory { context -> DesktopImageLoader.create(context) }
     val sounds = remember { DesktopXmbSoundPlayer() }
     DisposableEffect(sounds) { onDispose { sounds.close() } }

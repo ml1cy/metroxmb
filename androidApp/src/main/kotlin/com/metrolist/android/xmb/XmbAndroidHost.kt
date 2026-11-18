@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -28,6 +29,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.metrolist.android.LocalStartupPresentation
 import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
@@ -129,7 +131,17 @@ internal fun XmbAndroidHost(
         LocalXmbSoundPlayer provides sounds,
         LocalVisualWorkActive provides rememberStartedState(),
     ) {
-        XmbApp(Modifier.fillMaxSize(), services = services, input = input)
+        // The splash screen waits for the stock Home screen to be laid out (StartupPresentation);
+        // the XMB takes its place, so it says so once it's laid out, or the splash never lifts.
+        val startup = LocalStartupPresentation.current
+        XmbApp(
+            Modifier.fillMaxSize().onGloballyPositioned {
+                startup?.homeLaidOut = true
+                startup?.homeCacheReady = true
+            },
+            services = services,
+            input = input,
+        )
     }
 }
 
