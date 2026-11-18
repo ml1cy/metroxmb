@@ -24,6 +24,7 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `users.png` | Users signed out: Log in |
 | `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the PS3-style track overlay |
 | `visualizer-transition-0.png` … `-100.png` | The move into Waves at 0, 35, 65 and 100%: sky and ribbon blending, the track card sliding into the overlay |
+| `phone-keyboard.png` | The on-screen keyboard on an upright phone: narrower keys, suggestions below |
 | `phone-portrait.png`, `phone-visualizer.png` | A 411 dp phone held upright: the menu, and full-screen Waves with the stacked track info |
 | `xmb-theme-settings.png` | Settings > Theme Settings: color, custom hue (dimmed until Color is Custom), background, wave rows |
 | `keyboard-shortcuts.png` | Settings > Keyboard Shortcuts with the default keys |
@@ -48,7 +49,10 @@ visualizer, for M4; looks fan-made next to the console photos), `waves/ps3-waves
 and the track overlay), stills from the owner's console videos (`waves/video-*.jpg`: quiet and
 loud Waves, five frames a second through a loud passage, and the 1080p track overlay;
 `valley/video-*.jpg` and `other/video-*.jpg` for M5: the blue and orange valley scenes, a warm
-abstract scene and a pastel sky), and `xmb/bg_sample.png` (a flat December-red tile). The ribbon and
+abstract scene and a pastel sky), two 2560×1440 screen recordings for M5 (Git LFS:
+`valley/Screen Recording …230428.mp4`, a minute of Valley's molten terrain, stills in
+`valley/video2-valley-*.jpg`; `other/Screen Recording …232256.mp4`, three minutes of Gaia's Earth,
+sunrise over the limb and the Visual Player panel, stills in `other/video-gaia-*.jpg`), and `xmb/bg_sample.png` (a flat December-red tile). The ribbon and
 background follow https://github.com/tsbehlman/xmb, a GPL-3.0 WebGL port of RetroArch's XMB
 ribbon, which the owner pointed to.
 

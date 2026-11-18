@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableFloatState
@@ -52,6 +53,7 @@ import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
@@ -92,9 +94,11 @@ import com.metrolist.shared.xmb.adapters.plainNumber
 import com.metrolist.shared.xmb.adapters.toXmbEntries
 import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.adapters.xmbSettingStep
+import com.metrolist.shared.xmb.bar.LocalXmbTaps
 import com.metrolist.shared.xmb.bar.XmbBar
 import com.metrolist.shared.xmb.bar.XmbBarGeometry
 import com.metrolist.shared.xmb.bar.XmbLevelView
+import com.metrolist.shared.xmb.bar.XmbTaps
 import com.metrolist.shared.xmb.bar.rememberXmbRowStyles
 import com.metrolist.shared.xmb.nav.XmbAccountInfo
 import com.metrolist.shared.xmb.nav.XmbAction
@@ -110,8 +114,11 @@ import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
+import com.metrolist.shared.xmb.nav.XmbTouchGesture
 import com.metrolist.shared.xmb.nav.XmbTouchTracker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
+import com.metrolist.shared.xmb.nav.focusCategory
+import com.metrolist.shared.xmb.nav.focusRow
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
 import com.metrolist.shared.xmb.nav.xmbActionFor
@@ -148,9 +155,11 @@ import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbMotion
 import com.metrolist.shared.xmb.theme.XmbPalette
 import com.metrolist.shared.xmb.theme.rememberXmbFontFamily
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
@@ -960,6 +969,97 @@ fun XmbApp(
         dispatch(action)
     }
 
+    /** A tap that hit nothing of its own: it closes a picker or the options, or shows the track full screen. */
+    fun tapOutside() {
+        when {
+            recording != null || notice != null || keyboard != null -> Unit
+            picker != null || options != null -> act(XmbAction.BACK)
+            fullScreen != null -> act(XmbAction.SELECT)
+        }
+    }
+
+    /** Whether something over the menu takes taps (or closes on them) instead of the menu. */
+    fun menuCovered(): Boolean =
+        options != null || picker != null || notice != null || keyboard != null || fullScreen != null || recording != null
+
+    /** A tapped row: the focused one is selected (or its options open); another is focused first. */
+    fun tapRow(
+        index: Int,
+        long: Boolean,
+    ) {
+        if (menuCovered()) return tapOutside()
+        lastInput = seconds.floatValue
+        val current = navigation.level?.focus ?: navigation.item
+        if (index != current) {
+            navigation = navigation.focusRow(index)
+            val down = index > current
+            feedback(if (down) XmbAction.DOWN else XmbAction.UP, if (down) XmbFeedback.MOVE_DOWN else XmbFeedback.MOVE_UP)
+        }
+        if (long) {
+            act(XmbAction.OPTIONS)
+        } else if (index == current) {
+            act(XmbAction.SELECT)
+        }
+    }
+
+    val taps =
+        XmbTaps(
+            category = { index ->
+                when {
+                    menuCovered() -> {
+                        tapOutside()
+                    }
+
+                    navigation.stack.isEmpty() && index != navigation.category -> {
+                        lastInput = seconds.floatValue
+                        val right = index > navigation.category
+                        navigation = navigation.focusCategory(index)
+                        feedback(if (right) XmbAction.RIGHT else XmbAction.LEFT, XmbFeedback.MOVE_SIDE)
+                    }
+                }
+            },
+            // Rows of the top-level column answer only there; an opened level's rows take over.
+            row = { index, long -> if (navigation.stack.isEmpty()) tapRow(index, long) },
+            levelRow = { index, long -> if (navigation.stack.isNotEmpty()) tapRow(index, long) },
+            parent = { if (menuCovered()) tapOutside() else act(XmbAction.BACK) },
+            key = { row, column ->
+                keyboard?.let { session ->
+                    keyboard =
+                        KeyboardSession(
+                            session.keyboard.copy(row = row, column = column, suggestion = -1),
+                            session.forSearch,
+                            session.onSubmit,
+                        )
+                    act(XmbAction.SELECT)
+                }
+            },
+            suggestion = { index ->
+                keyboard?.let { session ->
+                    keyboard = KeyboardSession(session.keyboard.copy(suggestion = index), session.forSearch, session.onSubmit)
+                    act(XmbAction.SELECT)
+                }
+            },
+            pickerValue = { index ->
+                (picker as? XmbPicker.Choice)?.let { choice ->
+                    picker = choice.copy(focus = index)
+                    act(XmbAction.SELECT)
+                }
+            },
+            sliderStep = { direction -> act(if (direction > 0) XmbAction.RIGHT else XmbAction.LEFT) },
+            confirm = { act(XmbAction.SELECT) },
+            option = { index ->
+                options?.let { panel ->
+                    options = panel.copy(focus = index)
+                    act(XmbAction.SELECT)
+                }
+            },
+            noticeButton = { index ->
+                noticeFocus = index
+                act(XmbAction.SELECT)
+            },
+        )
+    val latestTapOutside by rememberUpdatedState<() -> Unit> { tapOutside() }
+
     // The pointer handler and the platform's input outlive compositions; they call the latest act().
     val latestAct by rememberUpdatedState<(XmbAction) -> Unit> { act(it) }
     val latestSuspended by rememberUpdatedState(suspended)
@@ -971,248 +1071,275 @@ fun XmbApp(
     // Where touches land, in pixels: kept up to date by the layout below.
     val touchPlaces = remember { XmbTouchPlaces() }
 
-    BoxWithConstraints(
-        modifier
-            .fillMaxSize()
-            .focusRequester(focusRequester)
-            .focusable()
-            .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || latestSuspended) return@onKeyEvent false
-                // Android sends its back key through its own back handling (input.systemBack).
-                if (input?.systemBack == true && event.key == Key.Back) return@onKeyEvent false
-                lastInput = seconds.floatValue
-                recording?.let { shortcut ->
-                    recordKey(shortcut, event)
-                    return@onKeyEvent true
-                }
-                // Shortcuts (not over a notice, nor while typing on the keyboard, where letters are text).
-                if (notice == null && keyboard == null) {
-                    prefs.shortcuts.match(XmbKeyChord.of(event))?.let { shortcut ->
-                        runShortcut(shortcut)
+    CompositionLocalProvider(LocalXmbTaps provides taps) {
+        BoxWithConstraints(
+            modifier
+                .fillMaxSize()
+                .focusRequester(focusRequester)
+                .focusable()
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown || latestSuspended) return@onKeyEvent false
+                    // Android sends its back key through its own back handling (input.systemBack).
+                    if (input?.systemBack == true && event.key == Key.Back) return@onKeyEvent false
+                    lastInput = seconds.floatValue
+                    recording?.let { shortcut ->
+                        recordKey(shortcut, event)
                         return@onKeyEvent true
                     }
-                }
-                if (notice == null && fullScreen == null && keyboard != null) return@onKeyEvent keyboardKey(event)
-                val action = xmbActionFor(event.key)
-                if (action == null) {
-                    // Full screen, any key shows the track.
-                    if (fullScreen != null) overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
-                    return@onKeyEvent notice != null || fullScreen != null
-                }
-                act(action)
-                true
-            }.pointerInput(
-                Unit,
-                XmbBackdropInput {
-                    awaitPointerEventScope {
-                        var touch: XmbTouchTracker? = null
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull() ?: continue
-                            // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
-                            if (event.type == PointerEventType.Press && !latestSuspended) {
-                                focusRequester.requestFocus()
-                                lastInput = seconds.floatValue
-                            }
-                            // Touch (not the mouse): drags step through the menu, taps select, a long press opens options.
-                            if ((change.type == PointerType.Touch || change.type == PointerType.Stylus) && !latestSuspended) {
-                                val place = touchPlaces
-                                when (event.type) {
-                                    PointerEventType.Press -> {
-                                        touch =
-                                            XmbTouchTracker(place.stepX, place.stepY, viewConfiguration.touchSlop).also {
-                                                it.down(change.position.x, change.position.y, change.uptimeMillis)
-                                            }
-                                    }
-
-                                    PointerEventType.Move -> {
-                                        touch?.move(change.position.x, change.position.y)?.forEach { latestAct(it) }
-                                        change.consume()
-                                    }
-
-                                    PointerEventType.Release -> {
-                                        touch
-                                            ?.up(
-                                                change.position.x,
-                                                change.position.y,
-                                                change.uptimeMillis,
-                                                place.focusX,
-                                                place.focusY,
-                                                place.rowY,
-                                            )?.let { latestAct(it) }
-                                        touch = null
-                                    }
-
-                                    else -> {
-                                        Unit
-                                    }
-                                }
-                                continue
-                            }
-                            if (event.type != PointerEventType.Scroll) continue
-                            val delta = event.changes.fold(Offset.Zero) { sum, scroll -> sum + scroll.scrollDelta }
-                            xmbActionForScroll(delta.x, delta.y)?.let {
-                                dispatch(it)
-                                event.changes.forEach { scroll -> scroll.consume() }
-                            }
+                    // Shortcuts (not over a notice, nor while typing on the keyboard, where letters are text).
+                    if (notice == null && keyboard == null) {
+                        prefs.shortcuts.match(XmbKeyChord.of(event))?.let { shortcut ->
+                            runShortcut(shortcut)
+                            return@onKeyEvent true
                         }
                     }
-                },
-            ),
-    ) {
-        val metrics = remember(maxWidth, maxHeight) { XmbMetrics.forSize(maxWidth, maxHeight) }
-        val density = LocalDensity.current
-        val geometry =
-            with(density) {
-                XmbBarGeometry(
-                    anchorX = maxWidth.toPx() * metrics.anchorX,
-                    barY = maxHeight.toPx() * XmbMetrics.BAR_Y,
-                    categorySpacing = metrics.categorySpacing.toPx(),
-                    categoryIcon = metrics.categoryIcon.toPx(),
-                    categoryLabelOffset = metrics.categoryLabelOffset.toPx(),
-                    itemIcon = metrics.itemIcon.toPx(),
-                    itemSpacing = metrics.itemSpacing.toPx(),
-                    focusedItemOffset = metrics.focusedItemOffset.toPx(),
-                    itemsAboveGap = metrics.itemsAboveGap.toPx(),
-                    width = maxWidth.toPx(),
-                    itemsBelowGap = metrics.itemsBelowGap.toPx(),
-                    parentOffset = metrics.parentOffset.toPx(),
+                    if (notice == null && fullScreen == null && keyboard != null) return@onKeyEvent keyboardKey(event)
+                    val action = xmbActionFor(event.key)
+                    if (action == null) {
+                        // Full screen, any key shows the track.
+                        if (fullScreen != null) overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                        return@onKeyEvent notice != null || fullScreen != null
+                    }
+                    act(action)
+                    true
+                }.pointerInput(
+                    Unit,
+                    XmbBackdropInput {
+                        val velocity = VelocityTracker()
+                        var fling: Job? = null
+                        awaitPointerEventScope {
+                            var touch: XmbTouchTracker? = null
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: continue
+                                // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
+                                if (event.type == PointerEventType.Press && !latestSuspended) {
+                                    focusRequester.requestFocus()
+                                    lastInput = seconds.floatValue
+                                }
+                                // Touch (not the mouse): drags step through the menu and a flick coasts on. Taps on the
+                                // XMB's parts are theirs (xmbTap consumes them); a tap that hit none of them lands here.
+                                if ((change.type == PointerType.Touch || change.type == PointerType.Stylus) && !latestSuspended) {
+                                    when (event.type) {
+                                        PointerEventType.Press -> {
+                                            fling?.cancel()
+                                            velocity.resetTracking()
+                                            velocity.addPosition(change.uptimeMillis, change.position)
+                                            touch =
+                                                XmbTouchTracker(
+                                                    touchPlaces.stepX,
+                                                    touchPlaces.stepY,
+                                                    viewConfiguration.touchSlop * TOUCH_SLOP,
+                                                ).also {
+                                                    it.down(change.position.x, change.position.y, change.uptimeMillis)
+                                                }
+                                        }
+
+                                        PointerEventType.Move -> {
+                                            velocity.addPosition(change.uptimeMillis, change.position)
+                                            touch?.move(change.position.x, change.position.y)?.forEach { latestAct(it) }
+                                        }
+
+                                        PointerEventType.Release -> {
+                                            val tracker = touch
+                                            touch = null
+                                            when (tracker?.up(change.uptimeMillis)) {
+                                                XmbTouchGesture.TAP -> {
+                                                    if (!change.isConsumed) latestTapOutside()
+                                                }
+
+                                                XmbTouchGesture.LONG_PRESS -> {
+                                                    if (!change.isConsumed) latestTapOutside()
+                                                }
+
+                                                null -> {
+                                                    val speed = velocity.calculateVelocity()
+                                                    val steps = tracker?.flingSteps(if (tracker.vertical) speed.y else speed.x).orEmpty()
+                                                    if (steps.isNotEmpty()) {
+                                                        fling =
+                                                            scope.launch {
+                                                                steps.forEachIndexed { index, step ->
+                                                                    delay(FLING_FIRST_MS + index * FLING_SLOWDOWN_MS)
+                                                                    latestAct(step)
+                                                                }
+                                                            }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        else -> {
+                                            Unit
+                                        }
+                                    }
+                                    continue
+                                }
+                                if (event.type != PointerEventType.Scroll) continue
+                                val delta = event.changes.fold(Offset.Zero) { sum, scroll -> sum + scroll.scrollDelta }
+                                xmbActionForScroll(delta.x, delta.y)?.let {
+                                    dispatch(it)
+                                    event.changes.forEach { scroll -> scroll.consume() }
+                                }
+                            }
+                        }
+                    },
+                ),
+        ) {
+            val metrics = remember(maxWidth, maxHeight) { XmbMetrics.forSize(maxWidth, maxHeight) }
+            val density = LocalDensity.current
+            val geometry =
+                with(density) {
+                    XmbBarGeometry(
+                        anchorX = maxWidth.toPx() * metrics.anchorX,
+                        barY = maxHeight.toPx() * XmbMetrics.BAR_Y,
+                        categorySpacing = metrics.categorySpacing.toPx(),
+                        categoryIcon = metrics.categoryIcon.toPx(),
+                        categoryLabelOffset = metrics.categoryLabelOffset.toPx(),
+                        itemIcon = metrics.itemIcon.toPx(),
+                        itemSpacing = metrics.itemSpacing.toPx(),
+                        focusedItemOffset = metrics.focusedItemOffset.toPx(),
+                        itemsAboveGap = metrics.itemsAboveGap.toPx(),
+                        width = maxWidth.toPx(),
+                        itemsBelowGap = metrics.itemsBelowGap.toPx(),
+                        parentOffset = metrics.parentOffset.toPx(),
+                    )
+                }
+            touchPlaces.update(geometry)
+            val styles = rememberXmbRowStyles(metrics, fontFamily)
+            val backgroundColors = prefs.backgroundColors(now.month, now.hourOfDay)
+            val wallpaperPath = prefs.wallpaperPath
+            val wallpaper by produceState<ImageBitmap?>(null, wallpaperPath, wallpapers) {
+                value = wallpaperPath?.let { path -> wallpapers?.load(path) }
+            }
+            if (videoShown < 1f) {
+                // One picture for both: opening Waves turns the home sky and wave into it.
+                XmbBackdrop(
+                    colors = backgroundColors,
+                    motion = motion,
+                    audio = audio,
+                    waves = { visualizerShown },
+                    seconds = { seconds.floatValue },
+                    modifier = Modifier.fillMaxSize(),
+                    wave = prefs.wave,
+                    sparkles = prefs.sparkles,
+                    wallpaper = wallpaper,
+                    wallpaperDim = prefs.wallpaperDim,
                 )
             }
-        touchPlaces.update(geometry, metrics, density)
-        val styles = rememberXmbRowStyles(metrics, fontFamily)
-        val backgroundColors = prefs.backgroundColors(now.month, now.hourOfDay)
-        val wallpaperPath = prefs.wallpaperPath
-        val wallpaper by produceState<ImageBitmap?>(null, wallpaperPath, wallpapers) {
-            value = wallpaperPath?.let { path -> wallpapers?.load(path) }
-        }
-        if (videoShown < 1f) {
-            // One picture for both: opening Waves turns the home sky and wave into it.
-            XmbBackdrop(
-                colors = backgroundColors,
-                motion = motion,
-                audio = audio,
-                waves = { visualizerShown },
-                seconds = { seconds.floatValue },
-                modifier = Modifier.fillMaxSize(),
-                wave = prefs.wave,
-                sparkles = prefs.sparkles,
-                wallpaper = wallpaper,
-                wallpaperDim = prefs.wallpaperDim,
-            )
-        }
-        val video = services?.video
-        if (video != null && (fullScreen == XmbFullScreen.Video || videoShown > 0f)) {
-            Box(Modifier.fillMaxSize().graphicsLayer { alpha = videoShown }.background(Color.Black)) {
-                video.Surface(Modifier.fillMaxSize())
-            }
-        }
-        // The menu is gone by the time the track info has slid most of the way.
-        val menuAlpha = { (1f - fullShown / MENU_FADE_SHARE).coerceIn(0f, 1f) }
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - drill) * (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
-            XmbBar(
-                categories = categories,
-                navigation = navigation,
-                metrics = metrics,
-                geometry = geometry,
-                fontFamily = fontFamily,
-                listsEnabled = services != null,
-            )
-        }
-        if (level != null) {
-            Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
-                XmbLevelView(level, listState, metrics, geometry, styles, visible = { drill }, dim = { pickerShown })
-            }
-        }
-        services?.playback?.let { playback ->
-            if (lyricsShown > 0f) {
-                val position by produceState(playback.currentPositionMs(), playingSong?.id, playbackState?.isPlaying) {
-                    while (true) {
-                        value = playback.currentPositionMs()
-                        delay(LYRICS_POLL_MS)
-                    }
+            val video = services?.video
+            if (video != null && (fullScreen == XmbFullScreen.Video || videoShown > 0f)) {
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = videoShown }.background(Color.Black)) {
+                    video.Surface(Modifier.fillMaxSize())
                 }
-                val lines = playingSong?.let { services.lyrics?.lines(it.id) }
-                val message =
-                    when {
-                        playingSong == null -> text.nothingPlaying
-                        lines == null -> text.loading
-                        lines.isEmpty() -> text.noLyrics
-                        else -> null
+            }
+            // The menu is gone by the time the track info has slid most of the way.
+            val menuAlpha = { (1f - fullShown / MENU_FADE_SHARE).coerceIn(0f, 1f) }
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - drill) * (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
+                XmbBar(
+                    categories = categories,
+                    navigation = navigation,
+                    metrics = metrics,
+                    geometry = geometry,
+                    fontFamily = fontFamily,
+                    listsEnabled = services != null,
+                )
+            }
+            if (level != null) {
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - KEYBOARD_FADE * keyboardShown) * menuAlpha() }) {
+                    XmbLevelView(level, listState, metrics, geometry, styles, visible = { drill }, dim = { pickerShown })
+                }
+            }
+            services?.playback?.let { playback ->
+                if (lyricsShown > 0f) {
+                    val position by produceState(playback.currentPositionMs(), playingSong?.id, playbackState?.isPlaying) {
+                        while (true) {
+                            value = playback.currentPositionMs()
+                            delay(LYRICS_POLL_MS)
+                        }
                     }
-                XmbLyricsView(
-                    lines = lines.orEmpty(),
-                    current = currentLyricIndex(lines.orEmpty(), position),
-                    message = message,
+                    val lines = playingSong?.let { services.lyrics?.lines(it.id) }
+                    val message =
+                        when {
+                            playingSong == null -> text.nothingPlaying
+                            lines == null -> text.loading
+                            lines.isEmpty() -> text.noLyrics
+                            else -> null
+                        }
+                    XmbLyricsView(
+                        lines = lines.orEmpty(),
+                        current = currentLyricIndex(lines.orEmpty(), position),
+                        message = message,
+                        metrics = metrics,
+                        fontFamily = fontFamily,
+                        modifier = Modifier.graphicsLayer { alpha = lyricsShown },
+                    )
+                }
+                XmbTrackInfo(
+                    playback = playback,
                     metrics = metrics,
                     fontFamily = fontFamily,
-                    modifier = Modifier.graphicsLayer { alpha = lyricsShown },
+                    expand = { fullShown },
+                    alpha = {
+                        // Full screen, the track shows after opening and each key press, then fades out
+                        // (or always, or never: Music Player Settings). The menu's card can be turned off.
+                        val overlay =
+                            when (prefs.trackOverlay) {
+                                XmbTrackOverlay.BRIEF -> ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
+                                XmbTrackOverlay.ALWAYS -> 1f
+                                XmbTrackOverlay.NEVER -> 0f
+                            }
+                        val card = if (prefs.nowPlayingCard) 1f else 0f
+                        card + (overlay - card) * fullShown
+                    },
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
-            XmbTrackInfo(
-                playback = playback,
-                metrics = metrics,
-                fontFamily = fontFamily,
-                expand = { fullShown },
-                alpha = {
-                    // Full screen, the track shows after opening and each key press, then fades out
-                    // (or always, or never: Music Player Settings). The menu's card can be turned off.
-                    val overlay =
-                        when (prefs.trackOverlay) {
-                            XmbTrackOverlay.BRIEF -> ((overlayUntil - seconds.floatValue) / VISUALIZER_OVERLAY_FADE).coerceIn(0f, 1f)
-                            XmbTrackOverlay.ALWAYS -> 1f
-                            XmbTrackOverlay.NEVER -> 0f
-                        }
-                    val card = if (prefs.nowPlayingCard) 1f else 0f
-                    card + (overlay - card) * fullShown
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-        if (prefs.clock) {
-            XmbClock(
-                xmbClockText(now.month, now.day, now.hour, now.minute, prefs.hour24, prefs.dateFormat),
-                metrics,
-                fontFamily,
-                Modifier.align(Alignment.TopEnd).padding(top = metrics.clockBoxTop).graphicsLayer {
-                    alpha =
-                        menuAlpha()
-                },
-            )
-        }
-        XmbOptionsPanelView(options, metrics, fontFamily)
-        picker?.let { current ->
-            val rowTitle =
-                level?.let { listState.entries.getOrNull(it.focus)?.title } ?: itemTitles[navigation.category].getOrNull(navigation.item)
-            Box(Modifier.fillMaxSize().graphicsLayer { alpha = pickerShown }) {
-                XmbPickerView(current, rowTitle, metrics, geometry, styles)
+            if (prefs.clock) {
+                XmbClock(
+                    xmbClockText(now.month, now.day, now.hour, now.minute, prefs.hour24, prefs.dateFormat),
+                    metrics,
+                    fontFamily,
+                    Modifier.align(Alignment.TopEnd).padding(top = metrics.clockBoxTop).graphicsLayer {
+                        alpha =
+                            menuAlpha()
+                    },
+                )
             }
-        }
-        keyboard?.let { XmbKeyboardView(it.keyboard, metrics, fontFamily) }
-        notice?.let { XmbNoticeView(it.notice, noticeFocus, metrics, fontFamily) }
-        recording?.let { shortcut ->
-            XmbNoticeView(
-                XmbNotice(
-                    id = "record_shortcut",
-                    title = stringResource(shortcut.title()),
-                    message = shortcutText.press,
-                    details = if (recordingRefused) shortcutText.reserved else shortcutText.hint,
-                    buttons = emptyList(),
-                ),
-                focus = 0,
-                metrics = metrics,
-                fontFamily = fontFamily,
-            )
-        }
-        toast?.let { message ->
-            XmbToast(
-                message,
-                metrics,
-                fontFamily,
-                Modifier.align(Alignment.TopCenter).padding(top = metrics.clockBoxTop).graphicsLayer {
-                    alpha = ((toastUntil - seconds.floatValue) / TOAST_FADE_SECONDS).coerceIn(0f, 1f)
-                },
-            )
+            XmbOptionsPanelView(options, metrics, fontFamily)
+            picker?.let { current ->
+                val rowTitle =
+                    level?.let { listState.entries.getOrNull(it.focus)?.title }
+                        ?: itemTitles[navigation.category].getOrNull(navigation.item)
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = pickerShown }) {
+                    XmbPickerView(current, rowTitle, metrics, geometry, styles)
+                }
+            }
+            keyboard?.let { XmbKeyboardView(it.keyboard, metrics, fontFamily) }
+            notice?.let { XmbNoticeView(it.notice, noticeFocus, metrics, fontFamily) }
+            recording?.let { shortcut ->
+                XmbNoticeView(
+                    XmbNotice(
+                        id = "record_shortcut",
+                        title = stringResource(shortcut.title()),
+                        message = shortcutText.press,
+                        details = if (recordingRefused) shortcutText.reserved else shortcutText.hint,
+                        buttons = emptyList(),
+                    ),
+                    focus = 0,
+                    metrics = metrics,
+                    fontFamily = fontFamily,
+                )
+            }
+            toast?.let { message ->
+                XmbToast(
+                    message,
+                    metrics,
+                    fontFamily,
+                    Modifier.align(Alignment.TopCenter).padding(top = metrics.clockBoxTop).graphicsLayer {
+                        alpha = ((toastUntil - seconds.floatValue) / TOAST_FADE_SECONDS).coerceIn(0f, 1f)
+                    },
+                )
+            }
         }
     }
 
@@ -1343,6 +1470,11 @@ private const val DEFAULT_UNMUTE_VOLUME = 0.7f
 private const val TOAST_SECONDS = 1.6f
 private const val TOAST_FADE_SECONDS = 0.4f
 
+/** Touch: the drag slop (times the platform's, so a wobbly tap isn't a drag), and a flick's pacing. */
+private const val TOUCH_SLOP = 2f
+private const val FLING_FIRST_MS = 40L
+private const val FLING_SLOWDOWN_MS = 12L
+
 /** How often the idle timer checks for the visualizer. */
 private const val IDLE_CHECK_MS = 1000L
 
@@ -1357,23 +1489,13 @@ private const val KEYBOARD_FADE = 0.8f
 /** The clock glyph fills 56 of its PNG's 256 pixels; zoom it to fill its slot. */
 private const val CLOCK_ICON_ZOOM = 4.5f
 
-/** The menu's touch geometry in pixels, written by the layout and read by the pointer handler. */
+/** The menu's step sizes in pixels for touch, written by the layout and read by the pointer handler. */
 private class XmbTouchPlaces {
     var stepX = 1f
     var stepY = 1f
-    var focusX = 0f
-    var focusY = 0f
-    var rowY = 0f
 
-    fun update(
-        geometry: XmbBarGeometry,
-        metrics: XmbMetrics,
-        density: Density,
-    ) {
+    fun update(geometry: XmbBarGeometry) {
         stepX = geometry.categorySpacing
         stepY = geometry.itemSpacing
-        focusX = geometry.anchorX
-        rowY = geometry.barY
-        focusY = geometry.barY + with(density) { metrics.focusedItemOffset.toPx() }
     }
 }

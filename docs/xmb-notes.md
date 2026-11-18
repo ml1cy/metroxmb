@@ -148,11 +148,14 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 
 | Constant | Value | Reason |
 |---|---|---|
-| Drag step | one category spacing across, one item spacing down; the first step half a step past the touch slop | Same steps as the arrow keys; short drags still move |
+| Taps | every part takes its own taps (`xmbTap`): keys and suggestions, category icons, the focused column's and an opened level's rows, the level's parent icon, picker values and slider arrows, options, notice buttons | Taps go to what's under the finger; faded neighbor columns and the bar behind an opened folder don't take taps, since they're laid out but invisible |
+| Tap rule | down and up within twice the platform's touch slop, before the long-press time; the mouse's secondary button is a long press | Fingers wobble: with the plain slop, a wobble without a step was lost |
+| Row tap | a row that isn't focused is focused; the focused row is selected; a long press focuses and opens options (△) | Like moving there and pressing ✕ |
+| Outside tap | closes a picker or the options; full screen, shows the track | |
+| Drag step | one category spacing across, one item spacing down; the first step half a step past twice the touch slop | Same steps as the arrow keys; short drags still move |
 | Direction | drag up = next item, drag left = next category | The content follows the finger |
-| Tap | within 0.75 item steps of the focused row: select; on the category row: move along it; elsewhere: one step toward the tap | Predictable without per-row hit testing |
-| Long press | 500 ms without moving: options (△) | |
-| Mouse | unchanged (click takes focus, wheel moves) | A click shouldn't select by accident on desktop |
+| Flick | the release speed times 0.18 s, in steps, at most 12, from 8 steps a second up; paced 40 ms + 12 ms more per step | Long lists without long drags |
+| Mouse | clicks work like taps; the wheel moves; dragging doesn't | |
 | Portrait unit | min(height / 900, width / 480): about 0.86 dp on a 411 dp phone | The landscape rule (width / 960) made titles 10 sp |
 | Portrait anchor | focused category at 20% of the width; values 220 units after the text | Room for the row and for values on screen |
 | Portrait full screen | artwork and titles above the queue position; the time and a full-width bar below, with the card's 32-unit margins | The console's side-by-side layout doesn't fit upright |

@@ -189,6 +189,12 @@ private fun XmbNavigation.reduceLevel(
     }
 }
 
+/** [index]'s category, focused directly (a tap on its icon); only at the top level. */
+fun XmbNavigation.focusCategory(index: Int): XmbNavigation = if (stack.isEmpty() && index in items.indices) copy(category = index) else this
+
+/** Row [index] of the open level, or of the focused category's column, focused directly (a tap on it). */
+fun XmbNavigation.focusRow(index: Int): XmbNavigation = if (level != null) withFocus(index) else withItem(index)
+
 private fun XmbNavigation.withItem(index: Int) = copy(items = items.toMutableList().also { it[category] = index })
 
 private fun XmbNavigation.withFocus(index: Int) = copy(stack = stack.dropLast(1) + checkNotNull(level).copy(focus = index))

@@ -2,13 +2,17 @@ package com.metrolist.shared.xmb.nav
 
 import kotlin.math.abs
 
+/** What a touch that didn't drag was. */
+enum class XmbTouchGesture { TAP, LONG_PRESS }
+
 /**
  * Touch for the XMB, as steps: dragging moves one item (vertically) or one category
  * (horizontally) per [stepY] or [stepX] of travel, like the arrow keys; the axis is chosen once
  * the finger has moved [slop]. Dragging up moves to the next item and dragging left to the next
- * category, as the content follows the finger. A tap selects the focused row, or steps toward
- * the tapped spot when that's elsewhere (a tap on the category row moves along the row); a press
- * held [longPressMs] without moving opens the options (△). Coordinates are window pixels.
+ * category, as the content follows the finger. A quick flick carries on for a few more steps
+ * ([flingSteps]). Taps on the XMB's parts are theirs (`xmbTap`); this sees only what they leave:
+ * a touch that never made a step is a tap, or a long press when held [longPressMs].
+ * Coordinates are window pixels.
  */
 class XmbTouchTracker(
     private val stepX: Float,
@@ -50,7 +54,7 @@ class XmbTouchTracker(
             if (abs(dx) < slop && abs(dy) < slop) return emptyList()
             axis = if (abs(dx) > abs(dy)) Axis.X else Axis.Y
         }
-        // Steps so far: the first after half a step past the slop, so a short drag still moves.
+        // The first step half a step past the slop, so a short drag still moves; then one per spacing.
         val travel = if (axis == Axis.X) -dx else -dy
         val step = if (axis == Axis.X) stepX else stepY
         val steps = ((abs(travel) - slop) / step + 0.5f).toInt().coerceAtLeast(0) * if (travel < 0) -1 else 1
@@ -58,65 +62,56 @@ class XmbTouchTracker(
         while (consumed != steps) {
             val forward = steps > consumed
             consumed += if (forward) 1 else -1
-            actions +=
-                when (axis) {
-                    Axis.X -> if (forward) XmbAction.RIGHT else XmbAction.LEFT
-                    else -> if (forward) XmbAction.DOWN else XmbAction.UP
-                }
+            actions += action(forward)
         }
         return actions
     }
 
     /**
-     * What lifting the finger at ([x], [y]) does, when it never dragged: a long press, or a tap.
-     * [focusX], [focusY] is the focused item's center and [rowY] the category row's.
+     * Lifting the finger: a tap or long press when it made no step (a wobble past the slop
+     * still counts as a tap), null after a drag.
      */
-    fun up(
-        x: Float,
-        y: Float,
-        timeMs: Long,
-        focusX: Float,
-        focusY: Float,
-        rowY: Float,
-    ): XmbAction? {
+    fun up(timeMs: Long): XmbTouchGesture? {
         if (!active) return null
         active = false
-        if (axis != null) return null
-        if (timeMs - downAt >= longPressMs) return XmbAction.OPTIONS
-        val dx = x - focusX
-        return when {
-            abs(y - rowY) <= stepX / 2f -> {
-                if (abs(dx) <= stepX / 2f) {
-                    null
-                } else if (dx > 0) {
-                    XmbAction.RIGHT
-                } else {
-                    XmbAction.LEFT
-                }
-            }
-
-            abs(y - focusY) <= stepY * TAP_ROW -> {
-                XmbAction.SELECT
-            }
-
-            y > focusY -> {
-                XmbAction.DOWN
-            }
-
-            else -> {
-                XmbAction.UP
-            }
-        }
+        if (consumed != 0) return null
+        return if (timeMs - downAt >= longPressMs) XmbTouchGesture.LONG_PRESS else XmbTouchGesture.TAP
     }
+
+    /**
+     * Extra steps for a flick that ends with [velocity] (pixels a second along the drag's axis,
+     * signed like the finger's motion): the distance it would coast in [FLING_SECONDS], in steps,
+     * at most [MAX_FLING]. None after a slow release or a tap.
+     */
+    fun flingSteps(velocity: Float): List<XmbAction> {
+        val dragAxis = axis ?: return emptyList()
+        if (consumed == 0) return emptyList()
+        val step = if (dragAxis == Axis.X) stepX else stepY
+        val count = (abs(velocity) * FLING_SECONDS / step).toInt().coerceAtMost(MAX_FLING)
+        if (count < 1 || abs(velocity) < step * MIN_FLING_STEPS_PER_SECOND) return emptyList()
+        // Finger moving up or left (negative) is a forward flick, as with the drag.
+        return List(count) { action(forward = velocity < 0f) }
+    }
+
+    /** The drag's axis for velocity: true when vertical. */
+    val vertical: Boolean get() = axis == Axis.Y
 
     fun cancel() {
         active = false
     }
 
+    private fun action(forward: Boolean): XmbAction =
+        when (axis) {
+            Axis.X -> if (forward) XmbAction.RIGHT else XmbAction.LEFT
+            else -> if (forward) XmbAction.DOWN else XmbAction.UP
+        }
+
     private companion object {
         const val LONG_PRESS_MS = 500L
 
-        /** A tap within this many item steps of the focused row selects it. */
-        const val TAP_ROW = 0.75f
+        /** How far a flick coasts, and how fast it must be to coast at all (steps a second). */
+        const val FLING_SECONDS = 0.18f
+        const val MIN_FLING_STEPS_PER_SECOND = 8f
+        const val MAX_FLING = 12
     }
 }

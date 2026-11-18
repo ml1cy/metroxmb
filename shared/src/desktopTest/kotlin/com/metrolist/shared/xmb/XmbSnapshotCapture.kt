@@ -219,6 +219,20 @@ class XmbSnapshotCapture {
                 Screen("phone-portrait", 1080, 2340, density = 2.625f) {
                     XmbApp(services = demoServices, time = { day }, animate = false, initialItem = 2)
                 },
+                Screen("phone-keyboard", 1080, 2340, density = 2.625f) {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SEARCH,
+                        initialKeyboard =
+                            XmbKeyboard(
+                                title = "New search",
+                                text = "midnight",
+                                suggestions = listOf("midnight drive", "midnight drive neon coast", "midnight dreams"),
+                            ),
+                    )
+                },
                 Screen("phone-visualizer", 1080, 2340, density = 2.625f) {
                     XmbApp(
                         services = demoServices,

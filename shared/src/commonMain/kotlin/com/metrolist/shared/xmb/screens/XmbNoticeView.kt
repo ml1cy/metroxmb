@@ -23,6 +23,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import com.metrolist.shared.xmb.bar.LocalXmbTaps
+import com.metrolist.shared.xmb.bar.xmbTap
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.theme.XmbMetrics
 
@@ -68,12 +70,14 @@ internal fun XmbNoticeView(
                 BasicText(notice.message, style = style(22f), maxLines = 4, overflow = TextOverflow.Ellipsis)
                 notice.details?.let { BasicText(it, style = style(14f, 0.65f), maxLines = 6, overflow = TextOverflow.Ellipsis) }
                 Row(horizontalArrangement = Arrangement.spacedBy(unit * 24), modifier = Modifier.padding(top = unit * 10)) {
+                    val taps = LocalXmbTaps.current
                     notice.buttons.forEachIndexed { index, label ->
                         val focused = index == focus
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier =
                                 Modifier
+                                    .xmbTap { taps?.noticeButton(index) }
                                     .widthIn(min = unit * 160)
                                     .background(Color.White.copy(alpha = if (focused) 0.18f else 0f), RoundedCornerShape(unit * 4))
                                     .padding(horizontal = unit * 18, vertical = unit * 6),

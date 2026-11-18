@@ -21,13 +21,18 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.metrolist.android.LocalStartupPresentation
 import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
@@ -86,26 +91,23 @@ internal fun XmbAndroidHost(
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
-    val sounds = remember(context) { AndroidXmbSoundPlayer(context.applicationContext) }
-    DisposableEffect(sounds) { onDispose { sounds.close() } }
-    val downloaded = remember { MutableStateFlow(downloadedSongIds) }
-    SideEffect { downloaded.value = downloadedSongIds }
-    val input = remember { XmbInputController(systemBack = true) }
+    // One per activity: kept while a stock screen (sign-in, a settings page) is open over the XMB,
+    // and stopped with the activity. Rebuilding these on every return left the old copies running
+    // on the main thread, all reloading at once when signing in changed the library.
+    val model = viewModel { XmbAndroidModel(context.applicationContext, database) }
+    SideEffect { model.downloaded.value = downloadedSongIds }
+    val input = model.input
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
     val wallpaper = rememberAndroidXmbWallpaper(context)
     val signOut by rememberUpdatedState(onSignOut)
-    // The music lists and searches outlive this screen's visits, like the stock screens' view models.
-    val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
-    val settingsHost = remember { SharedSettingsHost(platform = SettingsPlatform.ANDROID, onClose = {}) }
     val services =
-        remember(playback, listenTogether) {
-            val search = XmbSearch(scope)
+        remember(model, playback, listenTogether) {
             XmbServices(
                 playback = playback,
-                music = DefaultXmbMusicSource(database, scope, downloaded, search = search),
-                downloads = AndroidXmbDownloads(downloads, downloaded, scope),
-                search = search,
-                settings = XmbSettingsHost({ settingsHost }) { page -> navigator.navigate(Screen.SettingsPage(page)) },
+                music = model.music,
+                downloads = AndroidXmbDownloads(downloads, model.downloaded, model.viewModelScope),
+                search = model.search,
+                settings = XmbSettingsHost({ model.settingsHost }) { page -> navigator.navigate(Screen.SettingsPage(page)) },
                 account =
                     object : XmbAccount {
                         override fun signIn() = navigator.navigate(Screen.Login)
@@ -126,10 +128,37 @@ internal fun XmbAndroidHost(
         }
     ImmersiveSystemBars()
     CompositionLocalProvider(
-        LocalXmbSoundPlayer provides sounds,
+        LocalXmbSoundPlayer provides model.sounds,
         LocalVisualWorkActive provides rememberStartedState(),
     ) {
-        XmbApp(Modifier.fillMaxSize(), services = services, input = input)
+        // The splash screen waits for the stock Home screen to be laid out (StartupPresentation);
+        // the XMB takes its place, so it says so once it's laid out, or the splash never lifts.
+        val startup = LocalStartupPresentation.current
+        XmbApp(
+            Modifier.fillMaxSize().onGloballyPositioned {
+                startup?.homeLaidOut = true
+                startup?.homeCacheReady = true
+            },
+            services = services,
+            input = input,
+        )
+    }
+}
+
+/** The XMB's long-lived parts for one activity: its lists, search, settings host, input and sounds. */
+internal class XmbAndroidModel(
+    context: Context,
+    database: MusicDatabase,
+) : ViewModel() {
+    val downloaded = MutableStateFlow<Set<String>>(emptySet())
+    val search = XmbSearch(viewModelScope)
+    val music = DefaultXmbMusicSource(database, viewModelScope, downloaded, search = search)
+    val settingsHost = SharedSettingsHost(platform = SettingsPlatform.ANDROID, onClose = {})
+    val input = XmbInputController(systemBack = true)
+    val sounds = AndroidXmbSoundPlayer(context)
+
+    override fun onCleared() {
+        sounds.close()
     }
 }
 

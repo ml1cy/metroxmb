@@ -23,9 +23,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import com.metrolist.shared.xmb.adapters.plainNumber
+import com.metrolist.shared.xmb.bar.LocalXmbTaps
 import com.metrolist.shared.xmb.bar.XmbBarGeometry
 import com.metrolist.shared.xmb.bar.XmbRowStyles
 import com.metrolist.shared.xmb.bar.placeAt
+import com.metrolist.shared.xmb.bar.xmbTap
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.theme.XmbMetrics
 
@@ -73,9 +75,16 @@ internal fun XmbPickerView(
                             .width(width - inset),
                 )
             }
+            val taps = LocalXmbTaps.current
             picker.labels.forEachIndexed { index, label ->
                 val focused = index == picker.focus
                 val y = geometry.focusY + (index - picker.focus) * pitch
+                Box(
+                    Modifier
+                        .placeAt(alignY = 0.5f) { Offset(x, y) }
+                        .size(width, with(density) { pitch.toDp() })
+                        .xmbTap { taps?.pickerValue(index) },
+                )
                 if (focused) {
                     Box(
                         Modifier
@@ -110,9 +119,11 @@ internal fun XmbPickerView(
                         .padding(horizontal = inset, vertical = metrics.unit * 14),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(metrics.unit * 14)) {
-                    BasicText("◀", style = styles.subtitle)
-                    BasicText(label, style = styles.focusedTitle, maxLines = 1)
-                    BasicText("▶", style = styles.subtitle)
+                    val taps = LocalXmbTaps.current
+                    val arrow = Modifier.padding(horizontal = metrics.unit * 8)
+                    BasicText("◀", style = styles.subtitle, modifier = Modifier.xmbTap { taps?.sliderStep(-1) }.then(arrow))
+                    BasicText(label, style = styles.focusedTitle, maxLines = 1, modifier = Modifier.xmbTap { taps?.confirm() })
+                    BasicText("▶", style = styles.subtitle, modifier = Modifier.xmbTap { taps?.sliderStep(1) }.then(arrow))
                 }
                 Box(
                     Modifier
