@@ -1379,6 +1379,7 @@ fun XmbApp(
     val latestSuspended by rememberUpdatedState(suspended)
     LaunchedEffect(input) { input?.actions?.collect { latestAct(it) } }
     LaunchedEffect(input) { input?.toasts?.collect { showToast(it) } }
+    LaunchedEffect(systemPages) { systemPages?.playlistImport?.messages?.collect { showToast(it) } }
     // A link, app shortcut or notification: its category, with the level opened, over anything open.
     val pendingOpen = input?.pendingOpen
     // A link carries only an id: its level is titled with a generic word until it loads.

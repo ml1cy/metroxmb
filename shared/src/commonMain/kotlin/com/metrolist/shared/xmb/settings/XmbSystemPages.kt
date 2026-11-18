@@ -50,6 +50,7 @@ import com.metrolist.shared.generated.resources.download_folder_unavailable
 import com.metrolist.shared.generated.resources.download_location
 import com.metrolist.shared.generated.resources.equalizer_stream_unavailable
 import com.metrolist.shared.generated.resources.error_unknown
+import com.metrolist.shared.generated.resources.import_error_empty_playlist
 import com.metrolist.shared.generated.resources.listen_together
 import com.metrolist.shared.generated.resources.listen_together_add_custom_server
 import com.metrolist.shared.generated.resources.listen_together_auto_approval_joins
@@ -88,14 +89,17 @@ import com.metrolist.shared.generated.resources.xmb_about_imagery_description
 import com.metrolist.shared.generated.resources.xmb_about_license
 import com.metrolist.shared.generated.resources.xmb_about_ribbon
 import com.metrolist.shared.generated.resources.xmb_about_ribbon_description
-import com.metrolist.shared.generated.resources.xmb_backup_more
-import com.metrolist.shared.generated.resources.xmb_backup_more_description
 import com.metrolist.shared.generated.resources.xmb_eq_band
 import com.metrolist.shared.generated.resources.xmb_eq_preamp
 import com.metrolist.shared.generated.resources.xmb_eq_profile
 import com.metrolist.shared.generated.resources.xmb_eq_reset
 import com.metrolist.shared.generated.resources.xmb_eq_save
 import com.metrolist.shared.generated.resources.xmb_eq_save_description
+import com.metrolist.shared.generated.resources.xmb_import_failed
+import com.metrolist.shared.generated.resources.xmb_import_finished
+import com.metrolist.shared.generated.resources.xmb_import_link
+import com.metrolist.shared.generated.resources.xmb_import_link_description
+import com.metrolist.shared.generated.resources.xmb_import_started
 import com.metrolist.shared.generated.resources.xmb_value_none
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.settings.Settings
@@ -104,6 +108,8 @@ import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.SettingsItemRegistration
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.utils.rememberFileSizeFormatter
+import com.metrolist.shared.xmb.adapters.XmbImportMessages
+import com.metrolist.shared.xmb.adapters.XmbPlaylistImport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -164,6 +170,8 @@ class XmbSystemPages(
     val audioProcessing: () -> Boolean = { true },
     /** Listen Together's settings page (name, server, approvals, blocked users) when the platform has it. */
     val listenTogether: ListenTogetherManager? = null,
+    /** Playlist import from a link, on the Backup page. */
+    val playlistImport: XmbPlaylistImport? = null,
     /** Pages only one platform has, drawn from its own rows (Android Auto, say, or Developer Tools' extras). */
     val platformPages: Map<SettingsPageId, @Composable (XmbSystemHooks) -> List<SettingsItemRegistration>> = emptyMap(),
 ) {
@@ -203,7 +211,7 @@ fun xmbSystemRows(
         SettingsPageId.ABOUT -> aboutRows(hooks)
         SettingsPageId.EQUALIZER -> equalizerRows(pages, revision)
         SettingsPageId.STORAGE -> pages.storage?.let { storageRows(it, hooks) }
-        SettingsPageId.BACKUP_RESTORE -> pages.backup?.let { backupRows(it, hooks) }
+        SettingsPageId.BACKUP_RESTORE -> pages.backup?.let { backupRows(it, pages.playlistImport, hooks) }
         SettingsPageId.DEVTOOLS -> devtoolsRows() + pages.platformPages[page]?.invoke(hooks).orEmpty()
         SettingsPageId.LISTEN_TOGETHER -> pages.listenTogether?.let { listenTogetherRows(it) }
         else -> pages.platformPages[page]?.invoke(hooks)
@@ -526,6 +534,7 @@ private fun storageRows(
 @Composable
 private fun backupRows(
     backup: XmbBackup,
+    playlistImport: XmbPlaylistImport?,
     hooks: XmbSystemHooks,
 ): List<SettingsItemRegistration> {
     val created = stringResource(Res.string.backup_created)
@@ -549,14 +558,26 @@ private fun backupRows(
             confirmationMessage = stringResource(Res.string.restore_replaces_data),
             onClick = { backup.restore { ok -> if (ok == false) hooks.toast(restoreFailed) } },
         ),
-        SettingsItemRegistration(
-            id = "xmb_backup_more",
-            title = stringResource(Res.string.xmb_backup_more),
-            description = stringResource(Res.string.xmb_backup_more_description),
-            control = SettingsControl.ACTION,
-            onClick = { hooks.openStock(SettingsPageId.BACKUP_RESTORE) },
-        ),
-    )
+    ) +
+        listOfNotNull(
+            playlistImport?.let { importer ->
+                val text =
+                    XmbImportMessages(
+                        started = stringResource(Res.string.xmb_import_started),
+                        finished = stringResource(Res.string.xmb_import_finished),
+                        empty = stringResource(Res.string.import_error_empty_playlist),
+                        failed = stringResource(Res.string.xmb_import_failed),
+                    )
+                SettingsItemRegistration(
+                    id = "xmb_import_link",
+                    title = stringResource(Res.string.xmb_import_link),
+                    description = stringResource(Res.string.xmb_import_link_description),
+                    control = SettingsControl.TEXT,
+                    textValue = "",
+                    onTextChanged = { link -> importer.importLink(link, text) },
+                )
+            },
+        )
 }
 
 @Composable

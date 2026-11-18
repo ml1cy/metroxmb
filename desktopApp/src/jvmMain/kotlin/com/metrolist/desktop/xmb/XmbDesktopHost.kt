@@ -56,6 +56,7 @@ import com.metrolist.shared.generated.resources.youtube_session_expired_message
 import com.metrolist.shared.generated.resources.youtube_session_expired_title
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.playlistimport.PlaylistImportManager
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.playback.LocalPlaybackController
@@ -75,6 +76,7 @@ import com.metrolist.shared.xmb.XmbVolume
 import com.metrolist.shared.xmb.XmbWallpaper
 import com.metrolist.shared.xmb.adapters.DatabaseXmbPlaylists
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
+import com.metrolist.shared.xmb.adapters.XmbPlaylistImport
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
@@ -136,6 +138,13 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                                     storage = DesktopXmbStorage,
                                     backup = DesktopXmbBackup(AppState.scope),
                                     listenTogether = ListenTogetherState.listenTogetherManager,
+                                    playlistImport =
+                                        XmbPlaylistImport(
+                                            PlaylistImportManager(
+                                                GlobalContext.get().get<MusicDatabase>(),
+                                                GlobalYouTubeRepository.instance,
+                                            ),
+                                        ),
                                     platformPages = mapOf(SettingsPageId.DEVTOOLS to { _ -> desktopXmbDevtoolsRows() }),
                                 ),
                             integrations = { rememberDesktopXmbIntegrationsHost() },

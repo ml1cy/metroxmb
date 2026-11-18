@@ -50,6 +50,8 @@ import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.playlistimport.PlaylistImportManager
+import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.navigation.Navigator
 import com.metrolist.shared.ui.navigation.Screen
@@ -71,6 +73,7 @@ import com.metrolist.shared.xmb.XmbVolume
 import com.metrolist.shared.xmb.XmbWallpaper
 import com.metrolist.shared.xmb.adapters.DatabaseXmbPlaylists
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
+import com.metrolist.shared.xmb.adapters.XmbPlaylistImport
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbAction
 import com.metrolist.shared.xmb.rememberXmbPairingNotice
@@ -155,6 +158,7 @@ internal fun XmbAndroidHost(
                 storage = storage,
                 backup = backup,
                 listenTogether = listenTogether,
+                playlistImport = XmbPlaylistImport(PlaylistImportManager(database, GlobalYouTubeRepository.instance)),
                 platformPages = mapOf(SettingsPageId.ANDROID_AUTO to { hooks -> androidAutoXmbRows(database, hooks) }),
             )
         }

@@ -5651,8 +5651,6 @@
     <string name="xmb_about_ribbon_description">Ported from tsbehlman/xmb and RetroArch (GPL-3.0)</string>
     <string name="xmb_about_imagery">Earth imagery</string>
     <string name="xmb_about_imagery_description">NASA Blue Marble and Black Marble (public domain)</string>
-    <string name="xmb_backup_more">Playlist Import and More</string>
-    <string name="xmb_backup_more_description">Import playlists from other services or apps</string>
     <string name="xmb_eq_profile">Profile</string>
     <string name="xmb_eq_preamp">Preamp</string>
     <string name="xmb_eq_band">%1$s</string>
@@ -5678,4 +5676,9 @@
     <string name="xmb_openrouter_sign_out">Sign Out of OpenRouter</string>
     <string name="xmb_value_hidden">Hidden</string>
     <string name="xmb_signed_in">Signed in</string>
+    <string name="xmb_import_link">Import Playlist from Link</string>
+    <string name="xmb_import_link_description">A Spotify, Apple Music, Deezer, Tidal, Amazon Music or YouTube Music playlist link</string>
+    <string name="xmb_import_started">Importing playlist…</string>
+    <string name="xmb_import_finished">%1$s: %2$d of %3$d songs added</string>
+    <string name="xmb_import_failed">Couldn\'t import that playlist</string>
 </resources>
