@@ -243,7 +243,6 @@ import com.metrolist.shared.constants.modernMiniPlayerHeight
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.db.entities.KIND_DOWNLOAD
 import com.metrolist.shared.db.isHistoryPlaylistId
-import com.metrolist.shared.deviceconnect.DeviceConnectPairingHost
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_login
 import com.metrolist.shared.generated.resources.action_not_now
@@ -461,12 +460,7 @@ fun MetrolistApp(
         val appBackground = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface
         val horizontalSystemBars = WindowInsets.navigationBars.union(WindowInsets.displayCutout)
         val playerBackgroundOpaque = MaterialTheme.colorScheme.surfaceContainer.alpha == 1f
-        val deviceConnectState by AndroidDeviceConnect.manager.state.collectAsState()
-        DeviceConnectPairingHost(
-            state = deviceConnectState,
-            onApprovePairing = AndroidDeviceConnect.manager::approvePairing,
-            onRejectPairing = AndroidDeviceConnect.manager::rejectPairing,
-        )
+        // XMB Music: Device Connect pairing requests show as an XMB notice (rememberXmbPairingNotice).
         val initialStartRoute = remember { resolveAndPersistStartupScreen() }
         val topLevelRoutes = remember { setOf(Screen.Home, Screen.Search, Screen.Library, Screen.EasterEgg) }
         val navigationState =

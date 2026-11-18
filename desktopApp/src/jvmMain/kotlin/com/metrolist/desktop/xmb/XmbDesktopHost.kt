@@ -78,6 +78,7 @@ import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
+import com.metrolist.shared.xmb.rememberXmbPairingNotice
 import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.sound.DesktopXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
@@ -159,7 +160,7 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     suspended =
                         UiState.showSettings || UiState.showSignIn || UiState.showSwitchChannel ||
                             UiState.showLogViewer || UiState.showTokenLogin || UiState.showIntegrationsSettings,
-                    notice = desktopXmbNotice(),
+                    notice = desktopXmbNotice() ?: rememberXmbPairingNotice(DesktopDeviceConnect.manager),
                     input = DesktopXmbLinks.input,
                 )
             }

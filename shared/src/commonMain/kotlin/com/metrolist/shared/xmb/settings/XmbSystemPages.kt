@@ -25,6 +25,7 @@ import com.metrolist.shared.generated.resources.backup_created
 import com.metrolist.shared.generated.resources.backup_sensitive_message
 import com.metrolist.shared.generated.resources.cached_resolutions
 import com.metrolist.shared.generated.resources.calculating
+import com.metrolist.shared.generated.resources.change_folder
 import com.metrolist.shared.generated.resources.clear_all_downloads
 import com.metrolist.shared.generated.resources.clear_all_downloads_dialog
 import com.metrolist.shared.generated.resources.clear_animated_artwork_cache
@@ -45,6 +46,7 @@ import com.metrolist.shared.generated.resources.devtools_playback_client_sabr_fi
 import com.metrolist.shared.generated.resources.devtools_switch_description
 import com.metrolist.shared.generated.resources.devtools_title
 import com.metrolist.shared.generated.resources.disable
+import com.metrolist.shared.generated.resources.download_folder_unavailable
 import com.metrolist.shared.generated.resources.download_location
 import com.metrolist.shared.generated.resources.equalizer_stream_unavailable
 import com.metrolist.shared.generated.resources.error_unknown
@@ -68,6 +70,7 @@ import com.metrolist.shared.generated.resources.metroeq_preset_rock
 import com.metrolist.shared.generated.resources.metroeq_preset_treble
 import com.metrolist.shared.generated.resources.metroeq_preset_v_shape
 import com.metrolist.shared.generated.resources.metroeq_preset_vocal
+import com.metrolist.shared.generated.resources.reset
 import com.metrolist.shared.generated.resources.restore_backup
 import com.metrolist.shared.generated.resources.restore_backup_desc
 import com.metrolist.shared.generated.resources.restore_failed
@@ -119,6 +122,8 @@ data class XmbStorageUsage(
     val limitsMb: Map<XmbStore, Int> = emptyMap(),
     val videoEntries: Int? = null,
     val location: String? = null,
+    /** Whether downloads go to a folder the user chose (Reset then goes back to the default). */
+    val customLocation: Boolean = false,
 )
 
 /** The platform's caches and downloads, for the XMB's Storage page. */
@@ -135,6 +140,12 @@ interface XmbStorage {
         store: XmbStore,
         megabytes: Int,
     )
+
+    /** Asks for a folder for downloads and moves them there; [done] gets true, false, or null when cancelled. */
+    fun changeLocation(done: (Boolean?) -> Unit) = done(null)
+
+    /** Downloads go back to the default folder. */
+    suspend fun resetLocation(): Boolean = false
 }
 
 /** The platform's backups: each asks for a file first; [done] gets true, false on failure, or null when cancelled. */
@@ -407,6 +418,9 @@ private fun storageRows(
             XmbStore.ANIMATED_ARTWORK to stringResource(Res.string.max_animated_artwork_cache_size),
         )
     val locationTitle = stringResource(Res.string.download_location)
+    val changeFolder = stringResource(Res.string.change_folder)
+    val resetFolder = stringResource(Res.string.reset)
+    val folderUnavailable = stringResource(Res.string.download_folder_unavailable)
 
     fun limitLabel(mb: Int) =
         when {
@@ -484,9 +498,27 @@ private fun storageRows(
                     title = locationTitle,
                     description = location,
                     control = SettingsControl.ACTION,
-                    onClick = { hooks.openStock(SettingsPageId.STORAGE) },
+                    valueLabel = changeFolder,
+                    enabled = !busy,
+                    onClick = {
+                        storage.changeLocation { ok ->
+                            if (ok == false) hooks.toast(folderUnavailable)
+                            refresh++
+                        }
+                    },
                 ),
             )
+            if (current.customLocation) {
+                add(
+                    SettingsItemRegistration(
+                        id = "xmb_storage_location_reset",
+                        title = resetFolder,
+                        control = SettingsControl.ACTION,
+                        enabled = !busy,
+                        onClick = { perform { storage.resetLocation() } },
+                    ),
+                )
+            }
         }
     }
 }

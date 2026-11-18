@@ -59,7 +59,9 @@ import com.metrolist.shared.xmb.settings.XmbStorage
 import com.metrolist.shared.xmb.settings.XmbStorageUsage
 import com.metrolist.shared.xmb.settings.XmbStore
 import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.openDirectoryPicker
 import io.github.vinceglb.filekit.dialogs.openFilePicker
 import io.github.vinceglb.filekit.dialogs.openFileSaver
 import kotlinx.coroutines.CoroutineScope
@@ -107,8 +109,23 @@ internal object DesktopXmbStorage : XmbStorage {
                     ),
                 videoEntries = videos.getCacheEntryCount(),
                 location = DownloadManager.getDownloadDir().absolutePath,
+                customLocation = Settings.shared.customDownloadPath.isNotBlank(),
             )
         }
+
+    override fun changeLocation(done: (Boolean?) -> Unit) {
+        AppState.scope.launch {
+            val directory =
+                runCatching { FileKit.openDirectoryPicker(directory = PlatformFile(DownloadManager.getDownloadDir())) }
+                    .getOrNull()
+                    ?.file
+                    ?: return@launch done(null)
+            done(runCatching { withContext(Dispatchers.IO) { DownloadManager.changeDownloadDirectory(directory) } }.isSuccess)
+        }
+    }
+
+    override suspend fun resetLocation(): Boolean =
+        runCatching { withContext(Dispatchers.IO) { DownloadManager.changeDownloadDirectory(null) } }.isSuccess
 
     override suspend fun clear(store: XmbStore): Boolean =
         withContext(Dispatchers.IO) {

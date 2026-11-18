@@ -73,6 +73,7 @@ import com.metrolist.shared.xmb.adapters.DatabaseXmbPlaylists
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.rememberXmbPairingNotice
 import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.sound.AndroidXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
@@ -121,7 +122,9 @@ internal fun XmbAndroidHost(
     val input = model.input
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
     SnackbarsAsXmbToasts(snackbars, input)
-    val notice = rememberAndroidXmbNotice(playerConnection) { navigator.navigate(Screen.Login) }
+    val notice =
+        rememberAndroidXmbNotice(playerConnection) { navigator.navigate(Screen.Login) }
+            ?: rememberXmbPairingNotice(AndroidDeviceConnect.manager)
     // Links, app shortcuts and notifications MetrolistApp handed over.
     val link by AndroidXmbLinks.pending.collectAsState()
     LaunchedEffect(link) {

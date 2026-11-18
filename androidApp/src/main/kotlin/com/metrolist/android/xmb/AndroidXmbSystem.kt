@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -97,8 +98,30 @@ internal class AndroidXmbStorage(
                         XmbStore.ANIMATED_ARTWORK to Settings.shared.animatedArtworkCacheSize,
                     ),
                 videoEntries = videos.getCacheEntryCount(),
+                location =
+                    if (Settings.shared.downloadLocation == AudioCacheManager.LOCATION_CUSTOM) {
+                        Settings.shared.customDownloadPath
+                    } else {
+                        audio.downloadDirectory().absolutePath
+                    },
+                customLocation = Settings.shared.downloadLocation != AudioCacheManager.LOCATION_INTERNAL,
             )
         }
+
+    /** Set by [rememberAndroidXmbStorage]: opens the system folder picker. */
+    var pickFolder: ((Boolean?) -> Unit) -> Unit = { it(null) }
+
+    override fun changeLocation(done: (Boolean?) -> Unit) = pickFolder(done)
+
+    /** Downloads move to [location] ([AudioCacheManager]'s location ids), as the stock page does. */
+    suspend fun moveDownloads(location: String): Boolean {
+        Settings.shared.downloadLocation = location
+        return runCatching { audio.migrateDownloadsToConfiguredLocation() }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            .isSuccess
+    }
+
+    override suspend fun resetLocation(): Boolean = moveDownloads(AudioCacheManager.LOCATION_INTERNAL)
 
     override suspend fun clear(store: XmbStore): Boolean =
         withContext(Dispatchers.IO) {
@@ -168,9 +191,35 @@ internal fun rememberAndroidXmbStorage(): AndroidXmbStorage {
     val downloads: SongDownloadManager = koinInject()
     val videos: MusicVideoResolver = koinInject()
     val animatedArtwork: AnimatedArtworkService = koinInject()
-    return remember(context, audio, downloads, videos, animatedArtwork) {
-        AndroidXmbStorage(context, audio, downloads, videos, animatedArtwork)
+    val storage =
+        remember(context, audio, downloads, videos, animatedArtwork) {
+            AndroidXmbStorage(context, audio, downloads, videos, animatedArtwork)
+        }
+    val scope = rememberCoroutineScope()
+    var pending by remember { mutableStateOf<((Boolean?) -> Unit)?>(null) }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            val done = pending ?: return@rememberLauncherForActivityResult
+            pending = null
+            if (uri == null) return@rememberLauncherForActivityResult done(null)
+            val granted =
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                }.isSuccess
+            if (!granted) return@rememberLauncherForActivityResult done(false)
+            Settings.shared.customDownloadPath = uri.toString()
+            scope.launch { done(storage.moveDownloads(AudioCacheManager.LOCATION_CUSTOM)) }
+        }
+    SideEffect {
+        storage.pickFolder = { done ->
+            pending = done
+            picker.launch(null)
+        }
     }
+    return storage
 }
 
 /**

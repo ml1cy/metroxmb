@@ -2,10 +2,13 @@ package com.metrolist.shared.xmb.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import com.metrolist.shared.api.lyrics.AiProviderPresets
 import com.metrolist.shared.api.lyrics.LyricsTranslationClient
+import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.ai_test_connection_failed
 import com.metrolist.shared.generated.resources.ai_test_missing_credentials
@@ -16,6 +19,8 @@ import com.metrolist.shared.generated.resources.brand_lrcred
 import com.metrolist.shared.generated.resources.brand_lyprio
 import com.metrolist.shared.generated.resources.brand_paxsenix
 import com.metrolist.shared.generated.resources.brand_unison
+import com.metrolist.shared.generated.resources.device_connect_direct_address
+import com.metrolist.shared.generated.resources.device_connect_direct_hint
 import com.metrolist.shared.generated.resources.openrouter_auth_code
 import com.metrolist.shared.generated.resources.openrouter_auth_instruction
 import com.metrolist.shared.generated.resources.openrouter_sign_in_description
@@ -79,6 +84,7 @@ val XMB_HIDDEN_SETTINGS_PAGES: Set<SettingsPageId> =
 internal fun xmbCustomRows(
     item: SettingsItemRegistration,
     hooks: XmbSystemHooks,
+    deviceConnect: DeviceConnectManager? = null,
 ): List<SettingsItemRegistration> {
     val settings = Settings.shared
     val id = item.id
@@ -410,6 +416,23 @@ private fun restoreRow(
     customContent = null,
     onClick = restore,
 )
+
+/** Device Connect by address: typed as IPv4:port or [IPv6]:port. */
+@Composable
+private fun directConnectRow(
+    item: SettingsItemRegistration,
+    manager: DeviceConnectManager,
+): SettingsItemRegistration {
+    val state by manager.state.collectAsState()
+    return item.copy(
+        title = stringResource(Res.string.device_connect_direct_address),
+        description = stringResource(Res.string.device_connect_direct_hint, state.serverPort),
+        control = SettingsControl.TEXT,
+        textValue = "",
+        customContent = null,
+        onTextChanged = { address -> if (address.isNotBlank()) manager.connectDirect(address.trim()) },
+    )
+}
 
 private const val LYRICS_OFFSET_MS = 5_000f
 private const val LYRICS_OFFSET_STEP_MS = 50f

@@ -473,9 +473,21 @@ fun XmbApp(
                                         items =
                                             group.items.flatMap { item ->
                                                 when {
-                                                    item.destination in XMB_HIDDEN_SETTINGS_PAGES -> emptyList()
-                                                    item.control == SettingsControl.CUSTOM -> xmbCustomRows(item, hooks)
-                                                    else -> listOf(item)
+                                                    item.destination in XMB_HIDDEN_SETTINGS_PAGES -> {
+                                                        emptyList()
+                                                    }
+
+                                                    item.control == SettingsControl.CUSTOM -> {
+                                                        xmbCustomRows(
+                                                            item,
+                                                            hooks,
+                                                            services?.deviceConnect,
+                                                        )
+                                                    }
+
+                                                    else -> {
+                                                        listOf(item)
+                                                    }
                                                 }
                                             },
                                     )
