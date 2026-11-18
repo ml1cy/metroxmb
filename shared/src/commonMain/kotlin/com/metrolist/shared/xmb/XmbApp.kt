@@ -1110,6 +1110,7 @@ fun XmbApp(
     val latestAct by rememberUpdatedState<(XmbAction) -> Unit> { act(it) }
     val latestSuspended by rememberUpdatedState(suspended)
     LaunchedEffect(input) { input?.actions?.collect { latestAct(it) } }
+    LaunchedEffect(input) { input?.toasts?.collect { showToast(it) } }
     // A link, app shortcut or notification: its category, with the level opened, over anything open.
     val pendingOpen = input?.pendingOpen
     LaunchedEffect(pendingOpen) {
@@ -1117,6 +1118,8 @@ fun XmbApp(
         options = null
         picker = null
         keyboard = null
+        // Leaving full-screen video turns the player's video mode off, as ○ does there.
+        if (fullScreen == XmbFullScreen.Video) services?.playback?.setVideoMode(false)
         fullScreen = null
         val list = target.list
         val title =

@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -52,6 +53,7 @@ import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.viewmodels.PlayerViewModel
+import com.metrolist.shared.xmb.SnackbarsAsXmbToasts
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
@@ -99,6 +101,7 @@ internal fun XmbAndroidHost(
     downloadedSongIds: Set<String>,
     navigator: Navigator,
     playerViewModel: PlayerViewModel,
+    snackbars: SnackbarHostState,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -109,6 +112,8 @@ internal fun XmbAndroidHost(
     SideEffect { model.downloaded.value = downloadedSongIds }
     val input = model.input
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
+    SnackbarsAsXmbToasts(snackbars, input)
+    val notice = rememberAndroidXmbNotice(playerConnection) { navigator.navigate(Screen.Login) }
     // Links, app shortcuts and notifications MetrolistApp handed over.
     val link by AndroidXmbLinks.pending.collectAsState()
     LaunchedEffect(link) {
@@ -180,6 +185,7 @@ internal fun XmbAndroidHost(
             },
             services = services,
             input = input,
+            notice = notice,
         )
     }
 }

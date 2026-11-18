@@ -46,6 +46,7 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.xmb.SnackbarsAsXmbToasts
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
@@ -124,6 +125,7 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                 )
             }
         DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())
+        SnackbarsAsXmbToasts(AppState.snackbarHostState, DesktopXmbLinks.input, keepActions = true)
         Box(Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalXmbSoundPlayer provides sounds) {
                 XmbApp(

@@ -13,7 +13,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 export XMB_SNAP_OUT="$PWD/compare"
 export XMB_SNAP="${1:-all}"
-# testServerWithoutReflection is a dependency of desktopTest and isn't needed for captures.
+# testServerWithoutReflection is a dependency of desktopTest and isn't needed for captures. The
+# configuration cache would replay the XMB_SNAP of whichever run stored it, so it is off here.
 ./gradlew :shared:desktopTest --tests 'com.metrolist.shared.xmb.XmbSnapshotCapture' \
-    -x :shared:testServerWithoutReflection --rerun --console=plain -q
+    -x :shared:testServerWithoutReflection --rerun --no-configuration-cache --console=plain -q
 ls -1 compare/*.png

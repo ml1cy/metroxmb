@@ -272,3 +272,11 @@ it), passed through `XmbInputController.open`. It waits until the XMB is shown, 
 was open and opens the place. Albums, playlists, artists, podcasts, downloads, liked songs,
 search, settings and Listen Together open in the XMB on both platforms; sign-in, song recognition,
 browse pages, playlist import and joining a room by link on Android still open stock screens.
+
+## Messages over the XMB (M7)
+
+| What | How | Why |
+|---|---|---|
+| Snackbars | shown as XMB toasts (`SnackbarsAsXmbToasts`); on desktop a snackbar with an action (an undo) stays a snackbar so the action works | Android's stock snackbar host isn't drawn in the XMB, so messages were lost; desktop's was a Material bar over the XMB |
+| Expired sign-in, Listen Together guest choice (Android) | XMB notices, as desktop already did for the sign-in and playback errors | The guest choice was only composed with the stock layout, so a guest's song request did nothing |
+| Row values | fade out over 24 units where they'd pass under the clock box or within 78 units of the bottom (the now-playing card) | They overlapped both |

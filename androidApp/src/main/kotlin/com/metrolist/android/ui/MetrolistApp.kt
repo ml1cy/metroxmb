@@ -520,7 +520,8 @@ fun MetrolistApp(
                 else -> Unit
             }
         }
-        PopupVisibility(visible = YouTubeSessionState.showExpiredSessionNotice) {
+        // XMB Music: at the top level the XMB shows this as its own notice.
+        PopupVisibility(visible = YouTubeSessionState.showExpiredSessionNotice && currentRoute !in topLevelRoutes) {
             AlertDialog(
                 onDismissRequest = YouTubeSessionState::dismissExpiredSessionNotice,
                 title = { Text(stringResource(Res.string.youtube_session_expired_title)) },
@@ -930,6 +931,7 @@ fun MetrolistApp(
                     downloadedSongIds = downloadedSongIds,
                     navigator = navigator,
                     playerViewModel = playerViewModel,
+                    snackbars = snackbarHostState,
                     onSignOut = {
                         coroutineScope.launch {
                             authManager.clearAllCredentials()

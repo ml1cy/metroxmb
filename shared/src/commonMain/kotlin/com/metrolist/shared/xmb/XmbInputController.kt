@@ -24,6 +24,14 @@ class XmbInputController(
         pending.tryEmit(action)
     }
 
+    private val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    internal val toasts: SharedFlow<String> get() = messages
+
+    /** A short message across the top of the XMB, like its own "Shuffle on" (the platform's snackbars). */
+    fun toast(message: String) {
+        messages.tryEmit(message)
+    }
+
     /**
      * A place to show (a link, an app shortcut, a notification). It waits here until the XMB is
      * shown and takes it, so a link that starts the app isn't lost.
