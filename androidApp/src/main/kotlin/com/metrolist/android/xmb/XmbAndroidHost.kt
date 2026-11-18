@@ -42,6 +42,8 @@ import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.ui.player.MusicVideoSurface
+import com.metrolist.android.viewmodels.HomeViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.metrolist.android.ui.screens.rememberAndroidSettingsHost
 import com.metrolist.android.ui.screens.settings.rememberAndroidIntegrationsHost
 import com.metrolist.shared.db.MusicDatabase
@@ -110,7 +112,9 @@ internal fun XmbAndroidHost(
     // One per activity: kept while a stock screen (sign-in, a settings page) is open over the XMB,
     // and stopped with the activity. Rebuilding these on every return left the old copies running
     // on the main thread, all reloading at once when signing in changed the library.
-    val model = viewModel { XmbAndroidModel(context.applicationContext, database) }
+    // The settings host below uses the app's home feed too; the XMB's lists share it.
+    val home: HomeViewModel = koinViewModel()
+    val model = viewModel { XmbAndroidModel(context.applicationContext, database, home) }
     SideEffect { model.downloaded.value = downloadedSongIds }
     val input = model.input
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
@@ -212,10 +216,11 @@ internal fun XmbAndroidHost(
 internal class XmbAndroidModel(
     context: Context,
     database: MusicDatabase,
+    home: HomeViewModel,
 ) : ViewModel() {
     val downloaded = MutableStateFlow<Set<String>>(emptySet())
     val search = XmbSearch(viewModelScope)
-    val music = DefaultXmbMusicSource(database, viewModelScope, downloaded, search = search)
+    val music = DefaultXmbMusicSource(database, viewModelScope, downloaded, search = search, homeViewModel = { home.shared })
     val input = XmbInputController(systemBack = true)
     val sounds = AndroidXmbSoundPlayer(context)
 

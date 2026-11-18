@@ -59,8 +59,10 @@ class DefaultXmbMusicSource(
     private val search: XmbSearch? = null,
     private val repository: () -> YouTubeRepository = { GlobalYouTubeRepository.instance },
     private val loadSongs: suspend (YTItem) -> List<SongItem> = ::loadMediaItemSongs,
+    /** The app's own home feed when it has one, so the feed isn't loaded twice. */
+    private val homeViewModel: (() -> HomeViewModel)? = null,
 ) : XmbMusicSource {
-    private val home by lazy { HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
+    private val home by lazy { homeViewModel?.invoke() ?: HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
     private val library by lazy {
         LibraryViewModel(scope, database, downloadedSongIds).also {
             it.setActive(true)
