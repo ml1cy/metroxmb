@@ -241,7 +241,9 @@ import com.metrolist.android.utils.startActivitySafely
 import com.metrolist.android.viewmodels.LibraryViewModel
 import com.metrolist.android.viewmodels.PlaybackViewModel
 import com.metrolist.android.widget.PlaylistWidgetReceiver
+import com.metrolist.android.xmb.AndroidXmbLinks
 import com.metrolist.android.xmb.XmbAndroidHost
+import com.metrolist.android.xmb.xmbOpenFor
 import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.auth.YouTubeSessionState
@@ -1179,6 +1181,14 @@ fun MetrolistApp(
                         ) {
                             pendingOpenPlayer = false
                             if (hasMedia) playerBottomSheetState.collapseSoft()
+                        }
+                        // XMB Music: places the XMB can show open there, over its top level, not on a stock screen.
+                        val xmbTarget = destination?.let { xmbOpenFor(it) }
+                        if (xmbTarget != null) {
+                            AndroidXmbLinks.open(xmbTarget)
+                            navigator.navigateToRoot(Screen.Home)
+                            onIncomingIntentConsumed(intent)
+                            return@LaunchedEffect
                         }
                         when (destination) {
                             null -> {}

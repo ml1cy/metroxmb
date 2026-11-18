@@ -112,12 +112,14 @@ sealed interface XmbSettingStep {
 /**
  * Decides what selecting [entry] (a row of settings [page]) does. The XMB's own pages have no
  * registry [page]: their rows always have handlers, and anything else is unavailable there.
+ * Custom pages in [drawn] open as XMB levels like registry pages.
  */
 fun xmbSettingStep(
     entry: XmbEntry,
     page: SettingsPageId?,
     registry: SettingsUiRegistry?,
     labels: XmbSettingLabels,
+    drawn: Set<SettingsPageId> = emptySet(),
 ): XmbSettingStep {
     val item = entry.setting ?: return XmbSettingStep.Unavailable
     val stock = page?.let(XmbSettingStep::Stock) ?: XmbSettingStep.Unavailable
@@ -153,7 +155,13 @@ fun xmbSettingStep(
         SettingsControl.NAVIGATION -> {
             val destination = item.destination ?: return XmbSettingStep.Unavailable
             val target = registry?.get(destination)
-            if (target != null && !target.custom) XmbSettingStep.Open(destination) else XmbSettingStep.Stock(destination)
+            if (target != null &&
+                (!target.custom || destination in drawn)
+            ) {
+                XmbSettingStep.Open(destination)
+            } else {
+                XmbSettingStep.Stock(destination)
+            }
         }
 
         SettingsControl.ACTION -> {

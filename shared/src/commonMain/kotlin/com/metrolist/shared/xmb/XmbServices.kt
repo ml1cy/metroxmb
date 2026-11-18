@@ -12,6 +12,7 @@ import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import kotlinx.coroutines.flow.StateFlow
 
 /** Platform downloads, where the platform has them. */
@@ -38,10 +39,12 @@ interface XmbAccount {
 /**
  * The settings registry's host for this platform (the same kind of [SharedSettingsHost] the stock
  * settings screen gets; [host] is read in composition, so a host backed by state stays current),
- * and a way to show a stock settings page the XMB doesn't draw itself.
+ * the platform parts of the custom pages the XMB draws itself ([system]), and a way to show a
+ * stock settings page the XMB doesn't draw.
  */
 class XmbSettingsHost(
     val host: () -> SharedSettingsHost,
+    val system: XmbSystemPages? = null,
     val openStockPage: (SettingsPageId) -> Unit,
 )
 

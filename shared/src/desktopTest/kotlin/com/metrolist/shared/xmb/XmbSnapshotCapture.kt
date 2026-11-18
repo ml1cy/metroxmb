@@ -34,6 +34,7 @@ import com.metrolist.shared.generated.resources.xmb_cat_users
 import com.metrolist.shared.generated.resources.xmb_cat_video
 import com.metrolist.shared.generated.resources.xmb_item_network_settings
 import com.metrolist.shared.generated.resources.xmb_item_playlist
+import com.metrolist.shared.generated.resources.xmb_item_subsetting
 import com.metrolist.shared.generated.resources.xmb_item_volume
 import com.metrolist.shared.model.AlbumTiny
 import com.metrolist.shared.model.ArtistTiny
@@ -65,6 +66,10 @@ import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
 import com.metrolist.shared.xmb.settings.XmbSettingsPageId
+import com.metrolist.shared.xmb.settings.XmbStorage
+import com.metrolist.shared.xmb.settings.XmbStorageUsage
+import com.metrolist.shared.xmb.settings.XmbStore
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.theme.XmbIcons
 import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbPalette
@@ -80,7 +85,7 @@ import kotlin.test.Test
 /**
  * Dev capture for `scripts/xmb/snap.sh`, not a test: renders XMB screens headlessly into
  * `compare/` for side-by-side checks against reference frames. Skipped unless `XMB_SNAP_OUT` is
- * set. `XMB_SNAP` picks one screen (default: all).
+ * set. `XMB_SNAP` picks screens by name prefix, comma-separated (default: all).
  */
 class XmbSnapshotCapture {
     private val output = System.getenv("XMB_SNAP_OUT")?.let(::File)
@@ -138,6 +143,33 @@ class XmbSnapshotCapture {
                         animate = false,
                         initialCategory = XmbCategoryId.SETTINGS,
                         initialLevels = listOf(playerLevel.copy(focus = 2)),
+                    )
+                },
+                Screen("system-metroeq") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(systemLevel(SettingsPageId.EQUALIZER, "MetroEQ").copy(focus = 1)),
+                    )
+                },
+                Screen("system-storage") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(systemLevel(SettingsPageId.STORAGE, "Storage").copy(focus = 2)),
+                    )
+                },
+                Screen("system-about") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(systemLevel(SettingsPageId.ABOUT, "About")),
                     )
                 },
                 Screen("settings-picker") {
@@ -299,7 +331,7 @@ class XmbSnapshotCapture {
                     Screen("visualizer-transition-${(step * 100).toInt()}") { TransitionFrame(step) }
                 }
         for (screen in screens) {
-            if (only != null && screen.name != only) continue
+            if (only != null && only.split(",").none { screen.name.startsWith(it.trim()) }) continue
             val density = screen.density ?: if (screen.width >= 1920) 1.5f else 1f
             val scene = ImageComposeScene(screen.width, screen.height, Density(density), content = screen.content)
             try {
@@ -424,6 +456,7 @@ class XmbSnapshotCapture {
                                 ),
                         )
                     },
+                    system = XmbSystemPages(storage = DemoStorage, backup = null),
                     openStockPage = {},
                 ),
             account =
@@ -458,6 +491,38 @@ class XmbSnapshotCapture {
             "Waves keep time against the pier",
             "And I keep time with you",
         ).mapIndexed { index, line -> LyricsEntry(time = 72_000L + index * 6_000L, text = line) }
+
+    private fun systemLevel(
+        page: SettingsPageId,
+        title: String,
+    ) = XmbLevel(XmbList.SettingsPage(page), title, XmbIcon.Drawable(Res.drawable.xmb_item_subsetting))
+
+    /** Storage figures for the capture: a few GB of cache and downloads. */
+    private object DemoStorage : XmbStorage {
+        override val limitChoices = mapOf(XmbStore.SONGS to listOf(0, 512, 1024, 2048, -1), XmbStore.IMAGES to listOf(0, 256, 512))
+
+        override suspend fun usage() =
+            XmbStorageUsage(
+                bytes =
+                    mapOf(
+                        XmbStore.DOWNLOADS to 3_400_000_000L,
+                        XmbStore.SONGS to 812_000_000L,
+                        XmbStore.IMAGES to 96_000_000L,
+                        XmbStore.ANIMATED_ARTWORK to 210_000_000L,
+                    ),
+                limitsMb = mapOf(XmbStore.SONGS to 1024, XmbStore.IMAGES to 512),
+                videoEntries = 14,
+                location = "C:\\Users\\Music\\XMB Music",
+            )
+
+        override suspend fun clear(store: XmbStore) = true
+
+        override suspend fun setLimit(
+            store: XmbStore,
+            megabytes: Int,
+        ) = Unit
+    }
+
     private val playerLevel =
         XmbLevel(XmbList.SettingsPage(SettingsPageId.PLAYER), "Player", XmbIcon.Drawable(Res.drawable.xmb_item_volume))
 

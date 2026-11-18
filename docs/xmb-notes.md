@@ -249,3 +249,26 @@ rounded alike in every pass, kept 32 of 256 levels and showed as blocky patches 
 |---|---|---|
 | Effect volume | 0.7 (−3 dB) | Effects sit under the music |
 | Repeat behavior | restart the clip | Fast navigation ticks like the console instead of piling up |
+
+## Stock pages as XMB levels (M7; `xmb/settings/XmbSystemPages.kt`)
+
+Custom registry pages the XMB draws itself, as rows like any settings page. Each platform gives
+the parts only it has (`XmbSystemPages`: `XmbStorage`, `XmbBackup`); the rest is shared.
+
+| Page | Rows | Notes |
+|---|---|---|
+| About | version (three presses unlock the developer tools, like the stock logo), Metrolist, license, ribbon and Earth imagery credits | Links open in the browser |
+| MetroEQ | on/off, profile (presets and saved), preamp, one slider per band (±15 dB in 0.5 dB steps), reset, save as | `EqualizerProfiles`, as the stock page; AutoEQ search and file import stay on the stock page |
+| Storage | clear downloads, song, image, animated artwork and music video caches (each with its size, after a Yes/No); song, image and animated artwork limits; the download folder (opens the stock page to change it) | Sizes refresh every 3 s |
+| Backup and restore | create (after the stock warning that backups hold credentials), restore (the app restarts), playlist import and more (stock page) | System file pickers |
+
+Other custom pages (developer tools, Android Auto, supported links, AI setup) and custom widgets
+inside registry pages (previews, OAuth sign-ins) still open the stock screen.
+
+## Links and shortcuts (M7; `XmbOpen`)
+
+A link, app shortcut or notification becomes an `XmbOpen` (a category, and a level to open over
+it), passed through `XmbInputController.open`. It waits until the XMB is shown, then closes what
+was open and opens the place. Albums, playlists, artists, podcasts, downloads, liked songs,
+search, settings and Listen Together open in the XMB on both platforms; sign-in, song recognition,
+browse pages, playlist import and joining a room by link on Android still open stock screens.

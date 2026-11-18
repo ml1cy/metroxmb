@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.nav.XmbOpen
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -22,6 +23,19 @@ class XmbInputController(
     fun send(action: XmbAction) {
         pending.tryEmit(action)
     }
+
+    /**
+     * A place to show (a link, an app shortcut, a notification). It waits here until the XMB is
+     * shown and takes it, so a link that starts the app isn't lost.
+     */
+    var pendingOpen by mutableStateOf<XmbOpen?>(null)
+        private set
+
+    fun open(target: XmbOpen) {
+        pendingOpen = target
+    }
+
+    internal fun takeOpen(): XmbOpen? = pendingOpen.also { pendingOpen = null }
 
     /** Whether BACK does something in the XMB (a level, a panel, the keyboard, full screen); false at the top. */
     var canGoBack by mutableStateOf(false)

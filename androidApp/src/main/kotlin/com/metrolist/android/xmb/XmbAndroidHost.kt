@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -40,6 +41,7 @@ import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.ui.player.MusicVideoSurface
+import com.metrolist.android.ui.screens.rememberAndroidSettingsHost
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
@@ -48,8 +50,7 @@ import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.navigation.Navigator
 import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.ui.playback.PlaybackController
-import com.metrolist.shared.ui.settings.SettingsPlatform
-import com.metrolist.shared.ui.settings.SharedSettingsHost
+import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.viewmodels.PlayerViewModel
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
@@ -65,6 +66,7 @@ import com.metrolist.shared.xmb.XmbWallpaper
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.sound.AndroidXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import kotlinx.coroutines.CoroutineScope
@@ -107,6 +109,13 @@ internal fun XmbAndroidHost(
     SideEffect { model.downloaded.value = downloadedSongIds }
     val input = model.input
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
+    // Links, app shortcuts and notifications MetrolistApp handed over.
+    val link by AndroidXmbLinks.pending.collectAsState()
+    LaunchedEffect(link) {
+        val target = link ?: return@LaunchedEffect
+        AndroidXmbLinks.pending.value = null
+        input.open(target)
+    }
     val wallpaper = rememberAndroidXmbWallpaper(context)
     val signOut by rememberUpdatedState(onSignOut)
     // Lyrics come from the player's view model, as on the stock player; its state is read as
@@ -114,14 +123,28 @@ internal fun XmbAndroidHost(
     val playerState = playerViewModel.uiState.collectAsState()
     val lyrics = remember(playerViewModel) { AndroidXmbLyrics(playerViewModel, playerState) }
     val video = remember(playerConnection) { AndroidXmbVideo(playerConnection) }
+    // The stock settings screen's host, so a setting changed in the XMB applies the same way
+    // (audio preferences, playback speed, content region, app language and icon...).
+    val settingsHost by rememberUpdatedState(
+        // MetroEQ is added by the stock settings screen itself, so it's added here too.
+        rememberAndroidSettingsHost(onNavigateBack = {}, onNavigateToDownloads = {}, onSpotifySignIn = {}).let { host ->
+            host.copy(availablePages = host.availablePages + SettingsPageId.EQUALIZER)
+        },
+    )
+    val storage = rememberAndroidXmbStorage()
+    val backup = rememberAndroidXmbBackup(database)
+    val system = remember(storage, backup) { XmbSystemPages(storage = storage, backup = backup) }
     val services =
-        remember(model, playback, listenTogether, lyrics, video) {
+        remember(model, playback, listenTogether, lyrics, video, system) {
             XmbServices(
                 playback = playback,
                 music = model.music,
                 downloads = AndroidXmbDownloads(downloads, model.downloaded, model.viewModelScope),
                 search = model.search,
-                settings = XmbSettingsHost({ model.settingsHost }) { page -> navigator.navigate(Screen.SettingsPage(page)) },
+                settings =
+                    XmbSettingsHost({ settingsHost }, system = system) { page ->
+                        navigator.navigate(Screen.SettingsPage(page))
+                    },
                 account =
                     object : XmbAccount {
                         override fun signIn() = navigator.navigate(Screen.Login)
@@ -161,7 +184,7 @@ internal fun XmbAndroidHost(
     }
 }
 
-/** The XMB's long-lived parts for one activity: its lists, search, settings host, input and sounds. */
+/** The XMB's long-lived parts for one activity: its lists, search, input and sounds. */
 internal class XmbAndroidModel(
     context: Context,
     database: MusicDatabase,
@@ -169,7 +192,6 @@ internal class XmbAndroidModel(
     val downloaded = MutableStateFlow<Set<String>>(emptySet())
     val search = XmbSearch(viewModelScope)
     val music = DefaultXmbMusicSource(database, viewModelScope, downloaded, search = search)
-    val settingsHost = SharedSettingsHost(platform = SettingsPlatform.ANDROID, onClose = {})
     val input = XmbInputController(systemBack = true)
     val sounds = AndroidXmbSoundPlayer(context)
 

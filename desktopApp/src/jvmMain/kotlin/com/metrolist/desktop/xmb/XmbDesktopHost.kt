@@ -60,6 +60,7 @@ import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.sound.DesktopXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +109,12 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                         ),
                     downloads = downloads,
                     search = search,
-                    settings = XmbSettingsHost({ settingsHost }, ::openStockSettings),
+                    settings =
+                        XmbSettingsHost(
+                            { settingsHost },
+                            system = XmbSystemPages(storage = DesktopXmbStorage, backup = DesktopXmbBackup(AppState.scope)),
+                            openStockPage = ::openStockSettings,
+                        ),
                     account = DesktopXmbAccount,
                     video = DesktopXmbVideo,
                     lyrics = DesktopXmbLyrics,
@@ -126,6 +132,7 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                         UiState.showSettings || UiState.showSignIn || UiState.showSwitchChannel ||
                             UiState.showLogViewer || UiState.showTokenLogin || UiState.showIntegrationsSettings,
                     notice = desktopXmbNotice(),
+                    input = DesktopXmbLinks.input,
                 )
             }
             if (UiState.showSettings) SettingsOverlay(MaterialTheme.colorScheme)

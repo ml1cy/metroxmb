@@ -65,6 +65,9 @@ import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.no
 import com.metrolist.shared.generated.resources.xmb_cat_search
+import com.metrolist.shared.generated.resources.xmb_item_album
+import com.metrolist.shared.generated.resources.xmb_item_artist
+import com.metrolist.shared.generated.resources.xmb_item_playlist
 import com.metrolist.shared.generated.resources.xmb_item_subsetting
 import com.metrolist.shared.generated.resources.xmb_ui_clock
 import com.metrolist.shared.generated.resources.xmb_users_sign_out_confirm
@@ -123,6 +126,7 @@ import com.metrolist.shared.xmb.nav.XmbTouchTracker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.nav.focusCategory
 import com.metrolist.shared.xmb.nav.focusRow
+import com.metrolist.shared.xmb.nav.opening
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
 import com.metrolist.shared.xmb.nav.xmbActionFor
@@ -144,6 +148,7 @@ import com.metrolist.shared.xmb.settings.XmbPrefs
 import com.metrolist.shared.xmb.settings.XmbSettingsHooks
 import com.metrolist.shared.xmb.settings.XmbShortcut
 import com.metrolist.shared.xmb.settings.XmbShortcutCapture
+import com.metrolist.shared.xmb.settings.XmbSystemHooks
 import com.metrolist.shared.xmb.settings.XmbTrackOverlay
 import com.metrolist.shared.xmb.settings.rememberXmbShortcutText
 import com.metrolist.shared.xmb.settings.title
@@ -151,6 +156,7 @@ import com.metrolist.shared.xmb.settings.xmbClockText
 import com.metrolist.shared.xmb.settings.xmbOwnSettingsItems
 import com.metrolist.shared.xmb.settings.xmbSettingsRows
 import com.metrolist.shared.xmb.settings.xmbShortcutCapture
+import com.metrolist.shared.xmb.settings.xmbSystemRows
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.SilentXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.XmbSound
@@ -272,6 +278,8 @@ fun XmbApp(
     // Live columns: settings pages from the registry, recent searches, the signed-in account.
     var settingsRevision by remember { mutableIntStateOf(0) }
     val registry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
+    val systemPages = services?.settings?.system
+    val drawnPages = systemPages?.drawn.orEmpty()
     val labels =
         XmbSettingLabels(
             on = stringResource(Res.string.xmb_value_on),
@@ -296,7 +304,7 @@ fun XmbApp(
     val categories =
         xmbCategories(
             users = xmbUserItems(account),
-            settings = xmbOwnSettingsItems() + registry?.let(::xmbSettingsItems).orEmpty(),
+            settings = xmbOwnSettingsItems() + registry?.let { xmbSettingsItems(it, drawnPages) }.orEmpty(),
             search = xmbSearchItems(history),
             friends = xmbFriendItems(friends),
         )
@@ -348,6 +356,16 @@ fun XmbApp(
     val listState =
         if (xmbPage != null) {
             XmbListState.loaded(xmbSettingsRows(xmbPage, prefs, settingsHooks).map { it.toXmbEntry(labels) })
+        } else if (settingsPage != null && systemPages != null && settingsPage in drawnPages) {
+            val hooks =
+                XmbSystemHooks(
+                    toast = { message ->
+                        toast = message
+                        toastUntil = seconds.floatValue + TOAST_SECONDS
+                    },
+                    openStock = { services.settings.openStockPage(it) },
+                )
+            XmbListState.loaded(xmbSystemRows(settingsPage, systemPages, hooks, settingsRevision).orEmpty().map { it.toXmbEntry(labels) })
         } else if (settingsPage != null) {
             val page = registry?.get(settingsPage)
             // Slider formatters are composable, so their labels are made here.
@@ -623,7 +641,7 @@ fun XmbApp(
     fun selectSetting(index: Int): XmbFeedback {
         val entry = listState.entries.getOrNull(index) ?: return XmbFeedback.ERROR
         if (xmbPage == null && (settingsPage == null || registry == null)) return XmbFeedback.ERROR
-        when (val step = xmbSettingStep(entry, settingsPage, registry, labels)) {
+        when (val step = xmbSettingStep(entry, settingsPage, registry, labels, drawnPages)) {
             XmbSettingStep.Unavailable -> {
                 return XmbFeedback.ERROR
             }
@@ -1092,6 +1110,29 @@ fun XmbApp(
     val latestAct by rememberUpdatedState<(XmbAction) -> Unit> { act(it) }
     val latestSuspended by rememberUpdatedState(suspended)
     LaunchedEffect(input) { input?.actions?.collect { latestAct(it) } }
+    // A link, app shortcut or notification: its category, with the level opened, over anything open.
+    val pendingOpen = input?.pendingOpen
+    LaunchedEffect(pendingOpen) {
+        val target = input?.takeOpen() ?: return@LaunchedEffect
+        options = null
+        picker = null
+        keyboard = null
+        fullScreen = null
+        val list = target.list
+        val title =
+            (list as? XmbList.SettingsPage)?.let { registry?.get(it.page)?.title } ?: target.title
+        val icon =
+            XmbIcon.Drawable(
+                when (list) {
+                    is XmbList.Album -> Res.drawable.xmb_item_album
+                    is XmbList.Artist -> Res.drawable.xmb_item_artist
+                    is XmbList.SearchResults -> Res.drawable.xmb_cat_search
+                    is XmbList.SettingsPage -> Res.drawable.xmb_item_subsetting
+                    else -> Res.drawable.xmb_item_playlist
+                },
+            )
+        navigation = navigation.opening(target.copy(title = title), categories.map { it.items }, icon)
+    }
     val canGoBack =
         navigation.stack.isNotEmpty() || options != null || picker != null || keyboard != null ||
             fullScreen != null || notice != null || recording != null

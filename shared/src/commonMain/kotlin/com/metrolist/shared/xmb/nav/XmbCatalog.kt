@@ -264,9 +264,13 @@ fun xmbSearchItems(history: List<String>): List<XmbItem> =
 
 /**
  * Settings pages from the shared settings registry, in the stock root order. Pages the XMB draws
- * as rows open a level; custom pages (storage, backup, updates, MetroEQ...) open their stock screen.
+ * as rows open a level: registry pages, and the custom pages in [drawn] (About, MetroEQ, Storage,
+ * Backup); other custom pages open their stock screen.
  */
-fun xmbSettingsItems(registry: SettingsUiRegistry): List<XmbItem> =
+fun xmbSettingsItems(
+    registry: SettingsUiRegistry,
+    drawn: Set<SettingsPageId> = emptySet(),
+): List<XmbItem> =
     registry.rootGroups
         .flatMap { it.pages }
         .distinct()
@@ -277,8 +281,8 @@ fun xmbSettingsItems(registry: SettingsUiRegistry): List<XmbItem> =
                 title = XmbText.Plain(page.title),
                 icon = drawable(settingsPageIcon(page.id)),
                 subtitle = page.subtitle?.takeIf(String::isNotBlank)?.let(XmbText::Plain),
-                action = if (page.custom) XmbItemAction.StockSettings(page.id) else XmbItemAction.None,
-                list = if (page.custom) null else XmbList.SettingsPage(page.id),
+                action = if (page.custom && page.id !in drawn) XmbItemAction.StockSettings(page.id) else XmbItemAction.None,
+                list = if (page.custom && page.id !in drawn) null else XmbList.SettingsPage(page.id),
             )
         }
 

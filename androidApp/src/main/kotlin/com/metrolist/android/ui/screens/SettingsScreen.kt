@@ -108,6 +108,7 @@ import com.metrolist.shared.ui.settings.SharedSettingsScreen
 import com.metrolist.shared.ui.settings.settingsHomeSections
 import com.metrolist.shared.ui.utils.rememberFileSizeFormatter
 import com.metrolist.shared.viewmodels.PlayerViewModel
+import com.metrolist.shared.xmb.XMB_SELF_UPDATES
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -127,6 +128,61 @@ fun SettingsScreen(
     onNavigateToArtist: (String) -> Unit = {},
     initialPage: SettingsPageId? = null,
 ) {
+    var showSpotifyLogin by remember { mutableStateOf(false) }
+    var spotifyCookie by remember { mutableStateOf<String?>(null) }
+    var spotifyError by remember { mutableStateOf<String?>(null) }
+    val host =
+        rememberAndroidSettingsHost(
+            onNavigateBack = onNavigateBack,
+            onNavigateToDownloads = onNavigateToDownloads,
+            onNavigateToArtist = onNavigateToArtist,
+            initialPage = initialPage,
+            onSpotifySignIn = { showSpotifyLogin = true },
+        )
+    Box(Modifier.fillMaxSize()) {
+        SharedSettingsScreen(host = host, modifier = Modifier.fillMaxSize())
+        if (showSpotifyLogin) {
+            LaunchedEffect(spotifyCookie) {
+                val cookie = spotifyCookie ?: return@LaunchedEffect
+                try {
+                    androidSpotifyImportManager.authenticate(cookie)
+                    showSpotifyLogin = false
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    spotifyError = getString(Res.string.spotify_import_error_sign_in_failed)
+                } finally {
+                    spotifyCookie = null
+                }
+            }
+            SpotifyLoginScreen(
+                isAuthenticating = spotifyCookie != null,
+                authenticationError = spotifyError,
+                onClearAuthenticationError = { spotifyError = null },
+                onSessionCookie = { spotifyCookie = it },
+                onNavigateBack = {
+                    showSpotifyLogin = false
+                    spotifyCookie = null
+                    spotifyError = null
+                },
+            )
+        }
+    }
+}
+
+/**
+ * The settings registry's Android host: every page, choice and change handler the stock settings
+ * screen uses. XMB Music's settings column uses it too (XmbAndroidHost), so a setting changed
+ * there takes effect the same way.
+ */
+@Composable
+internal fun rememberAndroidSettingsHost(
+    onNavigateBack: () -> Unit,
+    onNavigateToDownloads: () -> Unit,
+    onNavigateToArtist: (String) -> Unit = {},
+    initialPage: SettingsPageId? = null,
+    onSpotifySignIn: () -> Unit,
+): SharedSettingsHost {
     val pageViewModels = rememberViewModelStoreProvider()
     var currentPage by remember { mutableStateOf<SettingsPageId?>(null) }
     val formatFileSize = rememberFileSizeFormatter()
@@ -342,8 +398,11 @@ fun SettingsScreen(
             add(SettingsPageId.BLOCKED_SONGS)
             add(SettingsPageId.STORAGE)
             add(SettingsPageId.BACKUP_RESTORE)
-            add(SettingsPageId.UPDATES)
-            add(SettingsPageId.UPDATE_DETAILS)
+            // XMB Music: updates are off (XMB_SELF_UPDATES); Metrolist's releases would replace this app.
+            if (XMB_SELF_UPDATES) {
+                add(SettingsPageId.UPDATES)
+                add(SettingsPageId.UPDATE_DETAILS)
+            }
             add(SettingsPageId.ABOUT)
             add(SettingsPageId.SUPPORTED_LINKS)
             if (SharedPreferences.shared.devtoolsUnlocked) {
@@ -369,237 +428,202 @@ fun SettingsScreen(
         if (fallback.resolveActivity(context.packageManager) != null) context.startActivity(fallback)
     }
 
-    var showSpotifyLogin by remember { mutableStateOf(false) }
-    var spotifyCookie by remember { mutableStateOf<String?>(null) }
-    var spotifyError by remember { mutableStateOf<String?>(null) }
-    Box(Modifier.fillMaxSize()) {
-        SharedSettingsScreen(
-            host =
-                SharedSettingsHost(
-                    platform = SettingsPlatform.ANDROID,
-                    lyricsPreview = { modifier ->
-                        val viewModel: PlayerViewModel = koinInject()
-                        val castState = playerConnection?.castState?.collectAsState()?.value
-                        PlayerLyricsSettingsPreview(
-                            viewModel = viewModel,
-                            modifier = modifier,
-                            isCasting = castState?.isConnected == true,
-                        )
-                    },
-                    rememberMetroEqProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
-                    onClose = onNavigateBack,
-                    onOpenArtist = onNavigateToArtist,
-                    onSpotifySignIn = { showSpotifyLogin = true },
-                    homeSections = settingsHomeSections(homeState),
-                    onHomeSectionVisibilityChanged = SharedPreferences.shared::toggleHomeSectionVisibility,
-                    bottomContentPadding = miniPlayerInset,
-                    storageSummary =
-                        if (isCalculatingCacheSize) {
-                            stringResource(Res.string.calculating)
-                        } else {
-                            stringResource(
-                                Res.string.settings_storage_summary,
-                                formatFileSize(totalCacheSize),
-                                formatFileSize(freeStorageSize),
-                            )
-                        },
-                    updateSummary =
-                        if (
-                            appUpdateState is AppUpdateState.Available ||
-                            appUpdateState is AppUpdateState.Downloading ||
-                            appUpdateState is AppUpdateState.Downloaded ||
-                            (appUpdateState as? AppUpdateState.Error)?.release != null
-                        ) {
-                            stringResource(Res.string.settings_updates_available_description)
-                        } else {
-                            stringResource(Res.string.updates_no_updates)
-                        },
-                    availablePages = availablePages,
-                    initialPage = initialPage,
-                    externalPages = setOf(SettingsPageId.SUPPORTED_LINKS),
-                    onPageChanged = { page ->
-                        if (page != currentPage) {
-                            currentPage?.let(pageViewModels::clearKey)
-                            currentPage = page
-                        }
-                    },
-                    customPageIcons =
-                        mapOf(
-                            SettingsPageId.ANDROID_AUTO to { tint ->
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_android_auto),
-                                    contentDescription = null,
-                                    tint = tint,
-                                    modifier = Modifier.size(24.dp),
-                                )
-                            },
-                        ),
-                    hostChoices =
-                        mapOf(
-                            SettingsHostChoice.CONTENT_LANGUAGE to contentLanguageChoices,
-                            SettingsHostChoice.CONTENT_COUNTRY to contentCountryChoices,
-                            SettingsHostChoice.APP_LANGUAGE to contentLanguageChoices,
-                            SettingsHostChoice.LYRICS_TARGET_LANGUAGE to lyricsTargetLanguageChoices,
-                            SettingsHostChoice.APP_ICON to appIconChoices,
-                        ),
-                    onHostChoiceSelected = { choice, selected ->
-                        when (choice) {
-                            SettingsHostChoice.CONTENT_LANGUAGE -> {
-                                SharedPreferences.shared.contentLanguage = selected
-                            }
+    return SharedSettingsHost(
+        platform = SettingsPlatform.ANDROID,
+        lyricsPreview = { modifier ->
+            val viewModel: PlayerViewModel = koinInject()
+            val castState = playerConnection?.castState?.collectAsState()?.value
+            PlayerLyricsSettingsPreview(
+                viewModel = viewModel,
+                modifier = modifier,
+                isCasting = castState?.isConnected == true,
+            )
+        },
+        rememberMetroEqProfilePicker = { onPicked -> rememberMetroEqProfilePicker(onPicked) },
+        onClose = onNavigateBack,
+        onOpenArtist = onNavigateToArtist,
+        onSpotifySignIn = onSpotifySignIn,
+        homeSections = settingsHomeSections(homeState),
+        onHomeSectionVisibilityChanged = SharedPreferences.shared::toggleHomeSectionVisibility,
+        bottomContentPadding = miniPlayerInset,
+        storageSummary =
+            if (isCalculatingCacheSize) {
+                stringResource(Res.string.calculating)
+            } else {
+                stringResource(
+                    Res.string.settings_storage_summary,
+                    formatFileSize(totalCacheSize),
+                    formatFileSize(freeStorageSize),
+                )
+            },
+        updateSummary =
+            if (
+                appUpdateState is AppUpdateState.Available ||
+                appUpdateState is AppUpdateState.Downloading ||
+                appUpdateState is AppUpdateState.Downloaded ||
+                (appUpdateState as? AppUpdateState.Error)?.release != null
+            ) {
+                stringResource(Res.string.settings_updates_available_description)
+            } else {
+                stringResource(Res.string.updates_no_updates)
+            },
+        availablePages = availablePages,
+        initialPage = initialPage,
+        externalPages = setOf(SettingsPageId.SUPPORTED_LINKS),
+        onPageChanged = { page ->
+            if (page != currentPage) {
+                currentPage?.let(pageViewModels::clearKey)
+                currentPage = page
+            }
+        },
+        customPageIcons =
+            mapOf(
+                SettingsPageId.ANDROID_AUTO to { tint ->
+                    Icon(
+                        painter = painterResource(R.drawable.ic_android_auto),
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(24.dp),
+                    )
+                },
+            ),
+        hostChoices =
+            mapOf(
+                SettingsHostChoice.CONTENT_LANGUAGE to contentLanguageChoices,
+                SettingsHostChoice.CONTENT_COUNTRY to contentCountryChoices,
+                SettingsHostChoice.APP_LANGUAGE to contentLanguageChoices,
+                SettingsHostChoice.LYRICS_TARGET_LANGUAGE to lyricsTargetLanguageChoices,
+                SettingsHostChoice.APP_ICON to appIconChoices,
+            ),
+        onHostChoiceSelected = { choice, selected ->
+            when (choice) {
+                SettingsHostChoice.CONTENT_LANGUAGE -> {
+                    SharedPreferences.shared.contentLanguage = selected
+                }
 
-                            SettingsHostChoice.CONTENT_COUNTRY -> {
-                                SharedPreferences.shared.contentCountry = selected
-                            }
+                SettingsHostChoice.CONTENT_COUNTRY -> {
+                    SharedPreferences.shared.contentCountry = selected
+                }
 
-                            SettingsHostChoice.APP_LANGUAGE -> {
-                                SharedPreferences.shared.appLanguage = selected
-                                AppLocale.applySelection(context, selected)
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                    context.findActivity()?.recreate()
-                                }
-                            }
+                SettingsHostChoice.APP_LANGUAGE -> {
+                    SharedPreferences.shared.appLanguage = selected
+                    AppLocale.applySelection(context, selected)
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        context.findActivity()?.recreate()
+                    }
+                }
 
-                            SettingsHostChoice.LYRICS_TARGET_LANGUAGE -> {
-                                SharedPreferences.shared.lyricsAiTargetLanguage = selected
-                            }
+                SettingsHostChoice.LYRICS_TARGET_LANGUAGE -> {
+                    SharedPreferences.shared.lyricsAiTargetLanguage = selected
+                }
 
-                            SettingsHostChoice.APP_ICON -> {
-                                val icon = AppIcon.fromPreference(selected)
-                                SharedPreferences.shared.appIcon = icon.name
-                                IconUtils.setIcon(context, icon)
-                            }
+                SettingsHostChoice.APP_ICON -> {
+                    val icon = AppIcon.fromPreference(selected)
+                    SharedPreferences.shared.appIcon = icon.name
+                    IconUtils.setIcon(context, icon)
+                }
 
-                            SettingsHostChoice.ARTIST_ICON_SOURCE,
-                            SettingsHostChoice.ARTIST_BANNER_SOURCE,
-                            -> {
-                            }
-                        }
-                        if (choice == SettingsHostChoice.CONTENT_LANGUAGE || choice == SettingsHostChoice.CONTENT_COUNTRY) {
-                            GlobalYouTube.applyContentRegion(
-                                contentCountry = SharedPreferences.shared.contentCountry,
-                                contentLanguage = SharedPreferences.shared.contentLanguage,
-                                systemLocale = systemLocale,
-                            )
-                            homeViewModel.shared.refresh {}
-                        }
-                    },
-                    fontPrimaryActions = fontPrimaryActions,
-                    fontDownloadActions = fontDownloadActions,
-                    onClearSearchHistory = searchViewModel.shared::clearSearchHistory,
-                    onOpenPage = { page ->
-                        if (page == SettingsPageId.SUPPORTED_LINKS) openSupportedLinks()
-                    },
-                    pageContent = { page, onBack, onNavigate ->
-                        CompositionLocalProvider(
-                            LocalViewModelStoreOwner provides rememberViewModelStoreOwner(page, pageViewModels),
-                        ) {
-                            when (page) {
-                                SettingsPageId.ANDROID_AUTO -> {
-                                    AndroidAutoScreen(onNavigateBack = onBack)
-                                }
-
-                                SettingsPageId.STORAGE -> {
-                                    StorageSettingsScreen(onBack, onNavigateToDownloads)
-                                }
-
-                                SettingsPageId.BACKUP_RESTORE -> {
-                                    BackupRestoreScreen(onNavigateBack = onBack)
-                                }
-
-                                SettingsPageId.UPDATES -> {
-                                    UpdatesScreen(onBack) { onNavigate(SettingsPageId.UPDATE_DETAILS) }
-                                }
-
-                                SettingsPageId.UPDATE_DETAILS -> {
-                                    UpdateDetailsScreen(onNavigateBack = onBack)
-                                }
-
-                                SettingsPageId.ABOUT -> {
-                                    var openDevtools by remember { mutableStateOf(false) }
-                                    LaunchedEffect(openDevtools) {
-                                        if (openDevtools) {
-                                            onNavigate(SettingsPageId.DEVTOOLS)
-                                            openDevtools = false
-                                        }
-                                    }
-                                    AndroidAboutScreen(onBack, onDevtoolsUnlocked = { openDevtools = true })
-                                }
-
-                                SettingsPageId.DEVTOOLS -> {
-                                    DevtoolsSettingsScreen(onBack) { onNavigate(SettingsPageId.PLAYBACK_BENCHMARK) }
-                                }
-
-                                SettingsPageId.PLAYBACK_BENCHMARK -> {
-                                    PlaybackBenchmarkSettingsScreen(onNavigateBack = onBack)
-                                }
-
-                                else -> {
-                                }
-                            }
-                        }
-                    },
-                    onFloatSettingChanged = { effect, value -> applyPlaybackFloatSetting(playerConnection, effect, value) },
-                    onSettingChanged = { effect, value ->
-                        when (effect) {
-                            SettingsChangeEffect.AUDIO -> {
-                                playerConnection?.applyAudioPreferences()
-                            }
-
-                            SettingsChangeEffect.VIDEO_PLAYBACK -> {
-                                if (value == false) playerConnection?.setVideoMode(false)
-                            }
-
-                            SettingsChangeEffect.SENTRY -> {
-                                value?.let(SentryManager::setEnabled)
-                            }
-
-                            SettingsChangeEffect.AUTO_DOWNLOAD_ON_LIKE -> {
-                                if (value == true) {
-                                    requireDownloadNotifications { SharedPreferences.shared.autoDownloadOnLike = true }
-                                } else {
-                                    SharedPreferences.shared.autoDownloadOnLike = false
-                                }
-                            }
-
-                            SettingsChangeEffect.CONTENT,
-                            SettingsChangeEffect.RESTART,
-                            SettingsChangeEffect.PLAYBACK_SPEED,
-                            SettingsChangeEffect.PLAYBACK_PITCH,
-                            SettingsChangeEffect.LOGGING,
-                            -> {}
-                        }
-                    },
-                ),
-            modifier = Modifier.fillMaxSize(),
-        )
-        if (showSpotifyLogin) {
-            LaunchedEffect(spotifyCookie) {
-                val cookie = spotifyCookie ?: return@LaunchedEffect
-                try {
-                    androidSpotifyImportManager.authenticate(cookie)
-                    showSpotifyLogin = false
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    spotifyError = getString(Res.string.spotify_import_error_sign_in_failed)
-                } finally {
-                    spotifyCookie = null
+                SettingsHostChoice.ARTIST_ICON_SOURCE,
+                SettingsHostChoice.ARTIST_BANNER_SOURCE,
+                -> {
                 }
             }
-            SpotifyLoginScreen(
-                isAuthenticating = spotifyCookie != null,
-                authenticationError = spotifyError,
-                onClearAuthenticationError = { spotifyError = null },
-                onSessionCookie = { spotifyCookie = it },
-                onNavigateBack = {
-                    showSpotifyLogin = false
-                    spotifyCookie = null
-                    spotifyError = null
-                },
-            )
-        }
-    }
+            if (choice == SettingsHostChoice.CONTENT_LANGUAGE || choice == SettingsHostChoice.CONTENT_COUNTRY) {
+                GlobalYouTube.applyContentRegion(
+                    contentCountry = SharedPreferences.shared.contentCountry,
+                    contentLanguage = SharedPreferences.shared.contentLanguage,
+                    systemLocale = systemLocale,
+                )
+                homeViewModel.shared.refresh {}
+            }
+        },
+        fontPrimaryActions = fontPrimaryActions,
+        fontDownloadActions = fontDownloadActions,
+        onClearSearchHistory = searchViewModel.shared::clearSearchHistory,
+        onOpenPage = { page ->
+            if (page == SettingsPageId.SUPPORTED_LINKS) openSupportedLinks()
+        },
+        pageContent = { page, onBack, onNavigate ->
+            CompositionLocalProvider(
+                LocalViewModelStoreOwner provides rememberViewModelStoreOwner(page, pageViewModels),
+            ) {
+                when (page) {
+                    SettingsPageId.ANDROID_AUTO -> {
+                        AndroidAutoScreen(onNavigateBack = onBack)
+                    }
+
+                    SettingsPageId.STORAGE -> {
+                        StorageSettingsScreen(onBack, onNavigateToDownloads)
+                    }
+
+                    SettingsPageId.BACKUP_RESTORE -> {
+                        BackupRestoreScreen(onNavigateBack = onBack)
+                    }
+
+                    SettingsPageId.UPDATES -> {
+                        UpdatesScreen(onBack) { onNavigate(SettingsPageId.UPDATE_DETAILS) }
+                    }
+
+                    SettingsPageId.UPDATE_DETAILS -> {
+                        UpdateDetailsScreen(onNavigateBack = onBack)
+                    }
+
+                    SettingsPageId.ABOUT -> {
+                        var openDevtools by remember { mutableStateOf(false) }
+                        LaunchedEffect(openDevtools) {
+                            if (openDevtools) {
+                                onNavigate(SettingsPageId.DEVTOOLS)
+                                openDevtools = false
+                            }
+                        }
+                        AndroidAboutScreen(onBack, onDevtoolsUnlocked = { openDevtools = true })
+                    }
+
+                    SettingsPageId.DEVTOOLS -> {
+                        DevtoolsSettingsScreen(onBack) { onNavigate(SettingsPageId.PLAYBACK_BENCHMARK) }
+                    }
+
+                    SettingsPageId.PLAYBACK_BENCHMARK -> {
+                        PlaybackBenchmarkSettingsScreen(onNavigateBack = onBack)
+                    }
+
+                    else -> {
+                    }
+                }
+            }
+        },
+        onFloatSettingChanged = { effect, value -> applyPlaybackFloatSetting(playerConnection, effect, value) },
+        onSettingChanged = { effect, value ->
+            when (effect) {
+                SettingsChangeEffect.AUDIO -> {
+                    playerConnection?.applyAudioPreferences()
+                }
+
+                SettingsChangeEffect.VIDEO_PLAYBACK -> {
+                    if (value == false) playerConnection?.setVideoMode(false)
+                }
+
+                SettingsChangeEffect.SENTRY -> {
+                    value?.let(SentryManager::setEnabled)
+                }
+
+                SettingsChangeEffect.AUTO_DOWNLOAD_ON_LIKE -> {
+                    if (value == true) {
+                        requireDownloadNotifications { SharedPreferences.shared.autoDownloadOnLike = true }
+                    } else {
+                        SharedPreferences.shared.autoDownloadOnLike = false
+                    }
+                }
+
+                SettingsChangeEffect.CONTENT,
+                SettingsChangeEffect.RESTART,
+                SettingsChangeEffect.PLAYBACK_SPEED,
+                SettingsChangeEffect.PLAYBACK_PITCH,
+                SettingsChangeEffect.LOGGING,
+                -> {}
+            }
+        },
+    )
 }
 
 private fun File.calculateDirectorySize(): Long {
