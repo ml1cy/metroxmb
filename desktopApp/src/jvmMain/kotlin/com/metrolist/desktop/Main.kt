@@ -166,6 +166,7 @@ import com.metrolist.shared.generated.resources.copy
 import com.metrolist.shared.generated.resources.desktop_display_unavailable
 import com.metrolist.shared.generated.resources.desktop_platform_unsupported
 import com.metrolist.shared.generated.resources.liked_songs
+import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.ok
 import com.metrolist.shared.generated.resources.playback_error
 import com.metrolist.shared.generated.resources.technical_information
@@ -210,6 +211,7 @@ import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import com.metrolist.shared.utils.OsUtil
 import com.metrolist.shared.utils.XdgUtils
 import com.metrolist.shared.utils.isCrashReportingAvailable
+import com.metrolist.shared.xmb.screens.XmbBusyOverlay
 import com.metrolist.shared.youtube.di.sharedModule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -344,9 +346,8 @@ private fun WindowScope.AppContent(
             }
             // The session-expired and playback-error notices are drawn by the XMB (XmbDesktopHost).
             if (UiState.isRefreshingApp) {
-                Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface.copy(alpha = 0.94f)) {
-                    LoadingScreen()
-                }
+                // XMB Music: the wait shows as the XMB's notice band.
+                XmbBusyOverlay(stringResource(Res.string.loading))
             }
             YouTubeSyncSnackbar(AppState.snackbarHostState)
             val snackbarScheme = rememberUpdatedState(colorScheme)

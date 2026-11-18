@@ -159,3 +159,24 @@ fun XmbOnboarding(
         }
     }
 }
+
+/**
+ * A wait the console way, over whatever is shown: the notice band with [message] and no buttons
+ * (signing in reloads the app's data, for one).
+ */
+@Composable
+fun XmbBusyOverlay(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    val fontFamily = rememberXmbFontFamily()
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val metrics = remember(maxWidth, maxHeight) { XmbMetrics.forSize(maxWidth, maxHeight) }
+        XmbNoticeView(
+            XmbNotice(id = "busy", message = message, buttons = emptyList()),
+            focus = 0,
+            metrics = metrics,
+            fontFamily = fontFamily,
+        )
+    }
+}
