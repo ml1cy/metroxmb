@@ -247,7 +247,7 @@ class XmbSettingsAdapterTest {
 
     @Test
     fun systemPagesDrawAboutAndMetroEqAlwaysAndTheRestWithABackend() {
-        assertEquals(setOf(SettingsPageId.ABOUT, SettingsPageId.EQUALIZER), XmbSystemPages().drawn)
+        assertEquals(setOf(SettingsPageId.ABOUT, SettingsPageId.EQUALIZER, SettingsPageId.DEVTOOLS), XmbSystemPages().drawn)
         val backup =
             object : XmbBackup {
                 override fun create(done: (Boolean?) -> Unit) = Unit

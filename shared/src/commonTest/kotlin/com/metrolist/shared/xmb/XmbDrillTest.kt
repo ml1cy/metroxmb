@@ -112,7 +112,7 @@ class XmbDrillTest {
         val episode = EpisodeItem("ep", "Episode", null).toXmbEntry()
         assertEquals("ep", episode.song?.id, "Episodes play as songs")
         assertEquals(XmbEntryKind.BROWSE, BrowseItem("FEmusic_moods", "Moods").toXmbEntry().kind)
-        assertNull(BrowseItem("FEmusic_moods", "Moods").toXmbEntry().open)
+        assertEquals(XmbList.Browse("FEmusic_moods", null, "Moods"), BrowseItem("FEmusic_moods", "Moods").toXmbEntry().open)
 
         val section = HomeSection("Quick picks", listOf(track)).toXmbEntry(3)
         assertEquals(XmbList.Section(HomeSection("Quick picks", listOf(track)), 3), section.open)
