@@ -406,7 +406,7 @@ Android `RuntimeShader` on 13+) and fills the canvas with it. `ValleyVisualizer`
 backdrop (which turns to Waves beneath them) with a `Crossfade`; Random and Auto-cycle are
 `XmbItemAction`s. Quality (`VisualizerQuality`) and the frame rate are XMB preferences.
 
-## 19. M7: Android (started)
+## 19. M7: Android
 
 `MetrolistApp` keeps everything it sets up (player connection, playback controller, Listen
 Together, incoming links, permissions) and, while its navigation is at a top-level route, draws
@@ -427,6 +427,22 @@ state) and video from the stock `MusicVideoSurface` without its controls.
 Shared input: `XmbApp.act(action)` handles an action from a key, a touch or the controller the
 same way (notice, full screen, then the menu). `XmbTouchTracker` turns touch into steps; the mouse
 keeps its click-to-focus and wheel. `XmbMetrics.forSize` has a portrait variant.
+
+Later in M7 (both platforms unless noted):
+
+- **System pages** (`XmbSystemPages`): About, MetroEQ, Storage and Backup are drawn by the XMB from
+  shared code; each platform gives `XmbStorage` and `XmbBackup`. Other custom pages open stock.
+- **Integrations**: `rememberIntegrationsRegistry` adds the integrations registry's pages to the
+  settings column; `openStockPage` sends integrations pages to the stock integrations screen.
+- **Links** (`XmbOpen`, `XmbInputController.open`): incoming links, shortcuts and notifications;
+  on Android also `Navigator.redirect`, so any stock route the XMB shows goes to it. The stock
+  Android screens for those routes are deleted; `getEntryProvider`'s fallback goes back.
+- **Messages**: `SnackbarsAsXmbToasts` and `XmbInputController.toast`; Android's expired sign-in and
+  Listen Together guest choice are XMB notices (`rememberAndroidXmbNotice`).
+- **Player**: Android's stock mini player and player sheet are off; Play Queue, Sleep Timer, Add to
+  Playlist (`XmbPlaylists`) and Device Connect peers in the device list replace what they offered.
+- **First run**: `XmbOnboarding` draws the platforms' onboarding pages.
+- **Updates** are off (`XMB_SELF_UPDATES`): Metrolist's updater would install Metrolist.
 
 ## 18. M6: podcasts, video, friends, lyrics, casting
 
