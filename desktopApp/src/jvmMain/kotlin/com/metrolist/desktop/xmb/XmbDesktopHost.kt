@@ -7,9 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
@@ -32,11 +35,10 @@ import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.desktop.ui.components.VideoRenderer
-import com.metrolist.desktop.ui.screens.LoginDialog
-import com.metrolist.desktop.ui.screens.settings.SettingsOverlay
 import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.desktop.utils.DesktopImageLoader
+import com.metrolist.desktop.web.DesktopWebViewAvailability
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenHost
 import com.metrolist.desktop.youtube.DesktopPageBoundTokenRuntime
 import com.metrolist.shared.auth.YouTubeSessionState
@@ -49,6 +51,8 @@ import com.metrolist.shared.generated.resources.copy
 import com.metrolist.shared.generated.resources.discord_continue_in_browser
 import com.metrolist.shared.generated.resources.discord_open_browser_again
 import com.metrolist.shared.generated.resources.discord_sign_in_unavailable
+import com.metrolist.shared.generated.resources.error_title
+import com.metrolist.shared.generated.resources.error_unknown
 import com.metrolist.shared.generated.resources.ok
 import com.metrolist.shared.generated.resources.playback_error
 import com.metrolist.shared.generated.resources.sign_in_discord
@@ -59,6 +63,7 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.playlistimport.PlaylistImportManager
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
+import com.metrolist.shared.ui.TokenLoginCredentials
 import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.utils.tryOpenUrl
@@ -102,8 +107,8 @@ import org.jetbrains.skia.Image as SkiaImage
  * Desktop glue for the XMB, which `App()` in Main.kt shows once onboarding is done. Supplies the playback controller `App()`
  * provides, the music lists, search, downloads, the settings registry's host, sign-in and the
  * image loader, and keeps the page-bound token host the stock content runs, so stream resolution
- * works the same. The stock settings overlay and the sign-in dialog open over the XMB for what
- * the XMB doesn't draw itself; keys go to them while they're open.
+ * works the same. Google's sign-in shows over the XMB in an XMB frame ([DesktopXmbSignIn]);
+ * keys go to it while it's open.
  */
 @Composable
 internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
@@ -148,7 +153,6 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                                     platformPages = mapOf(SettingsPageId.DEVTOOLS to { _ -> desktopXmbDevtoolsRows() }),
                                 ),
                             integrations = { rememberDesktopXmbIntegrationsHost() },
-                            openStockPage = ::openStockSettings,
                         ),
                     account = DesktopXmbAccount,
                     video = DesktopXmbVideo,
@@ -161,22 +165,18 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                 )
             }
         DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())
-        SnackbarsAsXmbToasts(AppState.snackbarHostState, DesktopXmbLinks.input, keepActions = true)
+        SnackbarsAsXmbToasts(AppState.snackbarHostState, DesktopXmbLinks.input)
         Box(Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalXmbSoundPlayer provides sounds) {
                 XmbApp(
                     services = services,
-                    suspended =
-                        UiState.showSettings || UiState.showSignIn || UiState.showSwitchChannel ||
-                            UiState.showLogViewer || UiState.showTokenLogin || UiState.showIntegrationsSettings,
+                    suspended = UiState.showSignIn || UiState.showSwitchChannel,
                     notice = desktopXmbNotice() ?: rememberXmbPairingNotice(DesktopDeviceConnect.manager),
                     input = DesktopXmbLinks.input,
                 )
             }
-            if (UiState.showSettings) SettingsOverlay(MaterialTheme.colorScheme)
             if (UiState.showSignIn || UiState.showSwitchChannel) {
-                // Same flow as the stock content's dialog in Main.kt.
-                LoginDialog(
+                DesktopXmbSignIn(
                     onDismissRequest = {
                         UiState.showSignIn = false
                         UiState.showSwitchChannel = false
@@ -218,7 +218,24 @@ private fun desktopXmbNotice(): XmbNoticeRequest? {
     val discordAgain = stringResource(Res.string.discord_open_browser_again)
     val discordUnavailable = stringResource(Res.string.discord_sign_in_unavailable)
     val cancel = stringResource(Res.string.cancel)
+    val webViewFailure by DesktopWebViewAvailability.shared.creationFailure.collectAsState()
+    var webViewFailureShown by remember { mutableStateOf<Throwable?>(null) }
+    val errorTitle2 = stringResource(Res.string.error_title)
+    val unknownError = stringResource(Res.string.error_unknown)
     return when {
+        webViewFailure != null && webViewFailureShown !== webViewFailure -> {
+            val failure = webViewFailure
+            XmbNoticeRequest(
+                XmbNotice(
+                    id = "webview_failure",
+                    title = errorTitle2,
+                    message = failure?.message ?: unknownError,
+                    buttons = listOf(ok),
+                    cancel = 0,
+                ),
+            ) { webViewFailureShown = failure }
+        }
+
         PlayerState.showPlayerError -> {
             val message = PlayerState.playerErrorMessage
             val details = PlayerState.playerErrorDetails.takeIf(String::isNotBlank)
@@ -283,17 +300,6 @@ private fun desktopXmbNotice(): XmbNoticeRequest? {
             null
         }
     }
-}
-
-/** Opens the stock settings overlay at [page]. */
-private fun openStockSettings(page: SettingsPageId) {
-    // Integrations pages (sign-ins, the Listen Together screen) live in the integrations dialog.
-    if (page in XMB_INTEGRATION_PAGES) {
-        UiState.showIntegrationsSettings = true
-        return
-    }
-    UiState.selectedSettingsPage = page
-    UiState.showSettings = true
 }
 
 /** The player's video frames, drawn with the desktop's video renderer; the player is told the size. */
@@ -370,6 +376,17 @@ private object DesktopXmbAccount : XmbAccount {
 
     override fun signOut() {
         AppState.scope.launch { AuthState.signOut() }
+    }
+
+    override fun tokenSaved(credentials: TokenLoginCredentials) {
+        AuthState.updateAuth(
+            cookie = credentials.cookie,
+            visitorData = credentials.visitorData,
+            dataSyncId = credentials.dataSyncId,
+            authUser = credentials.authUser,
+            accountInfo = credentials.accountInfo,
+        )
+        UiState.appRefreshKey++
     }
 }
 

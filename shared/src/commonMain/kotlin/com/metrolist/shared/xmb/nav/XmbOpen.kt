@@ -21,8 +21,16 @@ data class XmbOpen(
     val nowPlaying: Boolean = false,
     /** Start Identify Song. */
     val identifySong: Boolean = false,
+    /** Sign in with a token, on the keyboard (from the web sign-in on a TV). */
+    val tokenSignIn: Boolean = false,
+    /** Join this Listen Together room (an invite link), asking for a name first if there is none. */
+    val roomCode: String? = null,
 ) {
     companion object {
+        fun joinRoom(code: String) = XmbOpen(XmbCategoryId.FRIENDS, roomCode = code)
+
+        fun tokenSignIn() = XmbOpen(XmbCategoryId.USERS, tokenSignIn = true)
+
         /** Identify Song: the recognition shortcut or widget. */
         fun identifySong() = XmbOpen(XmbCategoryId.MUSIC, identifySong = true)
 

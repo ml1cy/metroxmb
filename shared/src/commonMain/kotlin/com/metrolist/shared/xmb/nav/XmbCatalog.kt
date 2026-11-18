@@ -38,6 +38,7 @@ fun xmbCategories(
             item("artists", Res.string.artists, Res.drawable.xmb_item_artist, XmbList.Artists),
             item("history", Res.string.menu_history, Res.drawable.xmb_item_history, XmbList.History),
             item("downloads", Res.string.downloads, Res.drawable.xmb_item_playlist, XmbList.Downloads),
+            item("statistics", Res.string.statistics, Res.drawable.xmb_item_info, XmbList.Statistics),
             XmbItem(
                 "lyrics",
                 Res.string.lyrics,
@@ -128,6 +129,13 @@ fun xmbUserItems(account: XmbAccountInfo?): List<XmbItem> {
         !account.signedIn -> {
             listOf(
                 XmbItem("sign_in", Res.string.action_login, userIcon, Res.string.xmb_users_sign_in_description, XmbItemAction.SignIn),
+                XmbItem(
+                    "token_sign_in",
+                    Res.string.token_login,
+                    drawable(Res.drawable.xmb_item_subsetting),
+                    Res.string.xmb_users_token_description,
+                    XmbItemAction.TokenSignIn,
+                ),
             )
         }
 
@@ -295,20 +303,25 @@ fun xmbSettingsItems(
     registry: SettingsUiRegistry,
     drawn: Set<SettingsPageId> = emptySet(),
     hidden: Set<SettingsPageId> = emptySet(),
+    /** Pages outside the app (Android's link settings): listed, and opened by the host. */
+    external: Set<SettingsPageId> = emptySet(),
 ): List<XmbItem> =
     registry.rootGroups
         .flatMap { it.pages }
         .distinct()
         .filterNot { it in hidden }
         .mapNotNull { id -> registry[id] }
+        // Custom pages are drawn by the XMB ([drawn]) or opened outside the app; others are left out.
+        .filter { !it.custom || it.id in drawn || it.id in external }
         .map { page ->
+            val outside = page.custom && page.id !in drawn
             XmbItem(
                 id = "settings:${page.id.name}",
                 title = XmbText.Plain(page.title),
                 icon = drawable(settingsPageIcon(page.id)),
                 subtitle = page.subtitle?.takeIf(String::isNotBlank)?.let(XmbText::Plain),
-                action = if (page.custom && page.id !in drawn) XmbItemAction.StockSettings(page.id) else XmbItemAction.None,
-                list = if (page.custom && page.id !in drawn) null else XmbList.SettingsPage(page.id),
+                action = if (outside) XmbItemAction.ExternalSettings(page.id) else XmbItemAction.None,
+                list = if (outside) null else XmbList.SettingsPage(page.id),
             )
         }
 

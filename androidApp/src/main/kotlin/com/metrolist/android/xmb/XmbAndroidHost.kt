@@ -43,8 +43,6 @@ import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.ui.player.MusicVideoSurface
-import com.metrolist.android.ui.screens.rememberAndroidSettingsHost
-import com.metrolist.android.ui.screens.settings.rememberAndroidIntegrationsHost
 import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
@@ -76,6 +74,7 @@ import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbPlaylistImport
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.nav.XmbOpen
 import com.metrolist.shared.xmb.rememberXmbPairingNotice
 import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.sound.AndroidXmbSoundPlayer
@@ -94,12 +93,11 @@ import org.koin.compose.viewmodel.koinViewModel
 import java.io.File
 
 /**
- * Android glue for the XMB (M7). `MetrolistApp` shows it whenever its navigation is at a top-level
- * route, keeping its player connection, Listen Together, incoming links and the rest of its setup;
- * a screen the XMB opens (sign-in, a settings page the XMB doesn't draw) shows as before, and back
- * returns here. The XMB runs full screen with the system bars hidden, takes Android's back (gesture
- * or TV remote) while it has somewhere to go back to, and pauses its animation while the app is in
- * the background.
+ * Android glue for the XMB (M7): `MetrolistApp` shows it as the whole interface, keeping the player
+ * connection, Listen Together, incoming links and the rest of the app's setup. Google's sign-in
+ * shows over it in an XMB frame ([XmbLoginScreen]). The XMB runs full screen with the system bars
+ * hidden, takes Android's back (gesture or TV remote) while it has somewhere to go back to, and
+ * pauses its animation while the app is in the background.
  */
 @Composable
 internal fun XmbAndroidHost(
@@ -109,7 +107,6 @@ internal fun XmbAndroidHost(
     database: MusicDatabase,
     downloads: SongDownloadManager,
     downloadedSongIds: Set<String>,
-    navigator: Navigator,
     playerViewModel: PlayerViewModel,
     snackbars: SnackbarHostState,
     onSignOut: () -> Unit,
@@ -126,7 +123,7 @@ internal fun XmbAndroidHost(
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
     SnackbarsAsXmbToasts(snackbars, input)
     val notice =
-        rememberAndroidXmbNotice(playerConnection) { navigator.navigate(Screen.Login) }
+        rememberAndroidXmbNotice(playerConnection) { AndroidXmbOverlays.show(AndroidXmbOverlay.SignIn()) }
             ?: rememberXmbPairingNotice(AndroidDeviceConnect.manager)
     // Links, app shortcuts and notifications MetrolistApp handed over.
     val link by AndroidXmbLinks.pending.collectAsState()
@@ -146,7 +143,7 @@ internal fun XmbAndroidHost(
     // (audio preferences, playback speed, content region, app language and icon...).
     val settingsHost by rememberUpdatedState(
         // MetroEQ is added by the stock settings screen itself, so it's added here too.
-        rememberAndroidSettingsHost(onNavigateBack = {}, onNavigateToDownloads = {}, onSpotifySignIn = {}).let { host ->
+        rememberAndroidSettingsHost().let { host ->
             host.copy(availablePages = host.availablePages + SettingsPageId.EQUALIZER)
         },
     )
@@ -174,27 +171,13 @@ internal fun XmbAndroidHost(
                     XmbSettingsHost(
                         { settingsHost },
                         system = system,
-                        integrations = {
-                            rememberAndroidIntegrationsHost(
-                                onNavigateBack = {},
-                                onNavigateToListenTogether = { navigator.navigate(Screen.ListenTogetherSettings) },
-                            )
-                        },
-                    ) { page ->
-                        navigator.navigate(
-                            when (page) {
-                                SettingsPageId.LISTEN_TOGETHER -> Screen.ListenTogetherSettings
-                                SettingsPageId.DISCORD -> Screen.Discord
-                                in XMB_INTEGRATION_PAGES -> Screen.Integrations
-                                else -> Screen.SettingsPage(page)
-                            },
-                        )
-                    },
+                        integrations = { rememberAndroidIntegrationsHost() },
+                    ),
                 account =
                     object : XmbAccount {
-                        override fun signIn() = navigator.navigate(Screen.Login)
+                        override fun signIn() = AndroidXmbOverlays.show(AndroidXmbOverlay.SignIn())
 
-                        override fun switchChannel() = navigator.navigate(Screen.SwitchChannel)
+                        override fun switchChannel() = AndroidXmbOverlays.show(AndroidXmbOverlay.SignIn(switchingChannel = true))
 
                         override fun signOut() = signOut()
                     },
@@ -221,6 +204,7 @@ internal fun XmbAndroidHost(
         // The splash screen waits for the stock Home screen to be laid out (StartupPresentation);
         // the XMB takes its place, so it says so once it's laid out, or the splash never lifts.
         val startup = LocalStartupPresentation.current
+        val overlay by AndroidXmbOverlays.current.collectAsState()
         XmbApp(
             Modifier.fillMaxSize().onGloballyPositioned {
                 startup?.homeLaidOut = true
@@ -229,7 +213,22 @@ internal fun XmbAndroidHost(
             services = services,
             input = input,
             notice = notice,
+            suspended = overlay != null,
         )
+        when (val shown = overlay) {
+            is AndroidXmbOverlay.SignIn -> {
+                XmbLoginScreen(
+                    onDone = AndroidXmbOverlays::close,
+                    onTokenLogin = {
+                        AndroidXmbOverlays.close()
+                        input.open(XmbOpen.tokenSignIn())
+                    },
+                    isSwitchingChannel = shown.switchingChannel,
+                )
+            }
+
+            null -> {}
+        }
     }
 }
 

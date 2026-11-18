@@ -63,6 +63,7 @@ class DefaultXmbMusicSource(
     private val loadSongs: suspend (YTItem) -> List<SongItem> = ::loadMediaItemSongs,
 ) : XmbMusicSource {
     private val home by lazy { homeViewModel?.invoke() ?: HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
+    private val statistics by lazy { XmbStatistics(database) }
     private val library by lazy {
         LibraryViewModel(scope, database, downloadedSongIds).also {
             it.setActive(true)
@@ -128,6 +129,18 @@ class DefaultXmbMusicSource(
                         .distinctBy(StoredHistoryRow::songId)
                         .map { it.toSongItem().toXmbEntry() }
                 }
+            }
+
+            XmbList.Statistics -> {
+                once { statistics.periods() }
+            }
+
+            is XmbList.StatisticsPeriod -> {
+                once { statistics.period(list.period) }
+            }
+
+            is XmbList.StatisticsTop -> {
+                once { statistics.top(list.period, list.kind) }
             }
 
             is XmbList.Section -> {

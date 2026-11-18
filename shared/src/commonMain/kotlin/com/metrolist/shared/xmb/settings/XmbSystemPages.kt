@@ -175,7 +175,7 @@ class XmbSystemPages(
     /** Pages only one platform has, drawn from its own rows (Android Auto, say, or Developer Tools' extras). */
     val platformPages: Map<SettingsPageId, @Composable (XmbSystemHooks) -> List<SettingsItemRegistration>> = emptyMap(),
 ) {
-    /** The custom registry pages the XMB draws itself; any other custom page opens its stock screen. */
+    /** The custom registry pages the XMB draws itself; any other custom page is left out. */
     val drawn: Set<SettingsPageId> =
         buildSet {
             add(SettingsPageId.ABOUT)
@@ -188,10 +188,9 @@ class XmbSystemPages(
         }
 }
 
-/** What the system pages need from the XMB: a message at the top, and the stock screen of a page. */
+/** What the system pages need from the XMB: a message at the top. */
 class XmbSystemHooks(
     val toast: (String) -> Unit,
-    val openStock: (SettingsPageId) -> Unit,
 )
 
 /**

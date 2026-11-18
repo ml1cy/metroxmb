@@ -84,6 +84,9 @@ sealed interface XmbItemAction {
 
     data object SignIn : XmbItemAction
 
+    /** Sign in with a pasted token or cookie, on the keyboard. */
+    data object TokenSignIn : XmbItemAction
+
     data object SwitchChannel : XmbItemAction
 
     data object SignOut : XmbItemAction
@@ -138,8 +141,8 @@ sealed interface XmbItemAction {
         val username: String,
     ) : XmbItemAction
 
-    /** A settings page the XMB doesn't draw itself; the host shows its stock screen. */
-    data class StockSettings(
+    /** A settings page outside the app (Android's link settings); the host opens it. */
+    data class ExternalSettings(
         val page: SettingsPageId,
     ) : XmbItemAction
 }

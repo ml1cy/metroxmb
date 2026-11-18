@@ -47,6 +47,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
@@ -55,6 +56,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
@@ -82,6 +84,11 @@ import com.metrolist.shared.generated.resources.playlist
 import com.metrolist.shared.generated.resources.podcast
 import com.metrolist.shared.generated.resources.scrobble_connection_failed
 import com.metrolist.shared.generated.resources.sleep_timer
+import com.metrolist.shared.generated.resources.token_login_error_missing_auth_cookie
+import com.metrolist.shared.generated.resources.token_login_save_failed
+import com.metrolist.shared.generated.resources.token_login_saved
+import com.metrolist.shared.generated.resources.token_login_saving
+import com.metrolist.shared.generated.resources.token_login_title
 import com.metrolist.shared.generated.resources.username
 import com.metrolist.shared.generated.resources.xmb_cat_search
 import com.metrolist.shared.generated.resources.xmb_item_album
@@ -317,6 +324,7 @@ fun XmbApp(
     var noticeFocus by remember(noticeId) { mutableIntStateOf(notice?.notice?.focus ?: 0) }
     LaunchedEffect(noticeId) { if (noticeId != null) sounds.play(XmbSound.NOTICE) }
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
     val actions = remember(services, scope) { services?.let { XmbActions(it, scope) } }
 
     // Live columns: settings pages from the registry, recent searches, the signed-in account.
@@ -368,6 +376,11 @@ fun XmbApp(
     val scrobbleUsername = stringResource(Res.string.username)
     val scrobblePassword = stringResource(Res.string.password)
     val scrobbleToken = stringResource(Res.string.listenbrainz_user_token)
+    val tokenTitle = stringResource(Res.string.token_login_title)
+    val tokenInvalid = stringResource(Res.string.token_login_error_missing_auth_cookie)
+    val tokenSaved = stringResource(Res.string.token_login_saved)
+    val tokenFailed = stringResource(Res.string.token_login_save_failed)
+    val tokenChecking = stringResource(Res.string.token_login_saving)
     val scrobbleSignedIn = stringResource(Res.string.xmb_signed_in)
     val scrobbleMessages =
         XmbScrobbleMessages(
@@ -393,7 +406,22 @@ fun XmbApp(
         xmbCategories(
             users = xmbUserItems(account),
             settings =
-                xmbOwnSettingsItems() + registry?.let { xmbSettingsItems(it, drawnPages, hidden = XMB_HIDDEN_SETTINGS_PAGES) }.orEmpty(),
+                xmbOwnSettingsItems() +
+                    registry
+                        ?.let {
+                            xmbSettingsItems(
+                                it,
+                                drawnPages,
+                                hidden = XMB_HIDDEN_SETTINGS_PAGES,
+                                external =
+                                    services
+                                        ?.settings
+                                        ?.host
+                                        ?.invoke()
+                                        ?.externalPages
+                                        .orEmpty(),
+                            )
+                        }.orEmpty(),
             search = xmbSearchItems(history),
             friends = xmbFriendItems(friends),
             canRecognize = services?.recognition != null,
@@ -453,7 +481,6 @@ fun XmbApp(
                         toast = message
                         toastUntil = seconds.floatValue + TOAST_SECONDS
                     },
-                    openStock = { services.settings.openStockPage(it) },
                 )
             XmbListState.loaded(xmbSystemRows(settingsPage, systemPages, hooks, settingsRevision).orEmpty().map { it.toXmbEntry(labels) })
         } else if (settingsPage != null) {
@@ -463,8 +490,14 @@ fun XmbApp(
                         toast = message
                         toastUntil = seconds.floatValue + TOAST_SECONDS
                     },
-                    openStock = { services?.settings?.openStockPage?.invoke(it) },
                 )
+            val externalPages =
+                services
+                    ?.settings
+                    ?.host
+                    ?.invoke()
+                    ?.externalPages
+                    .orEmpty()
             // Rows the registry draws with its own widgets become XMB rows (or are left out), and
             // rows leading to pages that only set up the stock screens are left out.
             val page =
@@ -478,6 +511,14 @@ fun XmbApp(
                                             group.items.flatMap { item ->
                                                 when {
                                                     item.destination in XMB_HIDDEN_SETTINGS_PAGES -> {
+                                                        emptyList()
+                                                    }
+
+                                                    // Rows to custom pages the XMB doesn't draw (and that aren't outside the app).
+                                                    item.destination?.let { destination ->
+                                                        registry[destination]?.custom == true && destination !in drawnPages &&
+                                                            destination !in externalPages
+                                                    } == true -> {
                                                         emptyList()
                                                     }
 
@@ -764,6 +805,40 @@ fun XmbApp(
                 services?.account?.signIn() ?: return XmbFeedback.ERROR
             }
 
+            XmbItemAction.TokenSignIn -> {
+                val account = services?.account ?: return XmbFeedback.ERROR
+                scope.launch {
+                    // A token is pasted: Ctrl+V on the keyboard, or it's filled in when the clipboard holds one.
+                    val copied = xmbClipboardText(clipboard)?.trim()?.takeIf(::looksLikeSignInToken).orEmpty()
+                    openKeyboard(
+                        KeyboardSession(
+                            XmbKeyboard(title = tokenTitle, text = copied, secret = true, maxLength = TOKEN_MAX_LENGTH),
+                            forSearch = false,
+                        ) { token ->
+                            if (token.isNotBlank()) {
+                                showToast(tokenChecking)
+                                scope.launch {
+                                    when (val result = xmbTokenSignIn(token)) {
+                                        XmbTokenResult.Invalid -> {
+                                            showToast(tokenInvalid)
+                                        }
+
+                                        XmbTokenResult.Failed -> {
+                                            showToast(tokenFailed)
+                                        }
+
+                                        is XmbTokenResult.Saved -> {
+                                            showToast(tokenSaved)
+                                            account.tokenSaved(result.credentials)
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+
             XmbItemAction.SwitchChannel -> {
                 services?.account?.switchChannel() ?: return XmbFeedback.ERROR
             }
@@ -875,8 +950,10 @@ fun XmbApp(
                     }
             }
 
-            is XmbItemAction.StockSettings -> {
-                services?.settings?.openStockPage?.invoke(action.page) ?: return XmbFeedback.ERROR
+            is XmbItemAction.ExternalSettings -> {
+                val host = services?.settings?.host?.invoke() ?: return XmbFeedback.ERROR
+                if (action.page !in host.externalPages) return XmbFeedback.ERROR
+                host.onOpenPage(action.page)
             }
         }
         return XmbFeedback.SELECT
@@ -934,11 +1011,11 @@ fun XmbApp(
                     )
             }
 
-            is XmbSettingStep.Stock -> {
-                val settingsHost = services?.settings ?: return XmbFeedback.ERROR
-                val host = settingsHost.host()
+            is XmbSettingStep.External -> {
                 // External pages (the system's link settings) open outside the app.
-                if (step.page in host.externalPages) host.onOpenPage(step.page) else settingsHost.openStockPage(step.page)
+                val host = services?.settings?.host?.invoke() ?: return XmbFeedback.ERROR
+                if (step.page !in host.externalPages) return XmbFeedback.ERROR
+                host.onOpenPage(step.page)
             }
 
             is XmbSettingStep.Run -> {
@@ -1050,6 +1127,17 @@ fun XmbApp(
         fun update(next: XmbKeyboard) {
             keyboard = KeyboardSession(next, session.forSearch, session.onSubmit)
             if (session.forSearch) services?.search?.type(next.text)
+        }
+        val paste =
+            ((event.isCtrlPressed || event.isMetaPressed) && event.key == Key.V) || (event.isShiftPressed && event.key == Key.Insert)
+        if (paste || event.key == Key.Paste) {
+            scope.launch {
+                val pasted = xmbClipboardText(clipboard) ?: return@launch
+                val current = keyboard?.takeIf { it === session } ?: return@launch
+                keyboard = KeyboardSession(current.keyboard.paste(pasted), current.forSearch, current.onSubmit)
+                if (current.forSearch) services?.search?.type(keyboard?.keyboard?.text.orEmpty())
+            }
+            return true
         }
         when (event.key) {
             Key.Backspace -> {
@@ -1405,6 +1493,23 @@ fun XmbApp(
         val target = input?.takeOpen() ?: return@LaunchedEffect
         if (target.identifySong) {
             services?.recognition?.start()
+            return@LaunchedEffect
+        }
+        target.roomCode?.let { code ->
+            navigation = navigation.copy(category = XmbCategoryId.FRIENDS.ordinal, stack = emptyList())
+            val manager = together?.manager ?: return@LaunchedEffect
+            manager.setEnabled(true)
+            withName { name -> manager.joinRoom(code, name) }
+            return@LaunchedEffect
+        }
+        if (target.tokenSignIn) {
+            val users = XmbCategoryId.USERS.ordinal
+            val index = categories.getOrNull(users)?.items?.indexOfFirst { it.action == XmbItemAction.TokenSignIn } ?: -1
+            if (index >= 0) {
+                val items = navigation.items.toMutableList().also { if (users in it.indices) it[users] = index }
+                navigation = navigation.copy(category = users, items = items, stack = emptyList())
+                selectTopLevel(users, index)
+            }
             return@LaunchedEffect
         }
         if (target.nowPlaying) {
@@ -1895,6 +2000,9 @@ private const val SEEK_STEP_MS = 10_000L
 private const val VOLUME_STEP = 0.05f
 private const val DEFAULT_UNMUTE_VOLUME = 0.7f
 private const val TOAST_SECONDS = 1.6f
+
+/** Sign-in tokens carry the whole cookie header. */
+private const val TOKEN_MAX_LENGTH = 16_000
 private const val TOAST_FADE_SECONDS = 0.4f
 
 /** Touch: the drag slop (times the platform's, so a wobbly tap isn't a drag), and a flick's pacing. */

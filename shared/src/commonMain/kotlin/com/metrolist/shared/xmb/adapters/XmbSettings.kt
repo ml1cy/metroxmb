@@ -99,8 +99,8 @@ sealed interface XmbSettingStep {
         val page: SettingsPageId,
     ) : XmbSettingStep
 
-    /** Show the stock settings screen at [page]: custom pages and rows the XMB can't draw. */
-    data class Stock(
+    /** Open a page outside the app (Android's link settings). */
+    data class External(
         val page: SettingsPageId,
     ) : XmbSettingStep
 
@@ -122,7 +122,7 @@ fun xmbSettingStep(
     drawn: Set<SettingsPageId> = emptySet(),
 ): XmbSettingStep {
     val item = entry.setting ?: return XmbSettingStep.Unavailable
-    val stock = page?.let(XmbSettingStep::Stock) ?: XmbSettingStep.Unavailable
+    val stock = XmbSettingStep.Unavailable
     if (!entry.enabled) return XmbSettingStep.Unavailable
     return when (item.control) {
         SettingsControl.SWITCH, SettingsControl.MAIN_SWITCH -> {
@@ -160,7 +160,7 @@ fun xmbSettingStep(
             ) {
                 XmbSettingStep.Open(destination)
             } else {
-                XmbSettingStep.Stock(destination)
+                XmbSettingStep.External(destination)
             }
         }
 

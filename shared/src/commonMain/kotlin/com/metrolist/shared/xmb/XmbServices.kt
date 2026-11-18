@@ -8,6 +8,7 @@ import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.state.SongLikeState
+import com.metrolist.shared.ui.TokenLoginCredentials
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SharedIntegrationsHost
@@ -37,24 +38,21 @@ interface XmbAccount {
     fun switchChannel()
 
     fun signOut()
+
+    /** A token sign-in was saved ([xmbTokenSignIn]); the platform reloads what depends on the account. */
+    fun tokenSaved(credentials: TokenLoginCredentials) {}
 }
 
 /**
- * The settings registry's host for this platform (the same kind of [SharedSettingsHost] the stock
- * settings screen gets; [host] is read in composition, so a host backed by state stays current),
- * the platform parts of the custom pages the XMB draws itself ([system]), and a way to show a
- * stock settings page the XMB doesn't draw.
+ * The settings registry's host for this platform ([host] is read in composition, so a host backed
+ * by state stays current) and the platform parts of the custom pages the XMB draws itself
+ * ([system]). Pages the XMB doesn't draw are left out of the column.
  */
 class XmbSettingsHost(
     val host: () -> SharedSettingsHost,
     val system: XmbSystemPages? = null,
-    /**
-     * The integrations host (Discord, Last.fm, ListenBrainz, Device Connect, Listen Together), whose
-     * pages join the settings column; [openStockPage] gets those pages too, for what the XMB can't
-     * draw (sign-ins, the room screen).
-     */
+    /** The integrations host (Discord, Last.fm, ListenBrainz, Device Connect), whose pages join the settings column. */
     val integrations: (@Composable () -> SharedIntegrationsHost)? = null,
-    val openStockPage: (SettingsPageId) -> Unit,
 )
 
 /** The integrations registry's pages, which open the stock integrations screen rather than settings. */

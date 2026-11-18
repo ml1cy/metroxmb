@@ -60,104 +60,23 @@ fun XmbOnboarding(
     actions: List<XmbOnboardingAction> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
-    val fontFamily = rememberXmbFontFamily()
-    val prefs = XmbPrefs.current()
-    val motion = remember { XmbWaveMotion() }
-    val audio = remember { VisualizerAudio() }
-    var seconds by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val start = withFrameMillis { it }
-        while (true) {
-            withFrameMillis { now ->
-                val next = (now - start) / 1000f
-                motion.advance(next - seconds)
-                seconds = next
-            }
-        }
-    }
     val buttons =
         buildList {
-            add(XmbOnboardingAction(content.primaryLabel, content.onPrimary))
-            addAll(actions)
+            add(XmbFrameButton(content.primaryLabel, content.onPrimary))
+            actions.forEach { add(XmbFrameButton(it.label, it.run)) }
             val secondary = content.onSecondary
-            if (content.secondaryLabel != null && secondary != null) add(XmbOnboardingAction(content.secondaryLabel, secondary))
+            if (content.secondaryLabel != null && secondary != null) add(XmbFrameButton(content.secondaryLabel, secondary))
         }
-    var focus by remember(content.page) { mutableIntStateOf(0) }
     val title = if (content.page == OnboardingPage.WELCOME) stringResource(Res.string.xmb_onboarding_welcome) else content.title
-    val notice =
-        XmbNotice(
-            id = "onboarding:${content.page}",
-            title = stringResource(Res.string.xmb_onboarding_step, content.step + 1, content.stepCount),
-            message = "$title\n\n${content.description}",
-            details = if (content.isWorking) stringResource(Res.string.loading) else content.error,
-            buttons = if (content.isWorking) emptyList() else buttons.map { it.label },
-            focus = focus,
-        )
-    val latestButtons by rememberUpdatedState(buttons)
-    val latestContent by rememberUpdatedState(content)
-
-    fun act(action: XmbAction) {
-        if (latestContent.isWorking) return
-        if (action == XmbAction.BACK) {
-            latestContent.onBack?.invoke()
-            return
-        }
-        val step = notice.reduce(action, focus)
-        focus = step.focus
-        step.chosen?.let { latestButtons.getOrNull(it)?.run?.invoke() }
-    }
-
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    val taps =
-        remember {
-            XmbTaps(
-                category = {},
-                row = { _, _ -> },
-                levelRow = { _, _ -> },
-                parent = {},
-                key = { _, _ -> },
-                suggestion = {},
-                pickerValue = {},
-                sliderStep = {},
-                confirm = {},
-                option = {},
-                noticeButton = { index ->
-                    if (!latestContent.isWorking) {
-                        focus = index
-                        latestButtons.getOrNull(index)?.run?.invoke()
-                    }
-                },
-            )
-        }
-    BoxWithConstraints(
-        modifier
-            .fillMaxSize()
-            .focusRequester(focusRequester)
-            .focusable()
-            .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                val action = if (event.key == Key.Spacebar) XmbAction.SELECT else xmbActionFor(event.key)
-                action?.let(::act)
-                action != null
-            },
-    ) {
-        val metrics = remember(maxWidth, maxHeight) { XmbMetrics.forSize(maxWidth, maxHeight) }
-        val now = remember { XmbTime.now() }
-        XmbBackdrop(
-            colors = prefs.backgroundColors(now.month, now.hourOfDay),
-            motion = motion,
-            audio = audio,
-            waves = { 0f },
-            seconds = { seconds },
-            modifier = Modifier.fillMaxSize(),
-            wave = prefs.wave,
-            sparkles = prefs.sparkles,
-        )
-        CompositionLocalProvider(LocalXmbTaps provides taps) {
-            XmbNoticeView(notice, focus, metrics, fontFamily)
-        }
-    }
+    XmbNoticeScreen(
+        id = "onboarding:${content.page}",
+        title = stringResource(Res.string.xmb_onboarding_step, content.step + 1, content.stepCount),
+        message = "$title\n\n${content.description}",
+        details = if (content.isWorking) stringResource(Res.string.loading) else content.error,
+        buttons = if (content.isWorking) emptyList() else buttons,
+        onBack = { if (!content.isWorking) content.onBack?.invoke() },
+        modifier = modifier,
+    )
 }
 
 /**

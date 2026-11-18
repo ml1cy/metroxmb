@@ -45,6 +45,26 @@ sealed interface XmbList {
         override val key = "downloads"
     }
 
+    /** Listening statistics: one folder per period. */
+    data object Statistics : XmbList {
+        override val key = "statistics"
+    }
+
+    /** One period's statistics: folders of top tracks, artists and albums. */
+    data class StatisticsPeriod(
+        val period: XmbStatsPeriod,
+    ) : XmbList {
+        override val key = "statistics:${period.name}"
+    }
+
+    /** The most played tracks, artists or albums of [period]. */
+    data class StatisticsTop(
+        val period: XmbStatsPeriod,
+        val kind: XmbStatsKind,
+    ) : XmbList {
+        override val key = "statistics:${period.name}:${kind.name}"
+    }
+
     /** One home feed shelf, by its position in the feed. */
     data class Section(
         val section: HomeSection,

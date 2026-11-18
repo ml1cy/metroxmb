@@ -124,9 +124,8 @@ object DesktopUrlHandler {
         val roomCode = extractListenTogetherRoomCode(url)
         if (roomCode != null) {
             if (!Settings.shared.listenTogetherEnabled) return
-            DesktopNavigation.openListenTogetherInvitation(roomCode) { ListenTogetherState.listenTogetherManager.joinRoom(it) }
-            // XMB Music: the room shows in the Friends column.
-            DesktopXmbLinks.open(XmbOpen(XmbCategoryId.FRIENDS))
+            // XMB Music: the Friends column joins the room (asking for a name first if there is none).
+            DesktopXmbLinks.open(XmbOpen.joinRoom(roomCode))
             return
         }
 
@@ -134,7 +133,6 @@ object DesktopUrlHandler {
         val parsed = parseYouTubeUrl(url)
         if (podcastId == null && parsed == null) return
 
-        UiState.showSettings = false
         UiState.showSignIn = false
         UiState.showSwitchChannel = false
         PlaylistAlbumState.selectedLocalPlaylist = null

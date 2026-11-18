@@ -5676,6 +5676,8 @@
     <string name="xmb_openrouter_sign_out">Sign Out of OpenRouter</string>
     <string name="xmb_value_hidden">Hidden</string>
     <string name="xmb_signed_in">Signed in</string>
+    <string name="xmb_users_token_description">Paste a sign-in token or cookie</string>
+    <string name="xmb_crash_open_paste">Open link</string>
     <string name="xmb_import_link">Import Playlist from Link</string>
     <string name="xmb_import_link_description">A Spotify, Apple Music, Deezer, Tidal, Amazon Music or YouTube Music playlist link</string>
     <string name="xmb_import_started">Importing playlist…</string>

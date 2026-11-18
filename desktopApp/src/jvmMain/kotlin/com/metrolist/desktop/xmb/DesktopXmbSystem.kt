@@ -18,7 +18,6 @@ import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.SongCacheManager
-import com.metrolist.desktop.ui.screens.settings.rememberDeviceConnectSettingsHost
 import com.metrolist.desktop.utils.DesktopImageLoader
 import com.metrolist.desktop.utils.DesktopRenderBackend
 import com.metrolist.desktop.utils.desktopRenderBackends

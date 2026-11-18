@@ -10,10 +10,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowState
-import com.metrolist.desktop.state.app.DesktopNavigation
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.xmb.DesktopXmbLinks
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.tray_by
 import com.metrolist.shared.generated.resources.tray_hide_window
@@ -23,7 +23,6 @@ import com.metrolist.shared.generated.resources.tray_play
 import com.metrolist.shared.generated.resources.tray_previous_track
 import com.metrolist.shared.generated.resources.tray_quit_metrolist
 import com.metrolist.shared.generated.resources.tray_settings
-import com.metrolist.shared.generated.resources.tray_show_miniplayer
 import com.metrolist.shared.generated.resources.tray_show_window
 import com.metrolist.shared.generated.resources.tray_tooltip_paused
 import com.metrolist.shared.generated.resources.tray_tooltip_playing
@@ -31,8 +30,8 @@ import com.metrolist.shared.generated.resources.tray_unknown
 import com.metrolist.shared.generated.resources.tray_unknown_title
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.settings.displayName
-import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.utils.OsUtil
+import com.metrolist.shared.xmb.nav.XmbOpen
 import dev.nucleusframework.composenativetray.lib.mac.MacOSMenuBarThemeDetector
 import dev.nucleusframework.composenativetray.tray.api.Tray
 import kotlinx.coroutines.CompletableDeferred
@@ -174,7 +173,6 @@ object ComposeTrayManager {
         val strPreviousTrack = stringResource(Res.string.tray_previous_track)
         val strHideWindow = stringResource(Res.string.tray_hide_window)
         val strShowWindow = stringResource(Res.string.tray_show_window)
-        val strShowMiniplayer = stringResource(Res.string.tray_show_miniplayer)
         val strSettings = stringResource(Res.string.tray_settings)
         val strQuitMetrolist = stringResource(Res.string.tray_quit_metrolist)
         val strTrayByTemplate = stringResource(Res.string.tray_by)
@@ -212,7 +210,7 @@ object ComposeTrayManager {
                     Item(label = artistLabel, isEnabled = artistId != null) {
                         artistId?.let {
                             showWindow()
-                            EventQueue.invokeLater { DesktopNavigation.navigate(Screen.Artist(it)) }
+                            EventQueue.invokeLater { DesktopXmbLinks.openArtist(it) }
                         }
                     }
                     Divider()
@@ -245,14 +243,10 @@ object ComposeTrayManager {
                     toggleWindow()
                 }
 
-                Item(label = strShowMiniplayer) {
-                    PlayerState.showMiniplayer = true
-                }
-
                 Divider()
 
                 Item(label = strSettings) {
-                    UiState.showSettings = true
+                    DesktopXmbLinks.open(XmbOpen.settings())
                     if (!isWindowVisible.value) {
                         showWindow()
                     }

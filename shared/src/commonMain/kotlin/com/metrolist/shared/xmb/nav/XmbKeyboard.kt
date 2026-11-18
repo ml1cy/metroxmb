@@ -50,12 +50,14 @@ data class XmbKeyboard(
     val secret: Boolean = false,
     val suggestions: List<String> = emptyList(),
     val suggestion: Int = -1,
+    /** The longest text it takes; sign-in tokens are pasted and run to thousands of characters. */
+    val maxLength: Int = XMB_KEYBOARD_MAX_LENGTH,
 ) {
     val focusedKey: XmbKey? get() = if (suggestion >= 0) null else keyAt(row, column)
 
     /** Physical typing: adds [char] and moves focus to Done, so Enter submits what was typed. */
     fun type(char: Char): XmbKeyboard {
-        if (text.length >= XMB_KEYBOARD_MAX_LENGTH || char.isISOControl()) return this
+        if (text.length >= maxLength || char.isISOControl()) return this
         return copy(
             text = text + char,
             row = xmbKeyRows.lastIndex,
@@ -65,6 +67,18 @@ data class XmbKeyboard(
     }
 
     fun deleteLast(): XmbKeyboard = copy(text = text.dropLast(1))
+
+    /** Pasting: adds [pasted] (line breaks as spaces, other control characters dropped) up to [maxLength]. */
+    fun paste(pasted: String): XmbKeyboard {
+        val clean = pasted.map { if (it == '\n' || it == '\r' || it == '\t') ' ' else it }.filterNot(Char::isISOControl).joinToString("")
+        if (clean.isEmpty()) return this
+        return copy(
+            text = (text + clean).take(maxLength),
+            row = xmbKeyRows.lastIndex,
+            column = startColumn(xmbKeyRows.lastIndex, XmbKey.Done),
+            suggestion = -1,
+        )
+    }
 
     /** Keeps focus valid when the suggestion list changes under it. */
     fun withSuggestions(list: List<String>): XmbKeyboard =
@@ -120,7 +134,7 @@ fun XmbKeyboard.reduce(action: XmbAction): XmbKeyboardStep {
         }
 
         XmbAction.OPTIONS -> {
-            XmbKeyboardStep(if (text.length < XMB_KEYBOARD_MAX_LENGTH) copy(text = "$text ") else this, XmbFeedback.SELECT)
+            XmbKeyboardStep(if (text.length < maxLength) copy(text = "$text ") else this, XmbFeedback.SELECT)
         }
 
         XmbAction.BACK -> {
@@ -138,7 +152,7 @@ private fun XmbKeyboard.press(key: XmbKey): XmbKeyboardStep =
         is XmbKey.Character -> {
             val char = if (shift) key.char.uppercaseChar() else key.char
             if (text.length <
-                XMB_KEYBOARD_MAX_LENGTH
+                maxLength
             ) {
                 XmbKeyboardStep(copy(text = text + char, shift = false), XmbFeedback.SELECT)
             } else {
@@ -152,7 +166,7 @@ private fun XmbKeyboard.press(key: XmbKey): XmbKeyboardStep =
 
         XmbKey.Space -> {
             if (text.length <
-                XMB_KEYBOARD_MAX_LENGTH
+                maxLength
             ) {
                 XmbKeyboardStep(copy(text = "$text "), XmbFeedback.SELECT)
             } else {

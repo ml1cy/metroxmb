@@ -117,12 +117,6 @@ internal fun rememberDesktopXmbSettingsHost(): SharedSettingsHost {
     val diagnostics =
         listOf(
             SettingsHostAction(
-                id = "viewApplicationLogs",
-                title = stringResource(Res.string.settings_view_application_logs),
-                description = stringResource(Res.string.settings_diagnostic_logs_summary),
-                onClick = { UiState.showLogViewer = true },
-            ),
-            SettingsHostAction(
                 id = "openLogFolder",
                 title = stringResource(Res.string.settings_open_log_folder),
                 description = stringResource(Res.string.settings_log_directory_summary),

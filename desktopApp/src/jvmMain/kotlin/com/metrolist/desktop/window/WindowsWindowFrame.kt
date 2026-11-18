@@ -68,7 +68,6 @@ import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.zIndex
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.PlayerState
-import com.metrolist.desktop.ui.components.DesktopTitleBarHeight
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.desktop.window.jna.ComposeWindowProcedure
 import com.metrolist.desktop.window.jna.User32Extend

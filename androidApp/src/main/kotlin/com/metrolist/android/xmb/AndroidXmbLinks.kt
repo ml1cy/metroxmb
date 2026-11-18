@@ -8,7 +8,6 @@ import com.metrolist.shared.generated.resources.downloads
 import com.metrolist.shared.generated.resources.liked_songs
 import com.metrolist.shared.generated.resources.playlist
 import com.metrolist.shared.generated.resources.podcast
-import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.nav.XmbCategoryId
@@ -17,10 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.jetbrains.compose.resources.getString
 
 /**
- * Links, app shortcuts and notifications for the XMB. `MetrolistApp` hands over each place the
- * XMB can show ([xmbOpenFor]) and goes to its top level; `XmbAndroidHost` passes it to the XMB.
- * The player opens the XMB's full-screen visualizer. The rest (sign-in, song recognition, browse
- * pages, playlist import, joining a room by link) still open their stock screens.
+ * Links, app shortcuts and notifications for the XMB. `MetrolistApp` turns each into a place the
+ * XMB shows ([xmbOpenFor]); `XmbAndroidHost` passes it to the XMB. The player opens the XMB's
+ * full-screen visualizer.
  */
 internal object AndroidXmbLinks {
     val pending = MutableStateFlow<XmbOpen?>(null)
@@ -30,7 +28,26 @@ internal object AndroidXmbLinks {
     }
 }
 
-/** Where the XMB shows [destination], or null when only a stock screen can. */
+/** A full-screen page over the XMB: Google's sign-in in an XMB frame. */
+internal sealed interface AndroidXmbOverlay {
+    data class SignIn(
+        val switchingChannel: Boolean = false,
+    ) : AndroidXmbOverlay
+}
+
+internal object AndroidXmbOverlays {
+    val current = MutableStateFlow<AndroidXmbOverlay?>(null)
+
+    fun show(overlay: AndroidXmbOverlay) {
+        current.value = overlay
+    }
+
+    fun close() {
+        current.value = null
+    }
+}
+
+/** Where the XMB shows [destination]; null for those `MetrolistApp` handles itself (playing, sign-in, joining a room). */
 internal suspend fun xmbOpenFor(destination: IncomingDestination): XmbOpen? =
     when (destination) {
         IncomingDestination.Recognition -> {
@@ -99,37 +116,5 @@ private suspend fun autoPlaylist(type: String): XmbOpen =
     when (type.lowercase()) {
         "liked" -> XmbOpen(XmbCategoryId.MUSIC, XmbList.Liked, getString(Res.string.liked_songs))
         "downloaded", "downloads" -> XmbOpen.downloads(getString(Res.string.downloads))
-        else -> XmbOpen(XmbCategoryId.MUSIC)
-    }
-
-/**
- * Where the XMB shows a stock route, or null for one it doesn't (sign-in, settings pages it doesn't
- * draw, recognition, browse...). `MetrolistApp` redirects its navigator with this, so a borrowed
- * screen that links to an album, an artist or the downloads opens them in the XMB. Titles are left
- * to the XMB's generic words.
- */
-internal fun xmbOpenForScreen(screen: Screen): XmbOpen? =
-    when (screen) {
-        is Screen.Album -> XmbOpen.album(screen.id, "")
-        is Screen.Artist, is Screen.AboutArtist -> XmbOpen.artist((screen as? Screen.Artist)?.id ?: (screen as Screen.AboutArtist).id, "")
-        is Screen.Playlist -> XmbOpen.playlist(screen.id, "")
-        is Screen.Podcast -> XmbOpen.podcast(screen.id, "")
-        is Screen.AutoPlaylist -> autoPlaylistOpen(screen.type)
-        Screen.Downloads -> XmbOpen(XmbCategoryId.MUSIC, XmbList.Downloads)
-        Screen.History -> XmbOpen(XmbCategoryId.MUSIC, XmbList.History)
-        is Screen.HomeSection -> XmbOpen(XmbCategoryId.MUSIC)
-        Screen.Settings, Screen.Updates, Screen.UpdateDetails -> XmbOpen.settings()
-        Screen.About -> XmbOpen.settings(SettingsPageId.ABOUT)
-        Screen.Storage -> XmbOpen.settings(SettingsPageId.STORAGE)
-        Screen.BackupRestore -> XmbOpen.settings(SettingsPageId.BACKUP_RESTORE)
-        Screen.Recognition, Screen.RecognitionHistory -> XmbOpen.identifySong()
-        is Screen.Browse -> XmbOpen.browse(screen.browseId, screen.params, screen.title.orEmpty())
-        else -> null
-    }
-
-private fun autoPlaylistOpen(type: String): XmbOpen =
-    when (type.lowercase()) {
-        "liked" -> XmbOpen(XmbCategoryId.MUSIC, XmbList.Liked)
-        "downloaded", "downloads" -> XmbOpen(XmbCategoryId.MUSIC, XmbList.Downloads)
         else -> XmbOpen(XmbCategoryId.MUSIC)
     }

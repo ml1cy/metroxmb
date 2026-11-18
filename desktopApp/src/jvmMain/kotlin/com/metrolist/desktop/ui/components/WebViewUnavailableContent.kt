@@ -47,6 +47,16 @@ internal fun rememberLinuxWebKitAvailable(): Boolean? {
     return available
 }
 
+/** Why the embedded browser is missing on Linux, with the package to install. */
+@Composable
+internal fun webKitUnavailableHint(): String {
+    val command = remember { linuxWebKitInstallCommand() }
+    val isAppImage = remember { !System.getenv("APPIMAGE").isNullOrBlank() || !System.getenv("APPDIR").isNullOrBlank() }
+    return stringResource(Res.string.webkit_install_hint, LINUX_WEBKIT_SONAME) +
+        (command?.let { "\n\n" + stringResource(Res.string.webkit_install_command, it) }.orEmpty()) +
+        (if (isAppImage) "\n\n" + stringResource(Res.string.webkit_appimage_hint) else "")
+}
+
 @Composable
 internal fun WebViewAvailabilityLoading() {
     val loading = stringResource(Res.string.loading)
