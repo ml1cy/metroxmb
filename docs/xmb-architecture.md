@@ -406,7 +406,10 @@ navigator (`Screen.Login`, `Screen.SwitchChannel`, `Screen.SettingsPage`) shows 
 and back returns to the XMB. The host supplies the shared services from Android's own: the
 playback controller, the music database and `SongDownloadManager`, a minimal `SharedSettingsHost`
 for the registry, the player's volume, the photo picker for background images (copied into app
-files), the clipboard, and `AndroidXmbSoundPlayer` (SoundPool). It hides the system bars, pauses
+files), the clipboard, and `AndroidXmbSoundPlayer` (SoundPool). The long-lived parts (music lists,
+search, settings host, input, sounds) live in `XmbAndroidModel`, a ViewModel of the activity: they
+survive visits to stock screens and stop with the activity. Rebuilding them on every return left
+old copies running on the main thread, which hung the app when signing in reloaded the library. It hides the system bars, pauses
 animation below `STARTED`, and forwards Android's back to the XMB through `XmbInputController`
 while the XMB has somewhere to go back to (the XMB then leaves the Back key alone, so it isn't
 handled twice). Lyrics and video aren't wired on Android yet.
