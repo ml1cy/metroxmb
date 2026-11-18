@@ -4,6 +4,7 @@ import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.xmb.adapters.XmbEntryKind
 import com.metrolist.shared.xmb.adapters.peerEntries
 import com.metrolist.shared.xmb.adapters.peerId
+import com.metrolist.shared.xmb.adapters.toXmbEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -43,5 +44,26 @@ class XmbDevicesTest {
         assertEquals("Pixel 9", rows[1].subtitle)
         assertNull(rows[0].value)
         assertEquals("Connected", rows[1].value)
+    }
+
+    @Test
+    fun songsOfferAddToPlaylistOnlyWhereThereArePlaylists() {
+        val song =
+            com.metrolist.shared.model
+                .SongItem(id = "s", title = "Song", thumbnail = null, artists = emptyList(), album = null)
+                .toXmbEntry()
+        val with =
+            com.metrolist.shared.xmb.nav.xmbOptionsFor(
+                song,
+                liked = false,
+                downloaded = false,
+                canDownload = false,
+                canAddToPlaylist = true,
+            )
+        val without =
+            com.metrolist.shared.xmb.nav
+                .xmbOptionsFor(song, liked = false, downloaded = false, canDownload = false)
+        kotlin.test.assertTrue(com.metrolist.shared.xmb.nav.XmbOption.ADD_TO_PLAYLIST in with)
+        kotlin.test.assertFalse(com.metrolist.shared.xmb.nav.XmbOption.ADD_TO_PLAYLIST in without)
     }
 }

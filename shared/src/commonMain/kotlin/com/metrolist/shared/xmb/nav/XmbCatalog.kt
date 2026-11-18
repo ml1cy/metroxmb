@@ -45,6 +45,20 @@ fun xmbCategories(
                 XmbItemAction.OpenLyrics,
             ),
             item("play_on_device", Res.string.xmb_cast_title, Res.drawable.xmb_item_network_settings, XmbList.CastDevices),
+            XmbItem(
+                "play_queue",
+                Res.string.xmb_queue,
+                drawable(Res.drawable.xmb_item_playlist),
+                Res.string.xmb_queue_description,
+                list = XmbList.Queue,
+            ),
+            XmbItem(
+                "sleep_timer",
+                Res.string.sleep_timer,
+                drawable(Res.drawable.xmb_item_history),
+                Res.string.xmb_sleep_timer_description,
+                XmbItemAction.SleepTimer,
+            ),
         ),
         XmbCategory(XmbCategoryId.SEARCH, Res.string.search, drawable(Res.drawable.xmb_cat_search), search),
         category(

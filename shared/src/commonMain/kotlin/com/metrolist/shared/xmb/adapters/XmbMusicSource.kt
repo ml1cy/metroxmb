@@ -170,7 +170,7 @@ class DefaultXmbMusicSource(
             }
 
             // Built in XmbApp from the playback and room state.
-            XmbList.CastDevices, XmbList.RoomMembers -> {
+            XmbList.CastDevices, XmbList.RoomMembers, XmbList.Queue -> {
                 flowOf(XmbListState.loaded(emptyList()))
             }
 

@@ -105,6 +105,9 @@ sealed interface XmbItemAction {
     /** Shows the playing song's lyrics full screen. */
     data object OpenLyrics : XmbItemAction
 
+    /** Sets or cancels the sleep timer. */
+    data object SleepTimer : XmbItemAction
+
     /** Friends: turns Listen Together on. */
     data object EnableListenTogether : XmbItemAction
 

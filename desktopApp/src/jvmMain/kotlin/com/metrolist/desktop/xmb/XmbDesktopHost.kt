@@ -59,6 +59,7 @@ import com.metrolist.shared.xmb.XmbSettingsHost
 import com.metrolist.shared.xmb.XmbVideo
 import com.metrolist.shared.xmb.XmbVolume
 import com.metrolist.shared.xmb.XmbWallpaper
+import com.metrolist.shared.xmb.adapters.DatabaseXmbPlaylists
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbNotice
@@ -126,6 +127,7 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     volume = DesktopXmbVolume,
                     wallpaper = DesktopXmbWallpaper,
                     deviceConnect = DesktopDeviceConnect.manager,
+                    playlists = DatabaseXmbPlaylists(GlobalContext.get().get<MusicDatabase>()),
                 )
             }
         DesktopPageBoundTokenHost(GlobalContext.get().get<DesktopPageBoundTokenRuntime>())

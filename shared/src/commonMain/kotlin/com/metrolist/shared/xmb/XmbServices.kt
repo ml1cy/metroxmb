@@ -13,6 +13,7 @@ import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SharedIntegrationsHost
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
+import com.metrolist.shared.xmb.adapters.XmbPlaylists
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.settings.XmbSystemPages
 import kotlinx.coroutines.flow.StateFlow
@@ -125,6 +126,8 @@ class XmbServices(
     val listenTogether: XmbListenTogether? = null,
     /** Device Connect: the user's other devices, listed with the cast devices to move playback to. */
     val deviceConnect: DeviceConnectManager? = null,
+    /** Playlists for Add to Playlist; null hides the option. */
+    val playlists: XmbPlaylists? = null,
     val volume: XmbVolume? = null,
     val wallpaper: XmbWallpaper? = null,
 )

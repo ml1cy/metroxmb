@@ -103,6 +103,11 @@ sealed interface XmbList {
         override val key = "feed_videos"
     }
 
+    /** The play queue, built from the playback state. */
+    data object Queue : XmbList {
+        override val key = "queue"
+    }
+
     /** Cast devices found on the network; the XMB builds these rows from the playback state. */
     data object CastDevices : XmbList {
         override val key = "cast_devices"

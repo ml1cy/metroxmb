@@ -57,10 +57,12 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   lists scroll with easing, items above the focus jump over the category row, and each category
   remembers its position.
 - **Music.** Home (each shelf opens as a folder), Quick picks, Liked songs, Playlists, Albums,
-  Artists, History and Downloads. Albums, playlists and artists open further levels. Selecting a
-  song plays its list from that song.
-- **△ options.** Play, Shuffle, Play next, Add to queue, Start radio, Like/Unlike,
-  Download/Remove download, View album, View artist.
+  Artists, History and Downloads, then Lyrics, Play on Device (cast devices and your other
+  devices through Device Connect), Play Queue (select a song to jump to it) and Sleep Timer.
+  Albums, playlists and artists open further levels. Selecting a song plays its list from that
+  song.
+- **△ options.** Play, Shuffle, Play next, Add to queue, Start radio, Like/Unlike, Add to
+  playlist (or a new one), Download/Remove download, View album, View artist.
 - **Settings.** Every page of Metrolist's settings as XMB lists with the current value on the
   right. Switches and choices open a value list, sliders a slider, text the on-screen keyboard;
   nothing changes until ✕ confirms. Pages with their own screens (storage, backup, updates, about,

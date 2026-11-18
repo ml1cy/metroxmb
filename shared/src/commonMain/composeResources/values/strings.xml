@@ -5661,4 +5661,15 @@
     <string name="xmb_eq_save_description">Saves the current bands under a new name</string>
     <string name="xmb_onboarding_welcome">Welcome to XMB Music</string>
     <string name="xmb_onboarding_step">Setup %1$d/%2$d</string>
+    <string name="xmb_queue">Play Queue</string>
+    <string name="xmb_queue_description">The songs playing now and next</string>
+    <string name="xmb_queue_playing">Playing</string>
+    <string name="xmb_sleep_timer_description">Stop the music after a while</string>
+    <string name="xmb_sleep_off">Off</string>
+    <string name="xmb_sleep_minutes">%1$d minutes</string>
+    <string name="xmb_sleep_end_of_song">End of the song</string>
+    <string name="xmb_sleep_set">Sleep timer: %1$s</string>
+    <string name="xmb_playlist_new">New Playlist…</string>
+    <string name="xmb_playlist_added">Added to %1$s</string>
+    <string name="xmb_playlist_failed">Couldn\'t add to the playlist</string>
 </resources>

@@ -63,8 +63,10 @@ import androidx.compose.ui.unit.Density
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.add_to_playlist
 import com.metrolist.shared.generated.resources.album
 import com.metrolist.shared.generated.resources.artist
+import com.metrolist.shared.generated.resources.create_playlist
 import com.metrolist.shared.generated.resources.device_connect_title
 import com.metrolist.shared.generated.resources.downloads
 import com.metrolist.shared.generated.resources.history
@@ -72,17 +74,27 @@ import com.metrolist.shared.generated.resources.liked_songs
 import com.metrolist.shared.generated.resources.no
 import com.metrolist.shared.generated.resources.playlist
 import com.metrolist.shared.generated.resources.podcast
+import com.metrolist.shared.generated.resources.sleep_timer
 import com.metrolist.shared.generated.resources.xmb_cat_search
 import com.metrolist.shared.generated.resources.xmb_item_album
 import com.metrolist.shared.generated.resources.xmb_item_artist
 import com.metrolist.shared.generated.resources.xmb_item_playlist
 import com.metrolist.shared.generated.resources.xmb_item_subsetting
+import com.metrolist.shared.generated.resources.xmb_playlist_added
+import com.metrolist.shared.generated.resources.xmb_playlist_failed
+import com.metrolist.shared.generated.resources.xmb_playlist_new
+import com.metrolist.shared.generated.resources.xmb_queue_playing
+import com.metrolist.shared.generated.resources.xmb_sleep_end_of_song
+import com.metrolist.shared.generated.resources.xmb_sleep_minutes
+import com.metrolist.shared.generated.resources.xmb_sleep_off
+import com.metrolist.shared.generated.resources.xmb_sleep_set
 import com.metrolist.shared.generated.resources.xmb_ui_clock
 import com.metrolist.shared.generated.resources.xmb_users_sign_out_confirm
 import com.metrolist.shared.generated.resources.xmb_value_off
 import com.metrolist.shared.generated.resources.xmb_value_on
 import com.metrolist.shared.generated.resources.yes
 import com.metrolist.shared.model.RepeatMode
+import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
@@ -111,6 +123,7 @@ import com.metrolist.shared.xmb.adapters.memberEntries
 import com.metrolist.shared.xmb.adapters.peerEntries
 import com.metrolist.shared.xmb.adapters.peerId
 import com.metrolist.shared.xmb.adapters.plainNumber
+import com.metrolist.shared.xmb.adapters.song
 import com.metrolist.shared.xmb.adapters.toXmbEntries
 import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.adapters.xmbSettingStep
@@ -132,6 +145,7 @@ import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
+import com.metrolist.shared.xmb.nav.XmbOption
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbTouchGesture
@@ -178,6 +192,7 @@ import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbMotion
 import com.metrolist.shared.xmb.theme.XmbPalette
 import com.metrolist.shared.xmb.theme.rememberXmbFontFamily
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -332,6 +347,17 @@ fun XmbApp(
             ?.value
     val text = rememberXmbM6Text()
     val deviceConnectLabel = stringResource(Res.string.device_connect_title)
+    val queuePlaying = stringResource(Res.string.xmb_queue_playing)
+    val sleepTitle = stringResource(Res.string.sleep_timer)
+    val sleepOff = stringResource(Res.string.xmb_sleep_off)
+    val sleepMinutes = stringResource(Res.string.xmb_sleep_minutes)
+    val sleepEndOfSong = stringResource(Res.string.xmb_sleep_end_of_song)
+    val sleepSet = stringResource(Res.string.xmb_sleep_set)
+    val playlistTitle = stringResource(Res.string.add_to_playlist)
+    val playlistNew = stringResource(Res.string.xmb_playlist_new)
+    val playlistCreate = stringResource(Res.string.create_playlist)
+    val playlistAdded = stringResource(Res.string.xmb_playlist_added)
+    val playlistFailed = stringResource(Res.string.xmb_playlist_failed)
     val shortcutText = rememberXmbShortcutText()
     val categories =
         xmbCategories(
@@ -361,7 +387,7 @@ fun XmbApp(
     val musicState by remember(level?.list?.key, services) {
         val list = level?.list
         if (list == null || services == null || settingsPage != null || xmbPage != null || list == XmbList.CastDevices ||
-            list == XmbList.RoomMembers
+            list == XmbList.RoomMembers || list == XmbList.Queue
         ) {
             flowOf(XmbListState.loaded(emptyList()))
         } else {
@@ -411,6 +437,14 @@ fun XmbApp(
                 }
             }
             XmbListState.loaded(page?.toXmbEntries(labels, sliderLabels).orEmpty())
+        } else if (level?.list == XmbList.Queue) {
+            val queue = playbackState?.queue.orEmpty()
+            val current = playbackState?.currentQueueIndex ?: -1
+            XmbListState.loaded(
+                queue.mapIndexed { index, song ->
+                    song.toXmbEntry().copy(key = "queue:$index:${song.id}", value = queuePlaying.takeIf { index == current })
+                },
+            )
         } else if (level?.list == XmbList.CastDevices) {
             val casts =
                 castEntries(playbackState?.castDevices.orEmpty(), playbackState?.castState ?: CastState(), text.connected, text.connecting)
@@ -520,6 +554,50 @@ fun XmbApp(
         navigation = navigation.push(XmbLevel(XmbList.SearchResults(trimmed), trimmed, XmbIcon.Drawable(Res.drawable.xmb_cat_search)))
     }
 
+    fun showToast(message: String) {
+        toast = message
+        toastUntil = seconds.floatValue + TOAST_SECONDS
+    }
+
+    /** Add to Playlist: the user's playlists in a picker, after New Playlist (named on the keyboard). */
+    fun addToPlaylist(song: SongItem) {
+        val playlists = services?.playlists ?: return
+
+        fun report(
+            added: Boolean,
+            name: String,
+        ) = showToast(if (added) playlistAdded.replace("%1\$s", name) else playlistFailed)
+        scope.launch {
+            val existing =
+                try {
+                    playlists.editable()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            picker =
+                XmbPicker.Choice(playlistTitle, listOf(playlistNew) + existing.map { it.second }, focus = 0) { index ->
+                    if (index == 0) {
+                        openKeyboard(
+                            KeyboardSession(XmbKeyboard(title = playlistCreate, text = ""), forSearch = false) { typed ->
+                                val name = typed.trim()
+                                if (name.isNotEmpty()) {
+                                    scope.launch {
+                                        val id = playlists.create(name)
+                                        report(id != null && playlists.add(id, song), name)
+                                    }
+                                }
+                            },
+                        )
+                    } else {
+                        val (id, name) = existing[index - 1]
+                        scope.launch { report(playlists.add(id, song), name) }
+                    }
+                }
+        }
+    }
+
     fun commitSetting(change: () -> Unit) {
         change()
         settingsRevision++
@@ -601,6 +679,29 @@ fun XmbApp(
 
             XmbItemAction.WatchVideo -> {
                 if (!watchVideo()) return XmbFeedback.ERROR
+            }
+
+            XmbItemAction.SleepTimer -> {
+                val playback = services?.playback ?: return XmbFeedback.ERROR
+                val minutes = SLEEP_MINUTES
+                val choices = listOf(sleepOff) + minutes.map { sleepMinutes.replace("%1\$d", it.toString()) } + sleepEndOfSong
+                val timer = playback.state.value.sleepTimerState
+                val focus =
+                    when {
+                        !timer.isActive -> 0
+                        timer.stopAfterCurrentSong || timer.finishCurrentSong -> choices.lastIndex
+                        else -> minutes.indexOfFirst { it * 60_000L == timer.totalDurationMs } + 1
+                    }.coerceIn(0, choices.lastIndex)
+                picker =
+                    XmbPicker.Choice(sleepTitle, choices, focus) { index ->
+                        when (index) {
+                            0 -> playback.cancelSleepTimer()
+                            choices.lastIndex -> playback.stopSleepTimerAfterCurrentSong(fadeOut = true)
+                            else -> playback.startSleepTimer(minutes[index - 1] * 60_000L, fadeOut = true)
+                        }
+                        toast = sleepSet.replace("%1\$s", choices[index])
+                        toastUntil = seconds.floatValue + TOAST_SECONDS
+                    }
             }
 
             XmbItemAction.OpenLyrics -> {
@@ -756,7 +857,11 @@ fun XmbApp(
             val step = panel.reduce(action)
             options = step.panel
             step.chosen?.let { chosen ->
-                actions?.run(chosen, entries, navigation.level?.focus ?: -1)?.let { navigation = navigation.push(it) }
+                if (chosen == XmbOption.ADD_TO_PLAYLIST) {
+                    entries.getOrNull(navigation.level?.focus ?: -1)?.song?.let(::addToPlaylist)
+                } else {
+                    actions?.run(chosen, entries, navigation.level?.focus ?: -1)?.let { navigation = navigation.push(it) }
+                }
             }
             feedback(action, step.feedback)
             return
@@ -791,6 +896,12 @@ fun XmbApp(
 
                     entries.getOrNull(selection.item)?.kind == XmbEntryKind.MEMBER -> {
                         XmbFeedback.ERROR
+                    }
+
+                    navigation.level?.list == XmbList.Queue -> {
+                        // A queued song plays from its place in the queue, which stays as it is.
+                        services?.playback?.playQueueIndex(selection.item)
+                        if (services?.playback == null) XmbFeedback.ERROR else XmbFeedback.SELECT
                     }
 
                     navigation.level?.list == XmbList.LikedVideos || navigation.level?.list == XmbList.FeedVideos -> {
@@ -856,11 +967,6 @@ fun XmbApp(
             }
         }
         return true
-    }
-
-    fun showToast(message: String) {
-        toast = message
-        toastUntil = seconds.floatValue + TOAST_SECONDS
     }
 
     fun setVolume(level: Float) {
@@ -1657,6 +1763,9 @@ private const val VISUALIZER_FADE_MS = 900
 private const val MENU_FADE_SHARE = 0.6f
 private const val VISUALIZER_OVERLAY_SECONDS = 4f
 private const val VISUALIZER_OVERLAY_FADE = 0.6f
+
+/** Sleep timer lengths offered, in minutes. */
+private val SLEEP_MINUTES = listOf(15, 30, 45, 60, 90, 120)
 
 /** Keyboard shortcuts: seek and volume steps, the volume after unmuting from zero, and the toast's timing. */
 private const val SEEK_STEP_MS = 10_000L

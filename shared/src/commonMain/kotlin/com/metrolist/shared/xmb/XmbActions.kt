@@ -49,6 +49,7 @@ internal class XmbActions(
                     ?.value
                     ?.contains(song.id) == true,
             canDownload = services.downloads != null,
+            canAddToPlaylist = services.playlists != null,
         )
     }
 
@@ -63,14 +64,26 @@ internal class XmbActions(
         val playback = services.playback
         when (option) {
             XmbOption.PLAY -> if (song != null) playFrom(entries, index) else withSongs(entry) { songs -> playCollection(entry, songs) }
+
             XmbOption.SHUFFLE -> withSongs(entry) { songs -> playback.shuffleQueue(songs, songsOnly = entry.kind == XmbEntryKind.ARTIST) }
+
             XmbOption.PLAY_NEXT -> if (song != null) playback.playNext(listOf(song)) else withSongs(entry, playback::playNext)
+
             XmbOption.ADD_TO_QUEUE -> if (song != null) playback.addToQueue(listOf(song)) else withSongs(entry, playback::addToQueue)
+
             XmbOption.START_RADIO -> song?.let(playback::startRadio)
+
+            // XmbApp asks for the playlist first.
+            XmbOption.ADD_TO_PLAYLIST -> Unit
+
             XmbOption.LIKE, XmbOption.UNLIKE -> song?.let(services.toggleLike)
+
             XmbOption.DOWNLOAD -> song?.let { services.downloads?.download(it) }
+
             XmbOption.REMOVE_DOWNLOAD -> song?.let { services.downloads?.remove(it) }
+
             XmbOption.VIEW_ALBUM -> return song?.albumLevel()
+
             XmbOption.VIEW_ARTIST -> return song?.artistLevel()
         }
         return null
