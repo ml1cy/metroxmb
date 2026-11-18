@@ -1,5 +1,6 @@
 package com.metrolist.shared.visualizer.shader
 
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 
 /**
@@ -29,6 +30,15 @@ internal expect class XmbShader(
         x: Float,
         y: Float,
         z: Float,
+    )
+
+    /**
+     * An image the shader samples as `uniform shader [name]`, repeating across and clamped top to
+     * bottom, with bilinear filtering. Set once; it stays.
+     */
+    fun setImage(
+        name: String,
+        image: ImageBitmap,
     )
 
     /** Fills the draw scope's area with the shader, with the uniforms set so far. */

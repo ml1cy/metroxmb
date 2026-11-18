@@ -38,7 +38,7 @@ standard Android screens open only for sign-in and a few settings pages. iOS was
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
 | M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Done: matched to the owner's videos, checked with real music |
-| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Done: Valley and Gaia, Random and Auto-cycle |
+| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Done: Valley and Gaia (NASA Earth maps), Random and Auto-cycle |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Started: the XMB is Android's interface, with touch, portrait and back; not yet run on devices |
 
@@ -91,7 +91,8 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   XMB; any other key shows the track for a few seconds.
   - **Valley:** a soft flight over glowing ridges and far mountains, its colors drifting through
     molten orange, gold, night blue and crimson.
-  - **Gaia:** the Earth in space, moving between a close orbit, the whole globe, a sunrise over the
+  - **Gaia:** the Earth from NASA satellite maps, with drifting clouds, moving between a close
+    orbit, the whole globe, a sunrise over the
     edge and a distant view; city lights on the night side pulse with the beat.
   - **Random and Auto-cycle:** a different visualizer each time, or all three in turn (a crossfade
     every 45 seconds).
@@ -243,4 +244,5 @@ MetrolistGroup and its contributors; see [LICENSE](LICENSE). This project isn't 
 MetrolistGroup, YouTube or Sony. PlayStation, XMB and the PS3 system assets are Sony's; they're
 included only for personal use. The Podcasts and Visualizer category icons were drawn for this
 project. The XMB ribbon and its particles are ported from [tsbehlman/xmb](https://github.com/tsbehlman/xmb),
-itself adapted from [RetroArch](https://github.com/libretro/RetroArch)'s XMB ribbon shader (both GPL-3.0).
+itself adapted from [RetroArch](https://github.com/libretro/RetroArch)'s XMB ribbon shader (both GPL-3.0). Gaia's Earth uses NASA's
+Blue Marble and Black Marble imagery (NASA Earth Observatory, public domain).

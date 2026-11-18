@@ -32,12 +32,12 @@ fun ValleyVisualizer(
     val shader = remember { XmbShader(VALLEY_SHADER) }
     Canvas(modifier) {
         seconds()
-        val palette = valleyPalette(audio.flow)
+        val palette = valleyPalette(audio.calmFlow)
         if (!shader.available) return@Canvas drawValleyFallback(audio, palette)
         shader.set("iResolution", size.width, size.height)
-        shader.set("iTime", audio.flow * VALLEY_SPEED)
-        shader.set("bass", audio.bass)
-        shader.set("energy", audio.energy)
+        shader.set("iTime", audio.calmFlow * VALLEY_SPEED)
+        shader.set("bass", audio.calmBass)
+        shader.set("energy", audio.calmEnergy)
         shader.set("beat", audio.beat)
         shader.set("layers", quality.valleyLayers.toFloat())
         shader.set("octaves", quality.valleyOctaves.toFloat())
@@ -85,7 +85,7 @@ private fun DrawScope.drawValleyFallback(
 ) {
     val horizon = size.height * 0.55f
     drawRect(Brush.verticalGradient(0f to Color.Black, 0.55f to palette.haze.copy(alpha = 1f), 1f to Color.Black))
-    val time = audio.flow * VALLEY_SPEED
+    val time = audio.calmFlow * VALLEY_SPEED
     for (layer in 0 until FALLBACK_LAYERS) {
         val near = layer / (FALLBACK_LAYERS - 1f)
         val path = Path()
@@ -96,7 +96,7 @@ private fun DrawScope.drawValleyFallback(
             val wave =
                 sin(step * 0.31f + layer * 1.7f + time * (0.3f + near)) * 0.6f +
                     sin(step * 0.13f - layer * 0.9f + time * 0.2f) * 0.4f
-            path.lineTo(x, base - size.height * (0.05f + 0.08f * (1f - near)) * (1f + 0.6f * audio.bass) * (0.5f + 0.5f * wave))
+            path.lineTo(x, base - size.height * (0.05f + 0.08f * (1f - near)) * (1f + 0.6f * audio.calmBass) * (0.5f + 0.5f * wave))
         }
         path.lineTo(size.width, size.height)
         path.close()
@@ -144,14 +144,19 @@ uniform float3 haze;
 uniform float3 ground;
 uniform float3 glow;
 
+// A hash without sine: sine-based ones lose precision on GPUs as the coordinates grow, which
+// showed as blocky, pixelated terrain.
 float hash(float2 p) {
-    return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
+    float3 p3 = fract(float3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
+// Value noise with quintic easing: smooth slopes, no creases along the grid.
 float noise(float2 p) {
     float2 i = floor(p);
     float2 f = fract(p);
-    float2 u = f * f * (3.0 - 2.0 * f);
+    float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
     return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), u.x), mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), u.x), u.y);
 }
 
@@ -175,35 +180,49 @@ half4 main(float2 fragCoord) {
     float horizon = 0.55 + 0.03 * sin(iTime * 0.07);
     float camX = sin(iTime * 0.11) * 1.4;
     float camH = 0.9 + 0.08 * sin(iTime * 0.09);
-    float camZ = iTime;
+    // The flight wraps every 400 units, well before precision suffers: one jump in several minutes.
+    float camZ = mod(iTime, 400.0);
 
     float above = clamp((sy - horizon) / (1.0 - horizon), 0.0, 1.0);
-    float3 color = mix(haze * 0.6, haze * 0.03, pow(above, 0.5));
-    color += haze * 0.35 * exp(-abs(sy - horizon) * 9.0);
+    float3 sky = mix(haze * 0.6, haze * 0.03, pow(above, 0.5));
+    sky += haze * 0.35 * exp(-abs(sy - horizon) * 9.0);
 
+    // Near to far, front to back: a pixel stops once the ground in front covers it, and a layer
+    // whose highest possible ridge is below the pixel is skipped without its noise. That keeps
+    // the cost low enough for a steady frame rate.
+    float3 color = float3(0.0);
+    float covered = 0.0;
     for (int i = 0; i < 28; i++) {
-        if (float(i) >= layers) break;
-        float t = float(i) / max(layers - 1.0, 1.0);
-        float depth = mix(7.0, 0.35, pow(t, 0.8));
+        if (float(i) >= layers || covered > 0.995) break;
+        float t = 1.0 - float(i) / max(layers - 1.0, 1.0);
+        // The nearest ridges are 1.2 units away: closer, they rose over the whole screen.
+        float depth = mix(8.0, 1.2, pow(t, 0.9));
+        float soft = 0.004 + 0.03 * t * t;
+        float highest = horizon + (1.35 * 1.5 + (1.0 - t) * 2.4 - camH) * 0.5 / depth;
+        if (sy > highest + soft) continue;
         float wx = camX + sx * depth * 1.1;
         float wz = camZ + depth;
         float h = fbm(float2(wx * 0.45, wz * 0.45));
         h = pow(h, 1.3) * 1.35 * (0.85 + 0.6 * bass);
-        // Far away, broad mountains rise over the horizon, as in the recordings.
         h += (1.0 - t) * 2.4 * pow(noise(float2(wx * 0.12, wz * 0.05)), 2.0);
         float line = horizon + (h - camH) * 0.5 / depth;
-        float soft = 0.004 + 0.04 * t * t;
         float cover = smoothstep(line + soft, line - soft, sy);
+        if (cover <= 0.0) continue;
         float below = max(line - sy, 0.0);
         float crest = exp(-below * mix(55.0, 14.0, t));
-        float streak = pow(noise(float2(wx * 4.0, wz * 0.8)), 5.0) * t;
-        float3 layerColor = ground * (0.06 + 0.55 * h);
+        // The slope below a ridge darkens away from its lit top; lit all the way down, the near
+        // ridges showed as bright vertical curtains.
+        float face = exp(-below * mix(18.0, 4.0, t));
+        float streak = pow(noise(float2(wx * 4.0, wz * 0.8)), 5.0) * t * exp(-below * mix(40.0, 9.0, t));
+        float3 layerColor = ground * (0.035 + 0.5 * h * face);
         layerColor += glow * crest * (0.5 + 0.5 * energy + 0.8 * beat);
         layerColor += glow * streak * 1.2;
         float fog = clamp(exp(-depth * 0.25) * 1.4, 0.0, 1.0);
         layerColor = mix(haze * 0.5, layerColor, fog);
-        color = mix(color, layerColor, cover);
+        color += (1.0 - covered) * cover * layerColor;
+        covered += (1.0 - covered) * cover;
     }
+    color += (1.0 - covered) * sky;
     float2 centered = uv - 0.5;
     color *= 1.0 - dot(centered, centered) * 0.9;
     return half4(color, 1.0);

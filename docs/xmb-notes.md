@@ -148,15 +148,18 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 
 Both are runtime shaders (`XmbShader`: Skia's `RuntimeEffect` on desktop, `RuntimeShader` on
 Android 13+), from the owner's 2560×1440 recordings (`reference/valley/`, `reference/other/`). The
-flow clock (`VisualizerAudio.flow`) drives both, so louder music moves them faster.
+calm clock (`VisualizerAudio.calmFlow`, the flow with its speed smoothed over 1.5 s) drives both,
+so louder music moves them faster without jitter.
 
 | Constant | Value | Reason |
 |---|---|---|
-| Valley terrain | 28 / 18 / 10 layers (quality) from 7 to 0.35 units away; heights from 4 / 3 / 2 octaves of value noise, ×(0.85 + 0.6 × bass); broad mountains on the far layers | The recordings' soft ridges in depth; layers instead of raymarching keep the cost to one noise per layer per pixel |
-| Valley edges | soft by 0.004 near the horizon to 0.044 close by; crests glow over 1/55 to 1/14 of the screen, ×(0.5 + 0.5 × energy + 0.8 × beat); haze by distance | The recordings are blurry close up and the ridges' tops are bright |
+| Valley terrain | 28 / 18 / 10 layers (quality) from 8 to 1.2 units away, drawn near to far: a pixel stops once the ground in front covers it, and a layer whose highest possible ridge is below the pixel skips its noise; heights from up to 4 / 3 / 2 octaves of value noise (quintic, with a hash without sine), ×(0.85 + 0.6 × calm bass); broad mountains on the far layers | The recordings' soft ridges in depth. The near limit of 1.2 keeps the front ridges from rising over the screen; sine hashes lost precision on GPUs and showed blocks |
+| Valley edges | soft by 0.004 near the horizon to 0.034 close by; crests glow over 1/55 to 1/14 of the screen, ×(0.5 + 0.5 × calm energy + 0.8 × beat); the slope below a crest darkens over 1/18 to 1/4 of the screen; haze by distance | The recordings are blurry close up, the ridges' tops are bright and the slopes dark. Lit all the way down, near ridges looked like curtains |
+| Valley motion | the flight follows `calmFlow` (energy smoothed over 1.5 s) at 0.6 units a second, wrapping every 400 units | Raw levels made the peaks jitter and the speed stutter |
 | Valley colors | molten, gold, night blue, crimson; 28 s each, blending over the last 30% | The recordings drift between these |
 | Gaia views | close (radius 1.25 × height), globe (0.42), sunrise (0.62, sun behind), far (0.12); 40 s each, moving over the last 25% | The recording's four views, in its order |
-| Gaia surface | land, ocean, ice and clouds from 3D noise of the surface point (5 / 4 / 3 octaves); city lights on the night side, ×(0.75 + 0.7 × beat); atmosphere ×(0.75 + 0.5 × energy) | No textures to ship; noise on the sphere has no seams |
+| Gaia surface | NASA Blue Marble surface and clouds (4096×2048), water mask and Black Marble city lights (2048×1024), each with a quarter-size copy blended by on-screen size (a manual mip level) and linear filtering; clouds drift east; sun glint only on water; city lights on the night side ×(0.8 + 0.5 × beat); the limb is anti-aliased over one pixel | A real satellite look. Without the small copies, the far globe shimmered |
+| Gaia while loading | the procedural Earth (3D noise, 5 / 4 / 3 octaves) until the maps are decoded, or if they fail | Decoding takes a moment on phones |
 | Fallback | Android 12 and older: layered curves (Valley), a lit disc with a glow (Gaia) | `RuntimeShader` is Android 13+ |
 | Auto-cycle | 45 s each, 1.5 s crossfade | |
 | Quality | High / Balanced / Low also sets the ribbon's passes (8 / 4 / 1) | |

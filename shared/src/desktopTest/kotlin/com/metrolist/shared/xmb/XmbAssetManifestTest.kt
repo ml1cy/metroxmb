@@ -24,6 +24,7 @@ class XmbAssetManifestTest {
                     entry.path.startsWith("drawable/") -> pngProblem(entry, file)
                     entry.path.startsWith("font/") -> fontProblem(entry, file)
                     entry.path.startsWith("files/xmb/sounds/") -> oggProblem(entry, file)
+                    entry.path.startsWith("files/xmb/gaia/") -> jpegProblem(entry, file)
                     else -> "${entry.path}: unknown asset type"
                 }
             }
@@ -91,6 +92,16 @@ class XmbAssetManifestTest {
         entry: Entry,
         file: File,
     ): String? = "${entry.path}: not an Ogg file".takeIf { !file.readBytes().copyOfRange(0, 4).contentEquals("OggS".toByteArray()) }
+
+    private fun jpegProblem(
+        entry: Entry,
+        file: File,
+    ): String? {
+        val image = javax.imageio.ImageIO.read(file) ?: return "${entry.path}: not a readable image"
+        if (entry.width == null) return "${entry.path}: no size listed"
+        return "${entry.path}: listed ${entry.width}×${entry.height}, file is ${image.width}×${image.height}"
+            .takeIf { image.width != entry.width || image.height != entry.height }
+    }
 
     private companion object {
         val pathPattern = Regex("`((?:drawable|font|files)/[^`]+)`")

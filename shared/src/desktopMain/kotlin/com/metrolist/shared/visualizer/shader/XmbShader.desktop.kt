@@ -1,12 +1,17 @@
 package com.metrolist.shared.visualizer.shader
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import com.metrolist.shared.utils.Logger
+import org.jetbrains.skia.FilterTileMode
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
+import org.jetbrains.skia.SamplingMode
 
 internal actual class XmbShader actual constructor(
     source: String,
@@ -40,6 +45,14 @@ internal actual class XmbShader actual constructor(
         z: Float,
     ) {
         builder?.uniform(name, x, y, z)
+    }
+
+    actual fun setImage(
+        name: String,
+        image: ImageBitmap,
+    ) {
+        val skia = Image.makeFromBitmap(image.asSkiaBitmap().apply { setImmutable() })
+        builder?.child(name, skia.makeShader(FilterTileMode.REPEAT, FilterTileMode.CLAMP, SamplingMode.LINEAR))
     }
 
     private val paint = Paint()

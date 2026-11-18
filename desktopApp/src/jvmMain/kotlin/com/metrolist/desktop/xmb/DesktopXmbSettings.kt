@@ -58,6 +58,7 @@ import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.ui.settings.settingsHomeSections
 import com.metrolist.shared.ui.settings.settingsPageSubtitle
+import com.metrolist.shared.xmb.XMB_SELF_UPDATES
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -229,7 +230,8 @@ internal fun xmbDesktopSettingsPages(devtoolsUnlocked: Boolean): Set<SettingsPag
     buildSet {
         add(SettingsPageId.STORAGE)
         add(SettingsPageId.BACKUP_RESTORE)
-        add(SettingsPageId.UPDATES)
+        // Updates are off in this project (XMB_SELF_UPDATES): Metrolist's releases would replace it.
+        if (XMB_SELF_UPDATES) add(SettingsPageId.UPDATES)
         add(SettingsPageId.ABOUT)
         if (devtoolsUnlocked) add(SettingsPageId.DEVTOOLS)
         add(SettingsPageId.EQUALIZER)

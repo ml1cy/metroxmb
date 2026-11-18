@@ -146,8 +146,9 @@ long-press = options.
 - Valley: raymarched heightfield, fog, gliding camera
 - Gaia: day/night Earth (NASA textures), oceans, atmosphere, clouds, city lights, starfield
 - Done: both as runtime shaders (SkSL/AGSL, Android 13+, drawn fallbacks below), matched to the
-  owner's recordings. Valley's terrain is layered ridges rather than raymarched; Gaia's Earth is
-  procedural noise, with no NASA textures. Random and Auto-cycle in the Visualizer column
+  owner's recordings. Valley's terrain is layered ridges rather than raymarched. Gaia uses NASA's
+  Blue Marble and Black Marble maps, with its procedural Earth while they load. Random and
+  Auto-cycle in the Visualizer column
 
 ### M6: Remaining categories
 - Podcasts, Video (music videos via the existing player), Friends (Listen Together),

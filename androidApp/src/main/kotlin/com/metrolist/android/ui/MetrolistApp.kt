@@ -368,6 +368,7 @@ import com.metrolist.shared.utils.parseYouTubePodcastId
 import com.metrolist.shared.utils.parseYouTubeStartPositionMs
 import com.metrolist.shared.utils.parseYouTubeUrl
 import com.metrolist.shared.viewmodels.PlayerViewModel
+import com.metrolist.shared.xmb.XMB_SELF_UPDATES
 import com.metrolist.shared.youtube.playback.PlaybackNetworkStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -568,7 +569,8 @@ fun MetrolistApp(
             val available =
                 AppUpdateManager.checkAtStartup(
                     context = context,
-                    networkEnabled = Settings.shared.checkForUpdates,
+                    // XMB Music: Metrolist's releases would replace this app, so it never checks them.
+                    networkEnabled = XMB_SELF_UPDATES && Settings.shared.checkForUpdates,
                 )
             if (available == null) {
                 Settings.shared.updatePromptVersion = ""
