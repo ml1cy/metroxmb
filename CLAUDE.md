@@ -26,11 +26,14 @@ repo goes back to MetrolistGroup. The work plan is in [PLAN.md](PLAN.md).
   force pushing.
 - **Keep `origin` private.** The repo contains Sony PS3 assets (font, sounds) for personal use.
   Never make it public or share builds that include them.
-- **No GitHub Actions.** Upstream's workflows, composite actions and CI-only scripts/tests
-  (`.github/workflows/`, `.github/actions/`, `.github/scripts/`, `.github/tests/`,
-  `.github/actionlint.yaml`) are deleted: they need upstream's runners and secrets. Don't add
-  workflows back. On upstream merges, resolve modify/delete conflicts there by keeping the
-  files deleted, and delete any new files upstream adds under those paths. Run checks locally.
+- **GitHub Actions: only this project's own workflow** (`.github/workflows/build.yml`, the
+  owner's request): it builds the Android debug and release APKs, the Windows portable ZIP and the
+  Windows installer (`packaging/windows/xmb-music.iss`, Inno Setup), and publishes a release for
+  `v*` tags. Upstream's workflows, composite actions and CI-only scripts/tests
+  (`.github/actions/`, `.github/scripts/`, `.github/tests/`, `.github/actionlint.yaml`, their
+  files in `.github/workflows/`) stay deleted: they need upstream's runners and secrets. On
+  upstream merges, resolve modify/delete conflicts there by keeping them deleted, and delete any
+  new files upstream adds under those paths.
 - Metrolist's docs still describe their CI (`docs/checks.md` "CI path selection",
   `docs/releasing.md`, `docs/build-performance.md`, `docs/distribution.md`,
   `docs/desktop-native-image.md`, `docs/install/README.md`). Those parts don't apply here, nor
