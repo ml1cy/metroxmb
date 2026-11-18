@@ -24,6 +24,7 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `users.png` | Users signed out: Log in |
 | `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the PS3-style track overlay |
 | `visualizer-transition-0.png` … `-100.png` | The move into Waves at 0, 35, 65 and 100%: sky and ribbon blending, the track card sliding into the overlay |
+| `phone-keyboard.png` | The on-screen keyboard on an upright phone: narrower keys, suggestions below |
 | `phone-portrait.png`, `phone-visualizer.png` | A 411 dp phone held upright: the menu, and full-screen Waves with the stacked track info |
 | `xmb-theme-settings.png` | Settings > Theme Settings: color, custom hue (dimmed until Color is Custom), background, wave rows |
 | `keyboard-shortcuts.png` | Settings > Keyboard Shortcuts with the default keys |

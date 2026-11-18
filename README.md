@@ -128,9 +128,16 @@ Every shortcut can be changed in Settings > Keyboard Shortcuts: select it and pr
 (hold Ctrl, Shift or Alt for a combination; Esc cancels, Backspace clears). Arrow keys, Enter,
 Esc, Tab and media keys need a modifier there, because they move through the menu.
 
-On Android, touch works too: drag to move (up for the next item, left for the next category),
-tap the focused row to select or elsewhere to step toward it, hold for options (△), and use the
-system back gesture or button for ○. TV remotes and controllers use the D-pad and A/B buttons.
+On Android, touch works too:
+- **Tap:** a row highlights it, and a second tap selects it. A category icon switches category.
+  The folder icon on the left goes back.
+- **Hold:** opens a row's options (△).
+- **Drag:** up for the next items, left for the next categories; flick to scroll further.
+- **Keyboard and panels:** tap keys and suggestions on the on-screen keyboard, and values, options
+  and buttons in panels. Tap outside a panel to close it.
+- **Back:** use the system back gesture or button for ○.
+
+With a mouse, clicks do the same, and a right-click opens options. TV remotes and controllers use the D-pad and A/B buttons.
 On desktop the UI toolkit has no gamepad input yet.
 
 ## Getting it

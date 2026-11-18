@@ -127,7 +127,10 @@ internal fun XmbBar(
         if (abs(index - navigation.category) > geometry.visibleCategories) return@forEachIndexed
         key(category.id) {
             val distance = { abs(index - categoryPosition.value) }
-            CategoryIcon(category.icon, metrics.categoryIcon, geometry, index, categoryPosition::value, distance)
+            // Only what's in view takes taps: the icons and the focused column, at the top level (an
+            // opened folder fades them out; a neighbor column is invisible at rest but still laid out).
+            val atTop = navigation.stack.isEmpty()
+            CategoryIcon(category.icon, metrics.categoryIcon, geometry, index, categoryPosition::value, distance, tappable = atTop)
             BasicText(
                 text = stringResource(category.title),
                 style = labelStyle,
@@ -144,6 +147,7 @@ internal fun XmbBar(
                     category = category,
                     focusedItem = navigation.items.getOrElse(index) { 0 },
                     isFocusedCategory = index == navigation.category,
+                    rowsTappable = atTop && index == navigation.category,
                     itemPosition = itemPositions[index]::value,
                     columnX = { geometry.categoryX(index - categoryPosition.value) },
                     columnAlpha = { (1f - distance()).coerceIn(0f, 1f) },
@@ -165,11 +169,14 @@ private fun CategoryIcon(
     index: Int,
     position: () -> Float,
     distance: () -> Float,
+    tappable: Boolean,
 ) {
+    val taps = LocalXmbTaps.current
     Box(
         Modifier
             .placeAt(alignX = 0.5f, alignY = 0.5f) { Offset(geometry.categoryX(index - position()), geometry.barY) }
             .size(size)
+            .then(if (tappable) Modifier.xmbTap { taps?.category(index) } else Modifier)
             .graphicsLayer {
                 val focus = (1f - distance()).coerceIn(0f, 1f)
                 val scale = lerp(XmbMotion.UNFOCUSED_CATEGORY_SCALE, 1f, focus)
@@ -187,6 +194,7 @@ private fun ItemColumn(
     category: XmbCategory,
     focusedItem: Int,
     isFocusedCategory: Boolean,
+    rowsTappable: Boolean,
     itemPosition: () -> Float,
     columnX: () -> Float,
     columnAlpha: () -> Float,
@@ -196,6 +204,7 @@ private fun ItemColumn(
     listsEnabled: Boolean,
 ) {
     val styles = rememberXmbRowStyles(metrics, fontFamily)
+    val taps = LocalXmbTaps.current
     category.items.forEachIndexed { index, item ->
         if (index < focusedItem - ITEMS_ABOVE || index > focusedItem + ITEMS_BELOW) return@forEachIndexed
         key(item.id) {
@@ -215,7 +224,14 @@ private fun ItemColumn(
                     Modifier
                         .placeAt(alignY = 0.5f) {
                             Offset(columnX() - geometry.itemIcon / 2f, geometry.itemY(relative()))
-                        }.graphicsLayer { alpha = columnAlpha() * lerp(XmbMotion.UNFOCUSED_ITEM_ALPHA, 1f, focus()) },
+                        }.graphicsLayer { alpha = columnAlpha() * lerp(XmbMotion.UNFOCUSED_ITEM_ALPHA, 1f, focus()) }
+                        .then(
+                            if (rowsTappable) {
+                                Modifier.xmbTap(onLongPress = { taps?.row(index, true) }) { taps?.row(index, false) }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 iconScale = { lerp(XmbMotion.UNFOCUSED_ITEM_SCALE, 1f, focus()) },
             ) {
                 XmbArtwork(item.artwork, item.icon, metrics.itemIcon)

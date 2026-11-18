@@ -1,8 +1,16 @@
 package com.metrolist.shared.xmb
 
 import androidx.compose.ui.unit.dp
+import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.nav.XmbIcon
+import com.metrolist.shared.xmb.nav.XmbLevel
+import com.metrolist.shared.xmb.nav.XmbNavigation
+import com.metrolist.shared.xmb.nav.XmbTouchGesture
 import com.metrolist.shared.xmb.nav.XmbTouchTracker
+import com.metrolist.shared.xmb.nav.focusCategory
+import com.metrolist.shared.xmb.nav.focusRow
+import com.metrolist.shared.xmb.theme.XmbIcons
 import com.metrolist.shared.xmb.theme.XmbMetrics
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,7 +32,7 @@ class XmbTouchTest {
         assertEquals(listOf(XmbAction.DOWN, XmbAction.DOWN), touch.move(500f, 350f))
         // Back the other way undoes steps.
         assertEquals(listOf(XmbAction.UP, XmbAction.UP), touch.move(500f, 450f))
-        assertNull(touch.up(500f, 450f, 300L, 500f, 500f, 300f), "a drag isn't a tap")
+        assertNull(touch.up(300L), "a drag isn't a tap")
     }
 
     @Test
@@ -39,22 +47,40 @@ class XmbTouchTest {
     }
 
     @Test
-    fun tapsSelectOrStepTowardTheTap() {
-        fun tap(
-            x: Float,
-            y: Float,
-            heldMs: Long = 80L,
-        ) = tracker().run {
-            down(x, y, 0L)
-            up(x, y, heldMs, focusX = 300f, focusY = 500f, rowY = 300f)
-        }
-        assertEquals(XmbAction.SELECT, tap(700f, 520f), "anywhere along the focused row")
-        assertEquals(XmbAction.DOWN, tap(300f, 600f))
-        assertEquals(XmbAction.UP, tap(300f, 420f))
-        assertEquals(XmbAction.RIGHT, tap(450f, 310f), "on the category row: along the row")
-        assertEquals(XmbAction.LEFT, tap(150f, 290f))
-        assertNull(tap(320f, 300f), "the focused category itself")
-        assertEquals(XmbAction.OPTIONS, tap(300f, 500f, heldMs = 700L), "a long press")
+    fun aTouchThatMadeNoStepIsATapEvenIfItWobbled() {
+        val still = tracker().apply { down(500f, 500f, 0L) }
+        assertEquals(XmbTouchGesture.TAP, still.up(120L))
+        // Past the slop but short of a step: still a tap, not a lost touch.
+        val wobbly = tracker().apply { down(500f, 500f, 0L) }
+        assertEquals(emptyList(), wobbly.move(500f, 485f))
+        assertEquals(XmbTouchGesture.TAP, wobbly.up(150L))
+        val held = tracker().apply { down(500f, 500f, 0L) }
+        assertEquals(XmbTouchGesture.LONG_PRESS, held.up(700L))
+    }
+
+    @Test
+    fun aFlickCoastsOnButASlowReleaseStops() {
+        val flick = tracker().apply { down(500f, 500f, 0L) }
+        flick.move(500f, 440f)
+        assertTrue(flick.vertical)
+        // 2,000 px/s upward over 0.18 s is 360 px: 7 more items down.
+        assertEquals(List(7) { XmbAction.DOWN }, flick.flingSteps(-2000f))
+        assertEquals(List(12) { XmbAction.DOWN }, flick.flingSteps(-20000f), "capped")
+        assertEquals(emptyList(), flick.flingSteps(-200f), "a slow release")
+        val tap = tracker().apply { down(500f, 500f, 0L) }
+        assertEquals(emptyList(), tap.flingSteps(-2000f), "no drag, no flick")
+    }
+
+    @Test
+    fun tapsFocusRowsAndCategoriesDirectly() {
+        val start = XmbNavigation.initial(listOf(3, 5, 9), 1)
+        assertEquals(2, start.focusCategory(2).category)
+        assertEquals(1, start.focusCategory(7).category, "no such category")
+        assertEquals(4, start.focusRow(4).item)
+        val level = XmbLevel(XmbList.Home, "Home", XmbIcon.Vector(XmbIcons.Theme))
+        val opened = start.push(level)
+        assertEquals(6, opened.focusRow(6).level?.focus)
+        assertEquals(1, opened.focusCategory(0).category, "categories don't change inside a folder")
     }
 
     @Test

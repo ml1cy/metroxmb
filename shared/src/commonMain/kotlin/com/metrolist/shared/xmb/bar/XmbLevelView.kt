@@ -70,12 +70,14 @@ internal fun XmbLevelView(
     val enter = remember(level.list.key) { Animatable(0f) }
     LaunchedEffect(level.list.key) { enter.animateTo(1f, tween(XmbMotion.FADE_MS, easing = XmbMotion.scrollEasing)) }
     val slide = with(LocalDensity.current) { metrics.unit.toPx() * 40f }
+    val taps = LocalXmbTaps.current
 
     Box(
         Modifier
             .placeAt(alignX = 0.5f, alignY = 0.5f) { Offset(geometry.anchorX - geometry.parentOffset, geometry.focusY) }
             .size(metrics.itemIcon)
-            .graphicsLayer { alpha = visible() * 0.8f * (1f - 0.6f * dim()) },
+            .graphicsLayer { alpha = visible() * 0.8f * (1f - 0.6f * dim()) }
+            .xmbTap { taps?.parent() },
     ) {
         XmbArtwork(level.artwork, level.icon, metrics.itemIcon)
     }
@@ -118,7 +120,7 @@ internal fun XmbLevelView(
                         .graphicsLayer {
                             val rest = lerp(XmbMotion.UNFOCUSED_ITEM_ALPHA, 1f, emphasis()) * (1f - PICKER_DIM * (1f - emphasis()) * dim())
                             alpha = visible() * enter.value * rest * (if (entry.enabled) 1f else DISABLED_ALPHA)
-                        },
+                        }.xmbTap(onLongPress = { taps?.levelRow(index, true) }) { taps?.levelRow(index, false) },
                 iconScale = { lerp(XmbMotion.UNFOCUSED_ITEM_SCALE, 1f, emphasis()) },
             ) {
                 XmbArtwork(entry.artwork, entry.icon, metrics.itemIcon)

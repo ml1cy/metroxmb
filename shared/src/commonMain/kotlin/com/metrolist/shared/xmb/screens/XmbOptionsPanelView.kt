@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
@@ -39,6 +40,8 @@ import com.metrolist.shared.generated.resources.start_radio
 import com.metrolist.shared.generated.resources.unlike
 import com.metrolist.shared.generated.resources.view_album
 import com.metrolist.shared.generated.resources.view_artist
+import com.metrolist.shared.xmb.bar.LocalXmbTaps
+import com.metrolist.shared.xmb.bar.xmbTap
 import com.metrolist.shared.xmb.nav.XmbOption
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.theme.XmbMetrics
@@ -104,6 +107,7 @@ internal fun XmbOptionsPanelView(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            val taps = LocalXmbTaps.current
             current.options.forEachIndexed { index, option ->
                 val focused = index == current.focus
                 BasicText(
@@ -111,6 +115,7 @@ internal fun XmbOptionsPanelView(
                     style = if (focused) style.copy(shadow = glow) else style.copy(color = Color.White.copy(alpha = 0.6f)),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().xmbTap { taps?.option(index) },
                 )
             }
         }
