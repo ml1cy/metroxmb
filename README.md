@@ -65,8 +65,11 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   playlist (or a new one), Download/Remove download, View album, View artist.
 - **Settings.** Every page of Metrolist's settings as XMB lists with the current value on the
   right. Switches and choices open a value list, sliders a slider, text the on-screen keyboard;
-  nothing changes until ✕ confirms. Pages with their own screens (storage, backup, updates, about,
-  MetroEQ, fonts) open the standard settings window over the XMB.
+  nothing changes until ✕ confirms. About, MetroEQ, Storage and Backup are XMB pages too, and
+  Integrations (Discord, Last.fm, ListenBrainz, Device Connect, Listen Together) follow the
+  settings pages. A few pages with their own screens (developer tools, Android Auto, AI lyrics
+  setup) and sign-ins still open the standard window. Updates are off: Metrolist's releases would
+  replace XMB Music.
 - **XMB settings.** Five pages at the top of the Settings column:
   - **Theme Settings:** color (the console's monthly color, any one month's color all year, or a
     custom hue), dim at night, a background image with dimming, and the wave, sparkles, the wave
@@ -219,20 +222,19 @@ XMB code lives in the shared module; platform glue sits in each app.
 
 - On Windows the app turns off background power throttling and asks for 1 ms timers, so the XMB
   and playback stay smooth behind other windows (Windows 11 throttles background apps otherwise).
-- Android (M7) shows the XMB with lyrics, music videos, touch and the visualizers, but hasn't been
-  run on a phone, tablet or TV here: it builds, its drawing and shaders are tested under
-  Robolectric, and its touch logic is tested. Sign-in and some settings pages still open the
-  standard Android screens.
+- Android (M7) is XMB-only, like desktop, but hasn't been run on a phone, tablet or TV here: it
+  builds, its drawing and shaders are tested under Robolectric, and its touch logic is tested.
+  Web sign-in, song recognition, browse pages, playlist import, the Listen Together room screen
+  and a few settings pages still open standard screens.
 
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
   yet.
 - The Windows portable build is assembled on Linux. The title bar over the XMB and the
   keys-after-Alt+Tab fix were checked on Linux only.
 - Sign-in on Linux needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), as in the standard interface.
-- Searches made in the XMB show up in the standard search screen's history after a restart.
 - The on-screen keyboard and value pickers have no console frames to match yet.
-- Features without an XMB screen yet (statistics, playlist editing) aren't reachable on desktop;
-  their settings are in the Settings column.
+- Features without an XMB screen yet (statistics, playlist editing, queue reordering) aren't
+  reachable; their settings are in the Settings column.
 - Podcasts, videos and Listen Together were built and tested without network access to YouTube or
   the Listen Together server; full-screen video was only checked with a stand-in frame.
 - `users.png` and `artist.png` are 68×68 and look soft when enlarged.
