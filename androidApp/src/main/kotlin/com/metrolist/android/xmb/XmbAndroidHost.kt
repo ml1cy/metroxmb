@@ -151,6 +151,7 @@ internal fun XmbAndroidHost(
         },
     )
     val storage = rememberAndroidXmbStorage()
+    val recognition = rememberAndroidXmbRecognition()
     val backup = rememberAndroidXmbBackup(database)
     val system =
         remember(storage, backup, listenTogether, database) {
@@ -163,7 +164,7 @@ internal fun XmbAndroidHost(
             )
         }
     val services =
-        remember(model, playback, listenTogether, lyrics, video, system) {
+        remember(model, playback, listenTogether, lyrics, video, system, recognition) {
             XmbServices(
                 playback = playback,
                 music = model.music,
@@ -209,6 +210,7 @@ internal fun XmbAndroidHost(
                 video = video,
                 deviceConnect = AndroidDeviceConnect.manager,
                 playlists = DatabaseXmbPlaylists(database),
+                recognition = recognition,
             )
         }
     ImmersiveSystemBars()

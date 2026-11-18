@@ -108,6 +108,9 @@ sealed interface XmbItemAction {
     /** Sets or cancels the sleep timer. */
     data object SleepTimer : XmbItemAction
 
+    /** Identifies the song playing nearby. */
+    data object IdentifySong : XmbItemAction
+
     /** Friends: turns Listen Together on. */
     data object EnableListenTogether : XmbItemAction
 

@@ -19,8 +19,19 @@ data class XmbOpen(
     val title: String = "",
     /** Show the playing song full screen (its last visualizer, with the track) over the XMB. */
     val nowPlaying: Boolean = false,
+    /** Start Identify Song. */
+    val identifySong: Boolean = false,
 ) {
     companion object {
+        /** Identify Song: the recognition shortcut or widget. */
+        fun identifySong() = XmbOpen(XmbCategoryId.MUSIC, identifySong = true)
+
+        fun browse(
+            id: String,
+            params: String?,
+            title: String,
+        ) = XmbOpen(XmbCategoryId.MUSIC, XmbList.Browse(id, params, title), title)
+
         /** The player: a notification or the "open player" shortcut. */
         fun nowPlaying() = XmbOpen(XmbCategoryId.MUSIC, nowPlaying = true)
 

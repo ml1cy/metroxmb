@@ -5681,4 +5681,6 @@
     <string name="xmb_import_started">Importing playlist…</string>
     <string name="xmb_import_finished">%1$s: %2$d of %3$d songs added</string>
     <string name="xmb_import_failed">Couldn\'t import that playlist</string>
+    <string name="xmb_recognize_description">Name the song playing nearby</string>
+    <string name="xmb_recognition_identifying">Identifying…</string>
 </resources>

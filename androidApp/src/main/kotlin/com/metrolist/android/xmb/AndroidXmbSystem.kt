@@ -1,5 +1,6 @@
 package com.metrolist.android.xmb
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,6 +19,7 @@ import com.metrolist.android.backup.BackupRestoreManager
 import com.metrolist.android.playback.AudioCacheManager
 import com.metrolist.android.playback.MusicService
 import com.metrolist.android.playback.SongDownloadManager
+import com.metrolist.android.recognition.MusicRecognitionService
 import com.metrolist.android.ui.player.CanvasCache
 import com.metrolist.shared.api.artwork.AnimatedArtworkService
 import com.metrolist.shared.api.musicvideo.MusicVideoResolver
@@ -40,6 +42,7 @@ import com.metrolist.shared.generated.resources.podcasts
 import com.metrolist.shared.generated.resources.settings_quick_add_summary
 import com.metrolist.shared.generated.resources.shuffle
 import com.metrolist.shared.generated.resources.uploaded_playlist_name
+import com.metrolist.shared.recognition.RecognitionStatus
 import com.metrolist.shared.settings.AutomotiveAutoPlaylist
 import com.metrolist.shared.settings.AutomotivePinnedPlaylist
 import com.metrolist.shared.settings.AutomotivePinnedPlaylistPlaybackMode
@@ -53,12 +56,14 @@ import com.metrolist.shared.storage.SongCacheLimitsMb
 import com.metrolist.shared.ui.settings.SettingsChoice
 import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.SettingsItemRegistration
+import com.metrolist.shared.xmb.XmbRecognition
 import com.metrolist.shared.xmb.settings.XmbBackup
 import com.metrolist.shared.xmb.settings.XmbStorage
 import com.metrolist.shared.xmb.settings.XmbStorageUsage
 import com.metrolist.shared.xmb.settings.XmbStore
 import com.metrolist.shared.xmb.settings.XmbSystemHooks
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
@@ -361,4 +366,27 @@ internal fun androidAutoXmbRows(
 private fun notifyAutomotiveChanged(context: Context) {
     if (!MusicService.isRunning) return
     context.startService(Intent(context, MusicService::class.java).setAction(MusicService.ACTION_REFRESH_AUTOMOTIVE_LIBRARY))
+}
+
+/** Identify Song through the stock recognition service, asking for the microphone first. */
+@Composable
+internal fun rememberAndroidXmbRecognition(): XmbRecognition {
+    val context = LocalContext.current.applicationContext
+    val scope = rememberCoroutineScope()
+    val listen = { scope.launch { MusicRecognitionService.recognize(context) } }
+    val permission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) listen()
+        }
+    return remember(context, permission) {
+        object : XmbRecognition {
+            override val status: StateFlow<RecognitionStatus> = MusicRecognitionService.status
+
+            override fun start() {
+                if (MusicRecognitionService.hasRecordPermission(context)) listen() else permission.launch(Manifest.permission.RECORD_AUDIO)
+            }
+
+            override fun reset() = MusicRecognitionService.reset()
+        }
+    }
 }

@@ -196,6 +196,16 @@ class DefaultXmbMusicSource(
                 }
             }
 
+            is XmbList.Browse -> {
+                once {
+                    repository()
+                        .getBrowsePageData(list.browseId, list.params, list.title, loadAllPages = false)
+                        .sections
+                        .filter { it.items.isNotEmpty() }
+                        .mapIndexed { index, section -> section.toXmbEntry(index) }
+                }
+            }
+
             is XmbList.SearchResults -> {
                 search?.results(list.query) ?: flowOf(XmbListState.failed)
             }

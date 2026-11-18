@@ -21,6 +21,7 @@ fun xmbCategories(
     settings: List<XmbItem> = emptyList(),
     search: List<XmbItem> = xmbSearchItems(emptyList()),
     friends: List<XmbItem> = xmbFriendItems(null),
+    canRecognize: Boolean = false,
 ): List<XmbCategory> =
     listOf(
         XmbCategory(XmbCategoryId.USERS, Res.string.xmb_category_users, drawable(Res.drawable.xmb_cat_users), users),
@@ -52,6 +53,15 @@ fun xmbCategories(
                 Res.string.xmb_queue_description,
                 list = XmbList.Queue,
             ),
+            *listOfNotNull(
+                XmbItem(
+                    "identify_song",
+                    Res.string.recognize_music,
+                    drawable(Res.drawable.xmb_item_song),
+                    Res.string.xmb_recognize_description,
+                    XmbItemAction.IdentifySong,
+                ).takeIf { canRecognize },
+            ).toTypedArray(),
             XmbItem(
                 "sleep_timer",
                 Res.string.sleep_timer,

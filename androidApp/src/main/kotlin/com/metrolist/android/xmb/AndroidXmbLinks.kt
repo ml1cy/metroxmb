@@ -33,6 +33,14 @@ internal object AndroidXmbLinks {
 /** Where the XMB shows [destination], or null when only a stock screen can. */
 internal suspend fun xmbOpenFor(destination: IncomingDestination): XmbOpen? =
     when (destination) {
+        IncomingDestination.Recognition -> {
+            XmbOpen.identifySong()
+        }
+
+        is IncomingDestination.Browse -> {
+            XmbOpen.browse(destination.id, destination.params, destination.title.orEmpty())
+        }
+
         IncomingDestination.Player -> {
             XmbOpen.nowPlaying()
         }
@@ -114,6 +122,8 @@ internal fun xmbOpenForScreen(screen: Screen): XmbOpen? =
         Screen.About -> XmbOpen.settings(SettingsPageId.ABOUT)
         Screen.Storage -> XmbOpen.settings(SettingsPageId.STORAGE)
         Screen.BackupRestore -> XmbOpen.settings(SettingsPageId.BACKUP_RESTORE)
+        Screen.Recognition, Screen.RecognitionHistory -> XmbOpen.identifySong()
+        is Screen.Browse -> XmbOpen.browse(screen.browseId, screen.params, screen.title.orEmpty())
         else -> null
     }
 

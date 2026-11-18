@@ -103,6 +103,15 @@ sealed interface XmbList {
         override val key = "feed_videos"
     }
 
+    /** A browse page (a mood, a genre, a chart): its shelves, each opening as a [Section]. */
+    data class Browse(
+        val browseId: String,
+        val params: String? = null,
+        val title: String? = null,
+    ) : XmbList {
+        override val key = "browse:$browseId:$params"
+    }
+
     /** The play queue, built from the playback state. */
     data object Queue : XmbList {
         override val key = "queue"

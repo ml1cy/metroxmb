@@ -269,6 +269,9 @@ fun XmbApp(
     initialKeyboard: XmbKeyboard? = null,
     initialFullScreen: XmbFullScreen? = null,
 ) {
+    // Identify Song's listening and result show as notices, after the host's own.
+    @Suppress("NAME_SHADOWING")
+    val notice = notice ?: rememberXmbRecognitionNotice(services?.recognition, services?.playback)
     // The XMB's own settings (Settings column: Theme, Date and Time, Sound, Keyboard Shortcuts, Music Player).
     val prefs = XmbPrefs.current()
     val platformSounds = LocalXmbSoundPlayer.current
@@ -393,6 +396,7 @@ fun XmbApp(
                 xmbOwnSettingsItems() + registry?.let { xmbSettingsItems(it, drawnPages, hidden = XMB_HIDDEN_SETTINGS_PAGES) }.orEmpty(),
             search = xmbSearchItems(history),
             friends = xmbFriendItems(friends),
+            canRecognize = services?.recognition != null,
         )
     val itemCounts = categories.map { it.items.size }
     val itemTitles = categories.map { category -> category.items.map { it.title.resolve() } }
@@ -786,6 +790,10 @@ fun XmbApp(
 
             XmbItemAction.WatchVideo -> {
                 if (!watchVideo()) return XmbFeedback.ERROR
+            }
+
+            XmbItemAction.IdentifySong -> {
+                services?.recognition?.start() ?: return XmbFeedback.ERROR
             }
 
             XmbItemAction.SleepTimer -> {
@@ -1395,6 +1403,10 @@ fun XmbApp(
         )
     LaunchedEffect(pendingOpen) {
         val target = input?.takeOpen() ?: return@LaunchedEffect
+        if (target.identifySong) {
+            services?.recognition?.start()
+            return@LaunchedEffect
+        }
         if (target.nowPlaying) {
             // The player, the XMB way: the last visualizer full screen with the track, over whatever is open.
             if (services

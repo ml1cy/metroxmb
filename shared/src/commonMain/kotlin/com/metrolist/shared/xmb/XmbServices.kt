@@ -128,6 +128,8 @@ class XmbServices(
     val deviceConnect: DeviceConnectManager? = null,
     /** Playlists for Add to Playlist; null hides the option. */
     val playlists: XmbPlaylists? = null,
+    /** Identify Song (Android's microphone recognition); null hides it. */
+    val recognition: XmbRecognition? = null,
     val volume: XmbVolume? = null,
     val wallpaper: XmbWallpaper? = null,
 )
