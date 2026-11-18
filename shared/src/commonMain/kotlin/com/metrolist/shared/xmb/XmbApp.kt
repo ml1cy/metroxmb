@@ -63,7 +63,14 @@ import androidx.compose.ui.unit.Density
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.album
+import com.metrolist.shared.generated.resources.artist
+import com.metrolist.shared.generated.resources.downloads
+import com.metrolist.shared.generated.resources.history
+import com.metrolist.shared.generated.resources.liked_songs
 import com.metrolist.shared.generated.resources.no
+import com.metrolist.shared.generated.resources.playlist
+import com.metrolist.shared.generated.resources.podcast
 import com.metrolist.shared.generated.resources.xmb_cat_search
 import com.metrolist.shared.generated.resources.xmb_item_album
 import com.metrolist.shared.generated.resources.xmb_item_artist
@@ -1134,6 +1141,17 @@ fun XmbApp(
     LaunchedEffect(input) { input?.toasts?.collect { showToast(it) } }
     // A link, app shortcut or notification: its category, with the level opened, over anything open.
     val pendingOpen = input?.pendingOpen
+    // A link carries only an id: its level is titled with a generic word until it loads.
+    val genericTitles =
+        mapOf(
+            "album" to stringResource(Res.string.album),
+            "artist" to stringResource(Res.string.artist),
+            "playlist" to stringResource(Res.string.playlist),
+            "podcast" to stringResource(Res.string.podcast),
+            "downloads" to stringResource(Res.string.downloads),
+            "history" to stringResource(Res.string.history),
+            "liked" to stringResource(Res.string.liked_songs),
+        )
     LaunchedEffect(pendingOpen) {
         val target = input?.takeOpen() ?: return@LaunchedEffect
         if (target.nowPlaying) {
@@ -1161,7 +1179,19 @@ fun XmbApp(
         fullScreen = null
         val list = target.list
         val title =
-            (list as? XmbList.SettingsPage)?.let { registry?.get(it.page)?.title } ?: target.title
+            (list as? XmbList.SettingsPage)?.let { registry?.get(it.page)?.title }
+                ?: target.title.ifBlank {
+                    when (list) {
+                        is XmbList.Album -> genericTitles["album"]
+                        is XmbList.Artist -> genericTitles["artist"]
+                        is XmbList.Playlist -> genericTitles["playlist"]
+                        is XmbList.Podcast -> genericTitles["podcast"]
+                        XmbList.Downloads -> genericTitles["downloads"]
+                        XmbList.History -> genericTitles["history"]
+                        XmbList.Liked -> genericTitles["liked"]
+                        else -> null
+                    }.orEmpty()
+                }
         val icon =
             XmbIcon.Drawable(
                 when (list) {

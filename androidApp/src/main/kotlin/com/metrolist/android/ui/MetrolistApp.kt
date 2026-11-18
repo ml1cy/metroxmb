@@ -244,6 +244,7 @@ import com.metrolist.android.widget.PlaylistWidgetReceiver
 import com.metrolist.android.xmb.AndroidXmbLinks
 import com.metrolist.android.xmb.XmbAndroidHost
 import com.metrolist.android.xmb.xmbOpenFor
+import com.metrolist.android.xmb.xmbOpenForScreen
 import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.auth.YouTubeSessionState
@@ -493,6 +494,17 @@ fun MetrolistApp(
         val startupPresentation = LocalStartupPresentation.current
         SideEffect { startupPresentation?.homeRequired = currentRoute == Screen.Home }
         val navigator = remember(navigationState) { Navigator(navigationState) }
+        // XMB Music: routes the XMB shows (albums, artists, playlists, downloads, settings it draws...)
+        // open there, whichever stock screen links to them.
+        SideEffect {
+            navigator.redirect = { route ->
+                xmbOpenForScreen(route)?.let { target ->
+                    AndroidXmbLinks.open(target)
+                    navigator.navigateToRoot(Screen.Home)
+                    true
+                } ?: false
+            }
+        }
         val homeScrollToTopEvents =
             remember {
                 MutableSharedFlow<Long>(
