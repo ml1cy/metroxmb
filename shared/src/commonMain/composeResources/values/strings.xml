@@ -5659,4 +5659,6 @@
     <string name="xmb_eq_reset">Reset Bands</string>
     <string name="xmb_eq_save">Save as Profile</string>
     <string name="xmb_eq_save_description">Saves the current bands under a new name</string>
+    <string name="xmb_onboarding_welcome">Welcome to XMB Music</string>
+    <string name="xmb_onboarding_step">Setup %1$d/%2$d</string>
 </resources>

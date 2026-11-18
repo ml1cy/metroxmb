@@ -41,6 +41,9 @@ import com.metrolist.shared.model.ArtistTiny
 import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.onboarding.OnboardingPage
+import com.metrolist.shared.ui.onboarding.OnboardingPageContent
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.playback.PlaybackUiState
 import com.metrolist.shared.ui.settings.SettingsPageId
@@ -64,6 +67,8 @@ import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
+import com.metrolist.shared.xmb.screens.XmbOnboarding
+import com.metrolist.shared.xmb.screens.XmbOnboardingAction
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
 import com.metrolist.shared.xmb.settings.XmbSettingsPageId
 import com.metrolist.shared.xmb.settings.XmbStorage
@@ -172,6 +177,27 @@ class XmbSnapshotCapture {
                         initialLevels = listOf(systemLevel(SettingsPageId.ABOUT, "About")),
                     )
                 },
+                Screen("onboarding-welcome") {
+                    XmbOnboarding(
+                        onboardingPage(
+                            OnboardingPage.WELCOME,
+                            "Welcome",
+                            "Set up privacy and system permissions before your first listen.",
+                            0,
+                        ),
+                    )
+                },
+                Screen("onboarding-finish") {
+                    XmbOnboarding(
+                        onboardingPage(
+                            OnboardingPage.FINISH,
+                            "You're all set",
+                            "Setup is complete. Start listening, or bring your account and data with you first.",
+                            3,
+                        ),
+                        actions = listOf(XmbOnboardingAction("Log in") {}, XmbOnboardingAction("Restore from backup") {}),
+                    )
+                },
                 Screen("settings-picker") {
                     XmbApp(
                         services = demoServices,
@@ -272,6 +298,17 @@ class XmbSnapshotCapture {
                     )
                 },
                 // An upright phone (411 dp wide): the menu, and the full-screen track info stacked.
+                Screen("onboarding-phone", 1080, 2340, density = 2.625f) {
+                    XmbOnboarding(
+                        onboardingPage(
+                            OnboardingPage.FINISH,
+                            "You're all set",
+                            "Setup is complete. Start listening, or bring your account and data with you first.",
+                            3,
+                        ),
+                        actions = listOf(XmbOnboardingAction("Log in") {}, XmbOnboardingAction("Restore from backup") {}),
+                    )
+                },
                 Screen("phone-portrait", 1080, 2340, density = 2.625f) {
                     XmbApp(services = demoServices, time = { day }, animate = false, initialItem = 2)
                 },
@@ -491,6 +528,28 @@ class XmbSnapshotCapture {
             "Waves keep time against the pier",
             "And I keep time with you",
         ).mapIndexed { index, line -> LyricsEntry(time = 72_000L + index * 6_000L, text = line) }
+
+    private fun onboardingPage(
+        page: OnboardingPage,
+        title: String,
+        description: String,
+        step: Int,
+    ) = OnboardingPageContent(
+        page = page,
+        title = title,
+        description = description,
+        icon = MetrolistIcons.Filled.Check,
+        step = step,
+        stepCount = 4,
+        primaryLabel = if (page == OnboardingPage.FINISH) "Start listening" else "Begin setup",
+        secondaryLabel = null,
+        isWorking = false,
+        error = null,
+        backLabel = "Back",
+        onPrimary = {},
+        onSecondary = null,
+        onBack = null,
+    )
 
     private fun systemLevel(
         page: SettingsPageId,

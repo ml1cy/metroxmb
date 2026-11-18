@@ -4,7 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,6 +33,7 @@ import com.metrolist.shared.xmb.theme.XmbMetrics
  * A notice the console way: the XMB dims, and a dark band across the middle carries the title,
  * the message, optional details and the buttons, the focused one lit.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun XmbNoticeView(
     notice: XmbNotice,
@@ -67,9 +69,14 @@ internal fun XmbNoticeView(
                 modifier = Modifier.widthIn(max = unit * 900).padding(vertical = unit * 34, horizontal = unit * 40),
             ) {
                 notice.title?.let { BasicText(it, style = style(16f, 0.7f)) }
-                BasicText(notice.message, style = style(22f), maxLines = 4, overflow = TextOverflow.Ellipsis)
+                BasicText(notice.message, style = style(22f), maxLines = 8, overflow = TextOverflow.Ellipsis)
                 notice.details?.let { BasicText(it, style = style(14f, 0.65f), maxLines = 6, overflow = TextOverflow.Ellipsis) }
-                Row(horizontalArrangement = Arrangement.spacedBy(unit * 24), modifier = Modifier.padding(top = unit * 10)) {
+                // Buttons wrap onto more lines on narrow (portrait) screens.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(unit * 24, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(unit * 10),
+                    modifier = Modifier.padding(top = unit * 10),
+                ) {
                     val taps = LocalXmbTaps.current
                     notice.buttons.forEachIndexed { index, label ->
                         val focused = index == focus

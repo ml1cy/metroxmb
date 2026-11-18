@@ -284,3 +284,11 @@ browse pages, playlist import and joining a room by link on Android still open s
 | Snackbars | shown as XMB toasts (`SnackbarsAsXmbToasts`); on desktop a snackbar with an action (an undo) stays a snackbar so the action works | Android's stock snackbar host isn't drawn in the XMB, so messages were lost; desktop's was a Material bar over the XMB |
 | Expired sign-in, Listen Together guest choice (Android) | XMB notices, as desktop already did for the sign-in and playback errors | The guest choice was only composed with the stock layout, so a guest's song request did nothing |
 | Row values | fade out over 24 units where they'd pass under the clock box or within 78 units of the bottom (the now-playing card) | They overlapped both |
+
+## First-run setup (M7; `XmbOnboarding`)
+
+The onboarding pages (privacy, permissions, migration on Android, finish) keep their platform logic
+and draw as a notice band over the XMB's sky and wave: "Setup n/m", the title and text, and the
+choices as buttons (wrapping in portrait). ←/→ choose, ✕/Enter/Space confirms, ○/Esc goes back a
+page; buttons take taps. The language, lyrics and playback pages are left out: those settings are in
+the XMB's Settings column.
