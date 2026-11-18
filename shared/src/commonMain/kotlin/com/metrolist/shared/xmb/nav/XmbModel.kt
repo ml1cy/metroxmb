@@ -30,9 +30,11 @@ sealed interface XmbIcon {
     ) : XmbIcon
 }
 
-/** The visualizers the Visualizer column opens full screen. Valley and Gaia arrive in M5. */
+/** The visualizers the Visualizer column opens full screen. */
 enum class XmbVisualizerKind {
     WAVES,
+    VALLEY,
+    GAIA,
 }
 
 /** What fills the screen instead of the menu. */
@@ -41,6 +43,8 @@ sealed interface XmbFullScreen {
     data class Visualizer(
         val kind: XmbVisualizerKind,
         val lyrics: Boolean = false,
+        /** Auto-cycle: moves on to the next visualizer every so often. */
+        val cycle: Boolean = false,
     ) : XmbFullScreen
 
     /** The playing music video. */
@@ -88,6 +92,12 @@ sealed interface XmbItemAction {
     data class OpenVisualizer(
         val kind: XmbVisualizerKind,
     ) : XmbItemAction
+
+    /** Shows a visualizer chosen at random (not the last one). */
+    data object OpenRandomVisualizer : XmbItemAction
+
+    /** Shows the visualizers in turn. */
+    data object CycleVisualizers : XmbItemAction
 
     /** Shows the playing song's music video full screen. */
     data object WatchVideo : XmbItemAction

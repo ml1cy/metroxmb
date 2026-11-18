@@ -334,6 +334,8 @@ class Settings(
     var xmbNowPlayingCard by preference(true)
     var xmbTrackOverlay by preference("brief")
     var xmbIdleVisualizer by preference(0)
+    var xmbVisualizerQuality by preference("high")
+    var xmbFrameRate by preference(60)
     var androidCustomFontFile by preference(AndroidCustomFontFileKey, "")
     var androidCustomFontName by preference(AndroidCustomFontNameKey, "")
     var androidActiveFontId by preference(AndroidActiveFontIdKey, "")

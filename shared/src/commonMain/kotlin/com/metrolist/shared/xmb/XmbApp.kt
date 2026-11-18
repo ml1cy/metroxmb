@@ -1,5 +1,6 @@
 package com.metrolist.shared.xmb
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -78,7 +79,10 @@ import com.metrolist.shared.ui.settings.rememberMetrolistSettingsRegistry
 import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.background.XmbWaveNudge
+import com.metrolist.shared.visualizer.background.setRibbonPasses
+import com.metrolist.shared.visualizer.gaia.GaiaVisualizer
 import com.metrolist.shared.visualizer.rememberVisualizerAudio
+import com.metrolist.shared.visualizer.valley.ValleyVisualizer
 import com.metrolist.shared.visualizer.waves.XmbBackdrop
 import com.metrolist.shared.xmb.adapters.XmbEntry
 import com.metrolist.shared.xmb.adapters.XmbEntryKind
@@ -228,9 +232,23 @@ fun XmbApp(
     val motion = remember { XmbWaveMotion() }
     var fullScreen by remember { mutableStateOf(initialFullScreen) }
     val visualizerMode = fullScreen as? XmbFullScreen.Visualizer
+    // The visualizer on screen, kept while it fades out; Random avoids it, Auto-cycle starts from it.
+    var lastVisualizer by remember { mutableStateOf(XmbVisualizerKind.WAVES) }
+    visualizerMode?.let { lastVisualizer = it.kind }
+    LaunchedEffect(visualizerMode?.cycle, visualizerMode?.kind) {
+        val mode = visualizerMode ?: return@LaunchedEffect
+        if (!mode.cycle) return@LaunchedEffect
+        delay(CYCLE_MS)
+        val kinds = XmbVisualizerKind.entries
+        (fullScreen as? XmbFullScreen.Visualizer)?.takeIf { it.cycle }?.let { current ->
+            fullScreen = current.copy(kind = kinds[(kinds.indexOf(current.kind) + 1) % kinds.size])
+        }
+    }
     val audio = rememberVisualizerAudio(active = visualizerMode != null && animate)
     val waveSpeed by rememberUpdatedState(prefs.waveSpeed)
-    val seconds = rememberAnimationSeconds(animate, motion, audio) { waveSpeed }
+    val frameRate by rememberUpdatedState(prefs.frameRate)
+    val seconds = rememberAnimationSeconds(animate, motion, audio, { frameRate }) { waveSpeed }
+    SideEffect { setRibbonPasses(prefs.visualizerQuality.ribbonPasses) }
     // The full-screen visualizer's track overlay shows until this time, then fades.
     var overlayUntil by remember { mutableFloatStateOf(VISUALIZER_OVERLAY_SECONDS) }
     val focusRequester = remember { FocusRequester() }
@@ -508,6 +526,16 @@ fun XmbApp(
 
             is XmbItemAction.OpenVisualizer -> {
                 fullScreen = XmbFullScreen.Visualizer(action.kind)
+                overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            }
+
+            XmbItemAction.OpenRandomVisualizer -> {
+                fullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.entries.filter { it != lastVisualizer }.random())
+                overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            }
+
+            XmbItemAction.CycleVisualizers -> {
+                fullScreen = XmbFullScreen.Visualizer(lastVisualizer, cycle = true)
                 overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
             }
 
@@ -1226,6 +1254,34 @@ fun XmbApp(
                     wallpaperDim = prefs.wallpaperDim,
                 )
             }
+            // Valley and Gaia cover the backdrop (which turns to Waves beneath them); Auto-cycle crossfades.
+            if ((visualizerShown > 0f && lastVisualizer != XmbVisualizerKind.WAVES) || visualizerMode?.cycle == true) {
+                Crossfade(
+                    targetState = lastVisualizer,
+                    animationSpec = tween(CYCLE_FADE_MS),
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
+                    label = "visualizer",
+                ) { kind ->
+                    when (kind) {
+                        XmbVisualizerKind.WAVES -> {
+                            Unit
+                        }
+
+                        XmbVisualizerKind.VALLEY -> {
+                            ValleyVisualizer(
+                                audio,
+                                { seconds.floatValue },
+                                prefs.visualizerQuality,
+                                Modifier.fillMaxSize(),
+                            )
+                        }
+
+                        XmbVisualizerKind.GAIA -> {
+                            GaiaVisualizer(audio, { seconds.floatValue }, prefs.visualizerQuality, Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            }
             val video = services?.video
             if (video != null && (fullScreen == XmbFullScreen.Video || videoShown > 0f)) {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = videoShown }.background(Color.Black)) {
@@ -1431,6 +1487,7 @@ private fun rememberAnimationSeconds(
     animate: Boolean,
     motion: XmbWaveMotion,
     audio: VisualizerAudio,
+    frameRate: () -> Int,
     waveSpeed: () -> Float,
 ): MutableFloatState {
     val seconds = remember { mutableFloatStateOf(0f) }
@@ -1442,6 +1499,8 @@ private fun rememberAnimationSeconds(
             val origin = withFrameMillis { it } - (seconds.floatValue * 1000f).toLong()
             while (true) {
                 withFrameMillis {
+                    // At 30 frames a second, every other display frame is skipped (nothing redraws).
+                    if (frameRate() < 60 && it - origin - (seconds.floatValue * 1000f).toLong() < HALF_RATE_MS) return@withFrameMillis
                     val next = (it - origin) / 1000f
                     // Wave speed (Theme Settings) scales the home wave's clock.
                     motion.advance((next - seconds.floatValue) * waveSpeed())
@@ -1474,6 +1533,13 @@ private const val TOAST_FADE_SECONDS = 0.4f
 private const val TOUCH_SLOP = 2f
 private const val FLING_FIRST_MS = 40L
 private const val FLING_SLOWDOWN_MS = 12L
+
+/** Auto-cycle: how long each visualizer stays, and the crossfade between them. */
+private const val CYCLE_MS = 45_000L
+private const val CYCLE_FADE_MS = 1500
+
+/** At 30 frames a second, the least time between two animation frames. */
+private const val HALF_RATE_MS = 30L
 
 /** How often the idle timer checks for the visualizer. */
 private const val IDLE_CHECK_MS = 1000L

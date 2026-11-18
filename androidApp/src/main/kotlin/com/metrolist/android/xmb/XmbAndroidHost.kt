@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -36,8 +39,10 @@ import com.metrolist.android.LocalStartupPresentation
 import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
+import com.metrolist.android.ui.player.MusicVideoSurface
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
+import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.navigation.Navigator
@@ -45,13 +50,16 @@ import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
+import com.metrolist.shared.viewmodels.PlayerViewModel
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
 import com.metrolist.shared.xmb.XmbInputController
 import com.metrolist.shared.xmb.XmbListenTogether
+import com.metrolist.shared.xmb.XmbLyrics
 import com.metrolist.shared.xmb.XmbServices
 import com.metrolist.shared.xmb.XmbSettingsHost
+import com.metrolist.shared.xmb.XmbVideo
 import com.metrolist.shared.xmb.XmbVolume
 import com.metrolist.shared.xmb.XmbWallpaper
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
@@ -88,6 +96,7 @@ internal fun XmbAndroidHost(
     downloads: SongDownloadManager,
     downloadedSongIds: Set<String>,
     navigator: Navigator,
+    playerViewModel: PlayerViewModel,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -100,8 +109,13 @@ internal fun XmbAndroidHost(
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
     val wallpaper = rememberAndroidXmbWallpaper(context)
     val signOut by rememberUpdatedState(onSignOut)
+    // Lyrics come from the player's view model, as on the stock player; its state is read as
+    // Compose state so the lyrics view updates when they arrive.
+    val playerState = playerViewModel.uiState.collectAsState()
+    val lyrics = remember(playerViewModel) { AndroidXmbLyrics(playerViewModel, playerState) }
+    val video = remember(playerConnection) { AndroidXmbVideo(playerConnection) }
     val services =
-        remember(model, playback, listenTogether) {
+        remember(model, playback, listenTogether, lyrics, video) {
             XmbServices(
                 playback = playback,
                 music = model.music,
@@ -124,6 +138,8 @@ internal fun XmbAndroidHost(
                         override fun set(level: Float) = playerConnection.setVolume(level)
                     },
                 wallpaper = wallpaper,
+                lyrics = lyrics,
+                video = video,
             )
         }
     ImmersiveSystemBars()
@@ -159,6 +175,46 @@ internal class XmbAndroidModel(
 
     override fun onCleared() {
         sounds.close()
+    }
+}
+
+/** The player's music video, filling the screen without the stock player's controls. */
+private class AndroidXmbVideo(
+    private val connection: PlayerConnection,
+) : XmbVideo {
+    @Composable
+    override fun Surface(modifier: Modifier) {
+        val connected by connection.isConnected.collectAsState()
+        val song by connection.currentSong.collectAsState()
+        MusicVideoSurface(
+            player = if (connected) connection.videoPlayer else null,
+            artworkUrl = song?.thumbnail,
+            modifier = modifier,
+            cornerRadius = 0.dp,
+            fillContainer = true,
+            showControls = false,
+        )
+    }
+}
+
+/** Lyrics through the player's view model: loaded per song, null until this song's lines are in. */
+private class AndroidXmbLyrics(
+    private val viewModel: PlayerViewModel,
+    private val state: State<PlayerViewModel.PlayerUiState>,
+) : XmbLyrics {
+    override fun request(song: SongItem) {
+        viewModel.loadLyrics(
+            songId = song.id,
+            title = song.title,
+            artist = song.artists.joinToString { it.name },
+            duration = song.duration?.toLong(),
+            album = song.album?.name,
+        )
+    }
+
+    override fun lines(songId: String): List<LyricsEntry>? {
+        val current = state.value
+        return if (current.currentSong?.id == songId && !current.isLyricsLoading) current.lyrics else null
     }
 }
 

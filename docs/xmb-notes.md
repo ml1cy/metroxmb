@@ -144,6 +144,24 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Option spacing | 22 units | Roomy list like the console's option menu |
 | Slide | `FADE_MS` with the scroll easing | Matches the level transition |
 
+## Valley and Gaia (M5; `visualizer/valley`, `visualizer/gaia`)
+
+Both are runtime shaders (`XmbShader`: Skia's `RuntimeEffect` on desktop, `RuntimeShader` on
+Android 13+), from the owner's 2560×1440 recordings (`reference/valley/`, `reference/other/`). The
+flow clock (`VisualizerAudio.flow`) drives both, so louder music moves them faster.
+
+| Constant | Value | Reason |
+|---|---|---|
+| Valley terrain | 28 / 18 / 10 layers (quality) from 7 to 0.35 units away; heights from 4 / 3 / 2 octaves of value noise, ×(0.85 + 0.6 × bass); broad mountains on the far layers | The recordings' soft ridges in depth; layers instead of raymarching keep the cost to one noise per layer per pixel |
+| Valley edges | soft by 0.004 near the horizon to 0.044 close by; crests glow over 1/55 to 1/14 of the screen, ×(0.5 + 0.5 × energy + 0.8 × beat); haze by distance | The recordings are blurry close up and the ridges' tops are bright |
+| Valley colors | molten, gold, night blue, crimson; 28 s each, blending over the last 30% | The recordings drift between these |
+| Gaia views | close (radius 1.25 × height), globe (0.42), sunrise (0.62, sun behind), far (0.12); 40 s each, moving over the last 25% | The recording's four views, in its order |
+| Gaia surface | land, ocean, ice and clouds from 3D noise of the surface point (5 / 4 / 3 octaves); city lights on the night side, ×(0.75 + 0.7 × beat); atmosphere ×(0.75 + 0.5 × energy) | No textures to ship; noise on the sphere has no seams |
+| Fallback | Android 12 and older: layered curves (Valley), a lit disc with a glow (Gaia) | `RuntimeShader` is Android 13+ |
+| Auto-cycle | 45 s each, 1.5 s crossfade | |
+| Quality | High / Balanced / Low also sets the ribbon's passes (8 / 4 / 1) | |
+| Frame rate | 30 fps skips every other display frame (nothing redraws) | Saves power |
+
 ## Touch and portrait (M7)
 
 | Constant | Value | Reason |

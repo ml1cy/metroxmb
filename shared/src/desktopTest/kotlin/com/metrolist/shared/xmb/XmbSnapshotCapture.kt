@@ -46,7 +46,10 @@ import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.visualizer.VisualizerAudio
+import com.metrolist.shared.visualizer.VisualizerQuality
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
+import com.metrolist.shared.visualizer.gaia.GaiaVisualizer
+import com.metrolist.shared.visualizer.valley.ValleyVisualizer
 import com.metrolist.shared.visualizer.waves.WavesVisualizer
 import com.metrolist.shared.visualizer.waves.XmbBackdrop
 import com.metrolist.shared.xmb.adapters.XmbList
@@ -183,6 +186,27 @@ class XmbSnapshotCapture {
                         }
                     WavesVisualizer(loud, { 3f }, Modifier.fillMaxSize())
                 },
+                // Valley and Gaia at a few moments of their clocks (palettes, camera views).
+                Screen("visualizer-valley") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialFullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.VALLEY),
+                    )
+                },
+                *listOf(30f, 60f, 90f)
+                    .map { flow ->
+                        Screen(
+                            "valley-${flow.toInt()}",
+                        ) { ValleyVisualizer(audioAt(flow), { flow }, VisualizerQuality.HIGH, Modifier.fillMaxSize()) }
+                    }.toTypedArray(),
+                *listOf(0f, 40f, 80f, 120f)
+                    .map { flow ->
+                        Screen(
+                            "gaia-${flow.toInt()}",
+                        ) { GaiaVisualizer(audioAt(flow), { flow }, VisualizerQuality.HIGH, Modifier.fillMaxSize()) }
+                    }.toTypedArray(),
                 Screen("lyrics") {
                     XmbApp(services = demoServices, time = { day }, animate = false, initialFullScreen = XmbFullScreen.Lyrics)
                 },
@@ -436,6 +460,9 @@ class XmbSnapshotCapture {
         ).mapIndexed { index, line -> LyricsEntry(time = 72_000L + index * 6_000L, text = line) }
     private val playerLevel =
         XmbLevel(XmbList.SettingsPage(SettingsPageId.PLAYER), "Player", XmbIcon.Drawable(Res.drawable.xmb_item_volume))
+
+    /** Visualizer audio whose flow clock has run to [flow] seconds, quietly. */
+    private fun audioAt(flow: Float) = VisualizerAudio().apply { repeat((flow * 10).toInt()) { update(null, 0.1f) } }
 
     /** One still of the move into Waves, [step] of the way, without the menu (it fades first). */
     @Composable

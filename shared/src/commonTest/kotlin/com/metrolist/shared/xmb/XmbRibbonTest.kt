@@ -1,11 +1,11 @@
 package com.metrolist.shared.xmb
 
 import com.metrolist.shared.visualizer.background.RIBBON_RESOLUTION
-import com.metrolist.shared.visualizer.background.RIBBON_SAMPLE_OFFSETS
 import com.metrolist.shared.visualizer.background.ribbonAlpha
 import com.metrolist.shared.visualizer.background.ribbonIndices
 import com.metrolist.shared.visualizer.background.ribbonPassColors
 import com.metrolist.shared.visualizer.background.ribbonPassLevel
+import com.metrolist.shared.visualizer.background.ribbonSampleOffsets
 import com.metrolist.shared.visualizer.background.ribbonVertex
 import kotlin.math.cos
 import kotlin.test.Test
@@ -65,7 +65,7 @@ class XmbRibbonTest {
 
     @Test
     fun ribbonPassesKeepFullEightBitPrecision() {
-        val passes = RIBBON_SAMPLE_OFFSETS.size
+        val passes = ribbonSampleOffsets.size
         // Each pass's share is stored in 8 bits; the shares add back up to every level exactly.
         for (level in 0..255) {
             assertEquals(level, (0 until passes).sumOf { pass -> ribbonPassLevel(level, pass, passes) }, "level $level")

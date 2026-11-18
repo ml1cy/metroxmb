@@ -397,6 +397,15 @@ smoothing; `levels()` is unchanged), `VisualizerAudio` follows each band group's
 a fixed floor, and the ribbon draws from reused arrays through an `expect` mesh call (Skia on
 desktop; the framework canvas on Android, with a software fallback below Android 10).
 
+## 20. M5: Valley and Gaia
+
+`visualizer/shader/XmbShader` compiles one shader source per platform (desktop `RuntimeEffect`,
+Android `RuntimeShader` on 13+) and fills the canvas with it. `ValleyVisualizer` and
+`GaiaVisualizer` set their uniforms each frame from `VisualizerAudio` and their own clocks
+(palette, camera) and draw fallbacks where shaders can't run. `XmbApp` draws them over the
+backdrop (which turns to Waves beneath them) with a `Crossfade`; Random and Auto-cycle are
+`XmbItemAction`s. Quality (`VisualizerQuality`) and the frame rate are XMB preferences.
+
 ## 19. M7: Android (started)
 
 `MetrolistApp` keeps everything it sets up (player connection, playback controller, Listen
@@ -412,7 +421,8 @@ survive visits to stock screens and stop with the activity. Rebuilding them on e
 old copies running on the main thread, which hung the app when signing in reloaded the library. It hides the system bars, pauses
 animation below `STARTED`, and forwards Android's back to the XMB through `XmbInputController`
 while the XMB has somewhere to go back to (the XMB then leaves the Back key alone, so it isn't
-handled twice). Lyrics and video aren't wired on Android yet.
+handled twice). Lyrics come from the shared `PlayerViewModel` (its `uiState` read as Compose
+state) and video from the stock `MusicVideoSurface` without its controls.
 
 Shared input: `XmbApp.act(action)` handles an action from a key, a touch or the controller the
 same way (notice, full screen, then the menu). `XmbTouchTracker` turns touch into steps; the mouse

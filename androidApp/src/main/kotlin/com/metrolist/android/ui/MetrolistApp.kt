@@ -925,6 +925,7 @@ fun MetrolistApp(
                     downloads = downloadManager,
                     downloadedSongIds = downloadedSongIds,
                     navigator = navigator,
+                    playerViewModel = playerViewModel,
                     onSignOut = {
                         coroutineScope.launch {
                             authManager.clearAllCredentials()

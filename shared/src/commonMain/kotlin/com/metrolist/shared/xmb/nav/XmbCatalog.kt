@@ -74,11 +74,11 @@ fun xmbCategories(
             XmbCategoryId.VISUALIZER,
             Res.string.xmb_category_visualizer,
             XmbIcon.Vector(XmbIcons.Visualizer),
-            visualizer("waves", Res.string.xmb_visualizer_waves, XmbVisualizerKind.WAVES),
-            visualizer("valley", Res.string.xmb_visualizer_valley),
-            visualizer("gaia", Res.string.xmb_visualizer_gaia),
-            visualizer("random", Res.string.xmb_visualizer_random),
-            visualizer("auto_cycle", Res.string.xmb_visualizer_auto_cycle),
+            visualizer("waves", Res.string.xmb_visualizer_waves, XmbItemAction.OpenVisualizer(XmbVisualizerKind.WAVES)),
+            visualizer("valley", Res.string.xmb_visualizer_valley, XmbItemAction.OpenVisualizer(XmbVisualizerKind.VALLEY)),
+            visualizer("gaia", Res.string.xmb_visualizer_gaia, XmbItemAction.OpenVisualizer(XmbVisualizerKind.GAIA)),
+            visualizer("random", Res.string.xmb_visualizer_random, XmbItemAction.OpenRandomVisualizer),
+            visualizer("auto_cycle", Res.string.xmb_visualizer_auto_cycle, XmbItemAction.CycleVisualizers),
         ),
     )
 
@@ -309,14 +309,14 @@ private fun item(
     list: XmbList? = null,
 ) = XmbItem(id, title, drawable(icon), list = list)
 
-/** Visualizer items; those without a [kind] yet (Valley, Gaia, random, auto-cycle) arrive in M5. */
+/** A Visualizer item: one visualizer, a random one, or all in turn. */
 private fun visualizer(
     id: String,
     title: StringResource,
-    kind: XmbVisualizerKind? = null,
+    action: XmbItemAction,
 ) = XmbItem(
     "visualizer_$id",
     title,
     XmbIcon.Vector(XmbIcons.Visualizer),
-    action = kind?.let(XmbItemAction::OpenVisualizer) ?: XmbItemAction.None,
+    action = action,
 )

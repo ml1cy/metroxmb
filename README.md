@@ -25,7 +25,7 @@ next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M4 and M6 done (desktop); M7 (Android) started; M5 on hold.** The XMB runs on desktop (Windows,
+**Current milestone: M4, M5 and M6 done; M7 (Android) well along.** The XMB runs on desktop (Windows,
 macOS, Linux): music, podcasts, music videos, search, Listen Together, lyrics, casting, every
 setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. On Android
 the XMB is now the interface too (M7, started), with touch and an upright phone layout; the
@@ -38,7 +38,7 @@ standard Android screens open only for sign-in and a few settings pages. iOS was
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
 | M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Done: matched to the owner's videos, checked with real music |
-| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | On hold (reference stills saved) |
+| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Done: Valley and Gaia, Random and Auto-cycle |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
 | M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Started: the XMB is Android's interface, with touch, portrait and back; not yet run on devices |
 
@@ -76,7 +76,9 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
     - Volume: up, down, mute.
     - Other: like, visualizer, lyrics, search.
   - **Music Player Settings:** the now-playing card, the track info over the visualizer
-    (briefly, always or never), and opening Waves after the menu is left alone while music plays.
+    (briefly, always or never), opening Waves after the menu is left alone while music plays, and
+    visualizer quality (High, Balanced or Low).
+  - **Frame rate** (Theme Settings): 60, or 30 frames a second to save power.
 - **Search.** New search opens the on-screen keyboard: type on your keyboard or pick keys with
   the arrows, with suggestions in a column on the right. Results open as folders (top result,
   songs, albums, artists...). Recent searches are listed under New search.
@@ -86,7 +88,15 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   the music (bass deepens it, louder passages add silk lines and make the particles streak), with
   the console's track overlay (artwork, title, artist / album, queue position, time, codec badge
   and progress). ○ returns to the
-  XMB; any other key shows the track for a few seconds. Valley and Gaia come in M5.
+  XMB; any other key shows the track for a few seconds.
+  - **Valley:** a soft flight over glowing ridges and far mountains, its colors drifting through
+    molten orange, gold, night blue and crimson.
+  - **Gaia:** the Earth in space, moving between a close orbit, the whole globe, a sunrise over the
+    edge and a distant view; city lights on the night side pulse with the beat.
+  - **Random and Auto-cycle:** a different visualizer each time, or all three in turn (a crossfade
+    every 45 seconds).
+
+  On Android 12 and older, Valley and Gaia draw a simpler version, since shaders need Android 13.
 - **Podcasts.** Subscriptions (each opens its episodes), New episodes and Episodes for later.
 - **Video.** Watch video shows the playing song's music video full screen; Liked videos and Music
   videos (from the home feed) play full screen when selected. ○ goes back.
@@ -206,9 +216,10 @@ XMB code lives in the shared module; platform glue sits in each app.
 
 - On Windows the app turns off background power throttling and asks for 1 ms timers, so the XMB
   and playback stay smooth behind other windows (Windows 11 throttles background apps otherwise).
-- Android (M7, started) shows the XMB but hasn't been run on a phone, tablet or TV here: it builds
-  and its touch and layout logic is tested. Lyrics and video aren't wired on Android yet, and
-  sign-in and some settings pages open the standard Android screens.
+- Android (M7) shows the XMB with lyrics, music videos, touch and the visualizers, but hasn't been
+  run on a phone, tablet or TV here: it builds, its drawing and shaders are tested under
+  Robolectric, and its touch logic is tested. Sign-in and some settings pages still open the
+  standard Android screens.
 
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
   yet.

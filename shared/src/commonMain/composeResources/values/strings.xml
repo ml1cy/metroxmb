@@ -5633,4 +5633,13 @@
     <string name="xmb_toast_muted">Muted</string>
     <string name="xmb_toast_liked">Added to Liked songs</string>
     <string name="xmb_toast_unliked">Removed from Liked songs</string>
+    <string name="xmb_setting_frame_rate">Frame rate</string>
+    <string name="xmb_setting_frame_rate_description">30 saves power on phones and laptops</string>
+    <string name="xmb_frame_rate_60">60 frames a second</string>
+    <string name="xmb_frame_rate_30">30 frames a second</string>
+    <string name="xmb_setting_visualizer_quality">Visualizer quality</string>
+    <string name="xmb_setting_visualizer_quality_description">Lower is smoother on phones and older graphics</string>
+    <string name="xmb_quality_high">High</string>
+    <string name="xmb_quality_balanced">Balanced</string>
+    <string name="xmb_quality_low">Low</string>
 </resources>

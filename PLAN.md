@@ -145,6 +145,9 @@ long-press = options.
 ### M5: Valley and Gaia
 - Valley: raymarched heightfield, fog, gliding camera
 - Gaia: day/night Earth (NASA textures), oceans, atmosphere, clouds, city lights, starfield
+- Done: both as runtime shaders (SkSL/AGSL, Android 13+, drawn fallbacks below), matched to the
+  owner's recordings. Valley's terrain is layered ridges rather than raymarched; Gaia's Earth is
+  procedural noise, with no NASA textures. Random and Auto-cycle in the Visualizer column
 
 ### M6: Remaining categories
 - Podcasts, Video (music videos via the existing player), Friends (Listen Together),
@@ -157,8 +160,8 @@ long-press = options.
 - The XMB replaces Android's stock UI; then remove the stock Android screens the XMB doesn't borrow
 - Started: the XMB at Android's top level (`XmbAndroidHost`), touch, portrait layout, system back,
   SoundPool sounds, full screen, pausing in the background, and the ribbon's software fallback
-  below Android 10. To do: lyrics and video on Android, quality settings and an FPS cap, tablet
-  and TV checks on devices, XMB versions of the borrowed screens, removing the stock screens
+  below Android 10, lyrics and video on Android, visualizer quality and a 30 fps option. To do:
+  tablet and TV checks on devices, XMB versions of the borrowed screens, removing the stock screens
 
 ## Extra features (after the core is done)
 - Theme picker: monthly colors, fixed colors, custom, or album-art tint
