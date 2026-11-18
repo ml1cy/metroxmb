@@ -139,6 +139,8 @@ long-press = options.
 - Full Waves shader: layered translucent ribbons, soft edges, glossy crests, drifting sparkles,
   subtle reactivity; idle motion when no meter data is available
 - Full-screen visualizer mode (hide the XMB, show a fading track overlay)
+- Done after M6: checked with real music through the meter (adaptive levels, sharper beats),
+  allocation-free ribbon drawing, bigger particles in loud passages
 
 ### M5: Valley and Gaia
 - Valley: raymarched heightfield, fog, gliding camera
@@ -153,6 +155,10 @@ long-press = options.
 - Quality settings and FPS cap; pause when hidden (per `docs/rendering.md`); shader fallback
   below the API level the existing shaders require
 - The XMB replaces Android's stock UI; then remove the stock Android screens the XMB doesn't borrow
+- Started: the XMB at Android's top level (`XmbAndroidHost`), touch, portrait layout, system back,
+  SoundPool sounds, full screen, pausing in the background, and the ribbon's software fallback
+  below Android 10. To do: lyrics and video on Android, quality settings and an FPS cap, tablet
+  and TV checks on devices, XMB versions of the borrowed screens, removing the stock screens
 
 ## Extra features (after the core is done)
 - Theme picker: monthly colors, fixed colors, custom, or album-art tint

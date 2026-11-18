@@ -25,10 +25,11 @@ next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M6 done (desktop); M4 and M5 on hold.** The XMB runs on desktop (Windows,
+**Current milestone: M4 and M6 done (desktop); M7 (Android) started; M5 on hold.** The XMB runs on desktop (Windows,
 macOS, Linux): music, podcasts, music videos, search, Listen Together, lyrics, casting, every
-setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. Android keeps
-the stock Metrolist interface until M7 replaces it. iOS was removed.
+setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. On Android
+the XMB is now the interface too (M7, started), with touch and an upright phone layout; the
+standard Android screens open only for sign-in and a few settings pages. iOS was removed.
 
 | | Milestone | Status |
 |---|---|---|
@@ -36,10 +37,10 @@ the stock Metrolist interface until M7 replaces it. iOS was removed.
 | M1 | XMB shell on desktop: category row, item columns, focus motion, monthly background, wave, sounds, Rodin font, interface-style switch | ✅ Done |
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
-| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | On hold: matched to the owner's videos, not yet checked with real music |
+| M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Done: matched to the owner's videos, checked with real music |
 | M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | On hold (reference stills saved) |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
-| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Planned |
+| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Started: the XMB is Android's interface, with touch, portrait and back; not yet run on devices |
 
 **After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
 waves, beat-synced colors, party mode, shared visualizers in Listen Together rooms, gamepad-driven
@@ -127,7 +128,10 @@ Every shortcut can be changed in Settings > Keyboard Shortcuts: select it and pr
 (hold Ctrl, Shift or Alt for a combination; Esc cancels, Backspace clears). Arrow keys, Enter,
 Esc, Tab and media keys need a modifier there, because they move through the menu.
 
-Controllers work on Android (M7); on desktop the UI toolkit has no gamepad input yet.
+On Android, touch works too: drag to move (up for the next item, left for the next category),
+tap the focused row to select or elsewhere to step toward it, hold for options (△), and use the
+system back gesture or button for ○. TV remotes and controllers use the D-pad and A/B buttons.
+On desktop the UI toolkit has no gamepad input yet.
 
 ## Getting it
 
@@ -145,7 +149,7 @@ Android SDK with `platforms;android-37.1`. See [docs/development.md](docs/develo
 ```bash
 git submodule update --init --recursive
 ./gradlew :desktopApp:run                  # desktop
-./gradlew :androidApp:assembleDebug        # Android (stock interface until M7)
+./gradlew :androidApp:assembleDebug        # Android
 ```
 
 A cold Gradle cache can hit Maven Central rate limits (HTTP 429); a first run with
@@ -192,6 +196,10 @@ XMB code lives in the shared module; platform glue sits in each app.
   listed in `UPSTREAM_TOUCHPOINTS.md`.
 
 ## Known limits
+
+- Android (M7, started) shows the XMB but hasn't been run on a phone, tablet or TV here: it builds
+  and its touch and layout logic is tested. Lyrics and video aren't wired on Android yet, and
+  sign-in and some settings pages open the standard Android screens.
 
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
   yet.

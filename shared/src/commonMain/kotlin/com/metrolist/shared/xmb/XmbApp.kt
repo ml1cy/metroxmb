@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -49,11 +50,13 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Density
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
@@ -107,6 +110,7 @@ import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
+import com.metrolist.shared.xmb.nav.XmbTouchTracker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
@@ -194,6 +198,7 @@ fun XmbApp(
     services: XmbServices? = null,
     suspended: Boolean = false,
     notice: XmbNoticeRequest? = null,
+    input: XmbInputController? = null,
     time: (() -> XmbTime)? = null,
     animate: Boolean = true,
     initialCategory: XmbCategoryId = XmbCategoryId.MUSIC,
@@ -891,106 +896,164 @@ fun XmbApp(
         }
     }
 
+    /** One action from a key, a touch or the platform ([input]): notice, full screen, then the menu. */
+    fun act(action: XmbAction) {
+        lastInput = seconds.floatValue
+        if (recording != null) return
+        if (notice != null) {
+            val step = notice.notice.reduce(action, noticeFocus)
+            noticeFocus = step.focus
+            val chosen = step.chosen
+            if (chosen != null) {
+                sounds.play(XmbSound.NOTICE_CLOSE)
+                notice.onChoice(chosen)
+            } else {
+                step.feedback.sound()?.let(sounds::play)
+            }
+            return
+        }
+        val mode = fullScreen
+        // A visualizer the idle timer opened goes away on any menu key, like a screen saver.
+        if (mode != null && idleVisualizer && action !in MEDIA_ACTIONS) {
+            fullScreen = null
+            idleVisualizer = false
+            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            feedback(action, XmbFeedback.BACK)
+            return
+        }
+        if (mode != null) {
+            // Full screen: ○ steps back (lyrics off, then the XMB), △ toggles lyrics over a
+            // visualizer, media keys still work, and anything else shows the track.
+            when (action) {
+                XmbAction.BACK -> {
+                    fullScreen =
+                        if (mode is XmbFullScreen.Visualizer && mode.lyrics) {
+                            mode.copy(lyrics = false)
+                        } else {
+                            if (mode == XmbFullScreen.Video) services?.playback?.setVideoMode(false)
+                            null
+                        }
+                    // The track info slides back to its corner in view.
+                    overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                    feedback(action, XmbFeedback.BACK)
+                }
+
+                XmbAction.OPTIONS -> {
+                    if (mode is XmbFullScreen.Visualizer && services?.lyrics != null) {
+                        fullScreen = mode.copy(lyrics = !mode.lyrics)
+                        feedback(action, XmbFeedback.SELECT)
+                    }
+                    overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                }
+
+                XmbAction.PLAY_PAUSE, XmbAction.NEXT_TRACK, XmbAction.PREVIOUS_TRACK -> {
+                    dispatch(action)
+                    overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                }
+
+                else -> {
+                    overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                }
+            }
+            return
+        }
+        dispatch(action)
+    }
+
+    // The pointer handler and the platform's input outlive compositions; they call the latest act().
+    val latestAct by rememberUpdatedState<(XmbAction) -> Unit> { act(it) }
+    val latestSuspended by rememberUpdatedState(suspended)
+    LaunchedEffect(input) { input?.actions?.collect { latestAct(it) } }
+    val canGoBack =
+        navigation.stack.isNotEmpty() || options != null || picker != null || keyboard != null ||
+            fullScreen != null || notice != null || recording != null
+    SideEffect { input?.canGoBack = canGoBack }
+    // Where touches land, in pixels: kept up to date by the layout below.
+    val touchPlaces = remember { XmbTouchPlaces() }
+
     BoxWithConstraints(
         modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .focusable()
             .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || suspended) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown || latestSuspended) return@onKeyEvent false
+                // Android sends its back key through its own back handling (input.systemBack).
+                if (input?.systemBack == true && event.key == Key.Back) return@onKeyEvent false
                 lastInput = seconds.floatValue
                 recording?.let { shortcut ->
                     recordKey(shortcut, event)
                     return@onKeyEvent true
                 }
-                if (notice != null) {
-                    val action = xmbActionFor(event.key) ?: return@onKeyEvent true
-                    val step = notice.notice.reduce(action, noticeFocus)
-                    noticeFocus = step.focus
-                    val chosen = step.chosen
-                    if (chosen != null) {
-                        sounds.play(XmbSound.NOTICE_CLOSE)
-                        notice.onChoice(chosen)
-                    } else {
-                        step.feedback.sound()?.let(sounds::play)
-                    }
-                    return@onKeyEvent true
-                }
-                // Shortcuts (not while typing on the keyboard, where letters are text).
-                if (keyboard == null) {
+                // Shortcuts (not over a notice, nor while typing on the keyboard, where letters are text).
+                if (notice == null && keyboard == null) {
                     prefs.shortcuts.match(XmbKeyChord.of(event))?.let { shortcut ->
                         runShortcut(shortcut)
                         return@onKeyEvent true
                     }
                 }
-                val mode = fullScreen
-                // A visualizer the idle timer opened goes away on any menu key, like a screen saver.
-                if (mode != null && idleVisualizer) {
-                    val action = xmbActionFor(event.key)
-                    if (action != null && action !in MEDIA_ACTIONS) {
-                        fullScreen = null
-                        idleVisualizer = false
-                        overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
-                        feedback(action, XmbFeedback.BACK)
-                        return@onKeyEvent true
-                    }
+                if (notice == null && fullScreen == null && keyboard != null) return@onKeyEvent keyboardKey(event)
+                val action = xmbActionFor(event.key)
+                if (action == null) {
+                    // Full screen, any key shows the track.
+                    if (fullScreen != null) overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+                    return@onKeyEvent notice != null || fullScreen != null
                 }
-                if (mode != null) {
-                    // Full screen: ○ steps back (lyrics off, then the XMB), △ toggles lyrics over a
-                    // visualizer, media keys still work, and anything else shows the track.
-                    when (val action = xmbActionFor(event.key)) {
-                        XmbAction.BACK -> {
-                            fullScreen =
-                                if (mode is XmbFullScreen.Visualizer && mode.lyrics) {
-                                    mode.copy(lyrics = false)
-                                } else {
-                                    if (mode == XmbFullScreen.Video) services?.playback?.setVideoMode(false)
-                                    null
-                                }
-                            // The track info slides back to its corner in view.
-                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
-                            feedback(action, XmbFeedback.BACK)
-                        }
-
-                        XmbAction.OPTIONS -> {
-                            if (mode is XmbFullScreen.Visualizer && services?.lyrics != null) {
-                                fullScreen = mode.copy(lyrics = !mode.lyrics)
-                                feedback(action, XmbFeedback.SELECT)
-                            }
-                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
-                        }
-
-                        XmbAction.PLAY_PAUSE, XmbAction.NEXT_TRACK, XmbAction.PREVIOUS_TRACK -> {
-                            dispatch(action)
-                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
-                        }
-
-                        else -> {
-                            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
-                        }
-                    }
-                    return@onKeyEvent true
-                }
-                if (keyboard != null) return@onKeyEvent keyboardKey(event)
-                val action = xmbActionFor(event.key) ?: return@onKeyEvent false
-                dispatch(action)
+                act(action)
                 true
             }.pointerInput(
                 Unit,
                 XmbBackdropInput {
                     awaitPointerEventScope {
+                        var touch: XmbTouchTracker? = null
                         while (true) {
                             val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: continue
                             // A click anywhere on the XMB takes keyboard focus back (from a title bar, say).
-                            if (event.type == PointerEventType.Press && !suspended) {
+                            if (event.type == PointerEventType.Press && !latestSuspended) {
                                 focusRequester.requestFocus()
                                 lastInput = seconds.floatValue
                             }
+                            // Touch (not the mouse): drags step through the menu, taps select, a long press opens options.
+                            if ((change.type == PointerType.Touch || change.type == PointerType.Stylus) && !latestSuspended) {
+                                val place = touchPlaces
+                                when (event.type) {
+                                    PointerEventType.Press -> {
+                                        touch =
+                                            XmbTouchTracker(place.stepX, place.stepY, viewConfiguration.touchSlop).also {
+                                                it.down(change.position.x, change.position.y, change.uptimeMillis)
+                                            }
+                                    }
+
+                                    PointerEventType.Move -> {
+                                        touch?.move(change.position.x, change.position.y)?.forEach { latestAct(it) }
+                                        change.consume()
+                                    }
+
+                                    PointerEventType.Release -> {
+                                        touch
+                                            ?.up(
+                                                change.position.x,
+                                                change.position.y,
+                                                change.uptimeMillis,
+                                                place.focusX,
+                                                place.focusY,
+                                                place.rowY,
+                                            )?.let { latestAct(it) }
+                                        touch = null
+                                    }
+
+                                    else -> {
+                                        Unit
+                                    }
+                                }
+                                continue
+                            }
                             if (event.type != PointerEventType.Scroll) continue
-                            val delta = event.changes.fold(Offset.Zero) { sum, change -> sum + change.scrollDelta }
+                            val delta = event.changes.fold(Offset.Zero) { sum, scroll -> sum + scroll.scrollDelta }
                             xmbActionForScroll(delta.x, delta.y)?.let {
                                 dispatch(it)
-                                event.changes.forEach { change -> change.consume() }
+                                event.changes.forEach { scroll -> scroll.consume() }
                             }
                         }
                     }
@@ -1002,7 +1065,7 @@ fun XmbApp(
         val geometry =
             with(density) {
                 XmbBarGeometry(
-                    anchorX = maxWidth.toPx() * XmbMetrics.ANCHOR_X,
+                    anchorX = maxWidth.toPx() * metrics.anchorX,
                     barY = maxHeight.toPx() * XmbMetrics.BAR_Y,
                     categorySpacing = metrics.categorySpacing.toPx(),
                     categoryIcon = metrics.categoryIcon.toPx(),
@@ -1016,6 +1079,7 @@ fun XmbApp(
                     parentOffset = metrics.parentOffset.toPx(),
                 )
             }
+        touchPlaces.update(geometry, metrics, density)
         val styles = rememberXmbRowStyles(metrics, fontFamily)
         val backgroundColors = prefs.backgroundColors(now.month, now.hourOfDay)
         val wallpaperPath = prefs.wallpaperPath
@@ -1292,3 +1356,24 @@ private const val KEYBOARD_FADE = 0.8f
 
 /** The clock glyph fills 56 of its PNG's 256 pixels; zoom it to fill its slot. */
 private const val CLOCK_ICON_ZOOM = 4.5f
+
+/** The menu's touch geometry in pixels, written by the layout and read by the pointer handler. */
+private class XmbTouchPlaces {
+    var stepX = 1f
+    var stepY = 1f
+    var focusX = 0f
+    var focusY = 0f
+    var rowY = 0f
+
+    fun update(
+        geometry: XmbBarGeometry,
+        metrics: XmbMetrics,
+        density: Density,
+    ) {
+        stepX = geometry.categorySpacing
+        stepY = geometry.itemSpacing
+        focusX = geometry.anchorX
+        rowY = geometry.barY
+        focusY = geometry.barY + with(density) { metrics.focusedItemOffset.toPx() }
+    }
+}

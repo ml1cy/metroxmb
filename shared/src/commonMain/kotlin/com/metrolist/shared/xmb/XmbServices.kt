@@ -20,7 +20,7 @@ interface XmbDownloads {
 
     fun download(song: SongItem)
 
-    fun remove(songId: String)
+    fun remove(song: SongItem)
 }
 
 /**

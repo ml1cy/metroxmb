@@ -64,8 +64,10 @@ These come from how the code actually works, not from upstream policy:
   stock desktop screens are deleted. What the XMB still borrows stays until an XMB version
   replaces it: first-run onboarding, the settings overlay and its custom pages (storage, backup,
   updates, about, devtools, MetroEQ, fonts, integrations), the sign-in, token and log dialogs, the
-  mini-player window and the tray. Android keeps its stock UI until M7, when the XMB replaces it
-  outright. iOS is removed. Keep Metrolist's features (playback, library, integrations, Listen
+  mini-player window and the tray. On Android (M7) `MetrolistApp` shows the XMB at its top-level
+  routes and keeps its setup (player connection, Listen Together, incoming links); stock screens
+  show only when the XMB opens one (sign-in, settings pages it doesn't draw) until XMB versions
+  replace them, then the unused stock Android screens go. iOS is removed. Keep Metrolist's features (playback, library, integrations, Listen
   Together, casting, lyrics, Device Connect) even where the XMB has no screen for them yet.
   `UPSTREAM_TOUCHPOINTS.md` lists what was deleted; on upstream merges, resolve modify/delete
   conflicts on those paths by keeping them deleted and delete new upstream files that only serve

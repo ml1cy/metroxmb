@@ -24,6 +24,7 @@ listed below. Tuned values and their reasons are in `docs/xmb-notes.md`.
 | `users.png` | Users signed out: Log in |
 | `visualizer-waves.png` | The Waves visualizer full screen (September), silent: idle motion, with the PS3-style track overlay |
 | `visualizer-transition-0.png` … `-100.png` | The move into Waves at 0, 35, 65 and 100%: sky and ribbon blending, the track card sliding into the overlay |
+| `phone-portrait.png`, `phone-visualizer.png` | A 411 dp phone held upright: the menu, and full-screen Waves with the stacked track info |
 | `xmb-theme-settings.png` | Settings > Theme Settings: color, custom hue (dimmed until Color is Custom), background, wave rows |
 | `keyboard-shortcuts.png` | Settings > Keyboard Shortcuts with the default keys |
 | `waves-loud.png` | Waves with loud fake meter levels just after a beat: deeper folds, a brighter sheet and particles |
@@ -62,8 +63,7 @@ text sizes, the clock box, and no halo on focused icons. Still different:
   difference
 - **Sparkle motion, wave reactions and every timing** need video frames at 2 fps or more
 - The on-screen keyboard and value pickers have no reference frames yet
-- **Waves**: the console's loud particles are a little bigger and brighter than here, and the speeds
-  are judged from phone video, so they're approximate
+- **Waves** speeds are judged from phone video, so they're approximate
 
 ## Remaining differences (M2)
 

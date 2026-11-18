@@ -26,6 +26,12 @@ fun rememberXmbFontFamily(): FontFamily {
  */
 class XmbMetrics(
     val unit: Dp,
+    /** Horizontal position of the focused category, as a fraction of the window width. */
+    val anchorX: Float = ANCHOR_X,
+    /** Where settings values start, after the title. */
+    val valueColumn: Dp = unit * 440,
+    /** A tall window (a phone held upright): the full-screen track info stacks. */
+    val portrait: Boolean = false,
 ) {
     // Measured from reference/xmb/settings-red-1080p.png and game-purple-1080p.jpg (1.5 px per unit).
     val categorySpacing = unit * 133
@@ -41,7 +47,6 @@ class XmbMetrics(
     val itemSubtitleSize = unit * 15
 
     /** Where a setting's value starts, measured from the start of its title. */
-    val valueColumn = unit * 440
     val focusedItemOffset = unit * 143
     val itemsAboveGap = unit * 204
     val itemsBelowGap = unit * 64
@@ -64,10 +69,21 @@ class XmbMetrics(
         /** Vertical position of the category row, as a fraction of the window height. */
         const val BAR_Y = 0.27f
 
+        /** The focused category's position in a tall window, where the row needs more room to the right. */
+        const val PORTRAIT_ANCHOR_X = 0.2f
+
         fun forSize(
             width: Dp,
             height: Dp,
-        ): XmbMetrics = XmbMetrics(min(height / 720f, width / 960f))
+        ): XmbMetrics =
+            if (height > width) {
+                // Upright phones: sized for the width (titles about 18 sp on a 411 dp phone rather
+                // than 10), the menu further left, and values close enough to stay on screen.
+                val unit = min(height / 900f, width / 480f)
+                XmbMetrics(unit, anchorX = PORTRAIT_ANCHOR_X, valueColumn = unit * 220, portrait = true)
+            } else {
+                XmbMetrics(min(height / 720f, width / 960f))
+            }
     }
 }
 

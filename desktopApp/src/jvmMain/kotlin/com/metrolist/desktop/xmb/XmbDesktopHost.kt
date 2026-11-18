@@ -286,5 +286,5 @@ private class DesktopXmbDownloads : XmbDownloads {
 
     override fun download(song: SongItem) = DownloadManager.download(song)
 
-    override fun remove(songId: String) = DownloadManager.deleteDownload(songId)
+    override fun remove(song: SongItem) = DownloadManager.deleteDownload(song.id)
 }

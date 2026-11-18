@@ -83,6 +83,18 @@ job (owner's call). All reactions settle within about two seconds.
 
 ## Waves visualizer (M4; `visualizer/`)
 
+Checked with real music (`VisualizerMusicTest`): the console's menu music, played through the
+meter in real time (a chunk every frame, polled every 33 ms), moves Waves (energy median 0.28,
+bass up to about 0.8, about 55 beats a minute at natural spacing) and settles within 2.5 s of
+silence. A synthesized 120 BPM track: 12 of 16 kicks make a beat, 33–100 ms after the kick; the
+first one is missed while the range is set, and pads alone make none.
+
+The ribbon is drawn from reused arrays through each platform's own `drawVertices`
+(`RibbonMesh.desktop.kt`, `RibbonMesh.android.kt`) and the particles from one glow sprite: a
+1080p frame allocates about 40 KB instead of 1.7 MB (`RibbonAllocationTest`). Android 7–9 can't
+draw vertices on a hardware canvas, so there the mesh is drawn in software at half size and
+scaled up.
+
 From the owner's console videos and photos (`reference/waves/`): `video-waves-quiet.jpg`,
 `video-waves-loud.jpg` and `video-waves-loud-5fps.jpg` (five frames a second through a loud
 passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the track overlay.
@@ -90,15 +102,16 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Constant | Value | Reason |
 |---|---|---|
 | Band groups | bass = meter bands 0–3 (45–125 Hz), mid = 4–10 (180 Hz–1.4 kHz), treble = 11–17 (2–15 kHz) | The meter's 18 bands split into what moves the ribbon and lights it |
-| Level shaping | (level − 0.35) / 0.55, clamped | The meter maps −60..0 dB to 0..1 and music mostly sits above 0.35, so this uses the whole 0..1 range |
+| Input | `AudioSpectrumMeter.frameLevels()`: the frame `levels()` just analyzed, before the EQ bars' smoothing | The bars' smoothing (35% of each new frame) blurred kicks: with it, 6 of 16 test kicks made a beat; without it, 12 |
+| Level shaping | per band group, a range follower: ceiling jumps to peaks and sinks over 6 s, floor drops to lows and rises over 3 s, both start at the first sound after silence; the level's place in that range, at least 0.12 wide; under 0.05 is silence | A fixed floor (0.35) read the console's menu music (about −21 dB mean, levels 0.2–0.35) as silence: Waves didn't move at all. Following the range, quiet and loud recordings both use 0..1 |
 | Smoothing | attack 18/s, release 4/s | Reacts within a few frames, falls back gently |
-| Beat | bass at least 0.08 above its 0.6 s average and above 0.2, at most every 0.18 s; decays at 5/s | Bass onsets, not held notes |
+| Beat | bass at least 0.08 above its 0.6 s average and above 0.2, at most every 0.18 s, and only after the rise has fallen under half that since the last beat; decays at 5/s | Bass onsets, not held notes; without re-arming, a long swell fired a beat every 0.18 s |
 | Flow | time × (1 + 1.5 × energy); the ribbon's clock is 0.35 × flow | The ribbon travels faster when the music is louder |
 | Particle clock | time × (1 + 5 × energy + 4 × beat) | In the loud video frames the particles streak while the ribbon keeps its pace |
 | Polling | `AudioSpectrumMeter.levels()` every 33 ms off the main thread, only while full screen | The meter only captures while it has consumers (CLAUDE.md) |
 | Sky | fixed violet, not the month's color: (110, 40, 240) at the top, (70, 14, 175) at 35%, (35, 8, 125) at 60%, (10, 4, 45) at 85%, (5, 2, 20) at the bottom | Sampled from the video; every Waves source (videos and photos) is violet |
 | Ribbon | the home ribbon at its usual height (low, as in the videos); tint (1, 0.82, 1); folds × (1 + 0.8 × bass); 4 + 5 × mid folds across its depth; opacity 0.75 × (1 + 0.5 × energy + 0.6 × beat) | The video's lavender-pink strands; loud passages turn the band into a bundle of thin silk lines |
-| Particles | opacity 0.75 × (0.8 + 0.8 × treble + 0.8 × beat); a trail as long as their move in 1/20 s | Dots when quiet, streaks when loud |
+| Particles | opacity 0.75 × (0.8 + 0.8 × treble + 0.8 × beat); size × (1 + 0.5 × energy + 0.4 × beat); a trail as long as their move in 1/20 s | Dots when quiet, bigger and streaking when loud, as in the console's loud frames |
 | Track overlay | at 1080p: artwork 100 px, 118 px from the left; title 36 px and "artist / album" 28 px beside it; a 386 px block 116 px from the right with the queue position, "00:01:53 / 00:02:14" and a silver codec pill with a speaker mark, then a 9 px green bar on a dark grey track; shows for 4 s after opening or any key, fading over 0.6 s | Measured from the 1080p console capture (the Linkin Park photo's blue tones were the camera) |
 | Full screen | fades in and out over 600 ms; ○ returns to the XMB | The console hides its menu while a visualizer plays |
 
@@ -130,6 +143,19 @@ passage) for the look and reactions, `video-track-overlay-1080p.jpg` for the tra
 | Background | horizontal black gradient, 35% to 65% alpha | Darkens toward the edge so the options read over any month's color |
 | Option spacing | 22 units | Roomy list like the console's option menu |
 | Slide | `FADE_MS` with the scroll easing | Matches the level transition |
+
+## Touch and portrait (M7)
+
+| Constant | Value | Reason |
+|---|---|---|
+| Drag step | one category spacing across, one item spacing down; the first step half a step past the touch slop | Same steps as the arrow keys; short drags still move |
+| Direction | drag up = next item, drag left = next category | The content follows the finger |
+| Tap | within 0.75 item steps of the focused row: select; on the category row: move along it; elsewhere: one step toward the tap | Predictable without per-row hit testing |
+| Long press | 500 ms without moving: options (△) | |
+| Mouse | unchanged (click takes focus, wheel moves) | A click shouldn't select by accident on desktop |
+| Portrait unit | min(height / 900, width / 480): about 0.86 dp on a 411 dp phone | The landscape rule (width / 960) made titles 10 sp |
+| Portrait anchor | focused category at 20% of the width; values 220 units after the text | Room for the row and for values on screen |
+| Portrait full screen | artwork and titles above the queue position; the time and a full-width bar below, with the card's 32-unit margins | The console's side-by-side layout doesn't fit upright |
 
 ## XMB settings and keyboard shortcuts (`xmb/settings/`)
 

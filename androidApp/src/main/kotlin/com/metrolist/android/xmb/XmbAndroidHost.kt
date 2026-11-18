@@ -1,0 +1,235 @@
+package com.metrolist.android.xmb
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.metrolist.android.extensions.findActivity
+import com.metrolist.android.playback.PlayerConnection
+import com.metrolist.android.playback.SongDownloadManager
+import com.metrolist.shared.db.MusicDatabase
+import com.metrolist.shared.listentogether.ListenTogetherManager
+import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.ui.components.LocalVisualWorkActive
+import com.metrolist.shared.ui.navigation.Navigator
+import com.metrolist.shared.ui.navigation.Screen
+import com.metrolist.shared.ui.playback.PlaybackController
+import com.metrolist.shared.ui.settings.SettingsPlatform
+import com.metrolist.shared.ui.settings.SharedSettingsHost
+import com.metrolist.shared.xmb.XmbAccount
+import com.metrolist.shared.xmb.XmbApp
+import com.metrolist.shared.xmb.XmbDownloads
+import com.metrolist.shared.xmb.XmbInputController
+import com.metrolist.shared.xmb.XmbListenTogether
+import com.metrolist.shared.xmb.XmbServices
+import com.metrolist.shared.xmb.XmbSettingsHost
+import com.metrolist.shared.xmb.XmbVolume
+import com.metrolist.shared.xmb.XmbWallpaper
+import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
+import com.metrolist.shared.xmb.adapters.XmbSearch
+import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.sound.AndroidXmbSoundPlayer
+import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+
+/**
+ * Android glue for the XMB (M7). `MetrolistApp` shows it whenever its navigation is at a top-level
+ * route, keeping its player connection, Listen Together, incoming links and the rest of its setup;
+ * a screen the XMB opens (sign-in, a settings page the XMB doesn't draw) shows as before, and back
+ * returns here. The XMB runs full screen with the system bars hidden, takes Android's back (gesture
+ * or TV remote) while it has somewhere to go back to, and pauses its animation while the app is in
+ * the background.
+ */
+@Composable
+internal fun XmbAndroidHost(
+    playback: PlaybackController,
+    playerConnection: PlayerConnection,
+    listenTogether: ListenTogetherManager?,
+    database: MusicDatabase,
+    downloads: SongDownloadManager,
+    downloadedSongIds: Set<String>,
+    navigator: Navigator,
+    onSignOut: () -> Unit,
+) {
+    val context = LocalContext.current
+    val sounds = remember(context) { AndroidXmbSoundPlayer(context.applicationContext) }
+    DisposableEffect(sounds) { onDispose { sounds.close() } }
+    val downloaded = remember { MutableStateFlow(downloadedSongIds) }
+    SideEffect { downloaded.value = downloadedSongIds }
+    val input = remember { XmbInputController(systemBack = true) }
+    BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
+    val wallpaper = rememberAndroidXmbWallpaper(context)
+    val signOut by rememberUpdatedState(onSignOut)
+    // The music lists and searches outlive this screen's visits, like the stock screens' view models.
+    val scope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
+    val settingsHost = remember { SharedSettingsHost(platform = SettingsPlatform.ANDROID, onClose = {}) }
+    val services =
+        remember(playback, listenTogether) {
+            val search = XmbSearch(scope)
+            XmbServices(
+                playback = playback,
+                music = DefaultXmbMusicSource(database, scope, downloaded, search = search),
+                downloads = AndroidXmbDownloads(downloads, downloaded, scope),
+                search = search,
+                settings = XmbSettingsHost({ settingsHost }) { page -> navigator.navigate(Screen.SettingsPage(page)) },
+                account =
+                    object : XmbAccount {
+                        override fun signIn() = navigator.navigate(Screen.Login)
+
+                        override fun switchChannel() = navigator.navigate(Screen.SwitchChannel)
+
+                        override fun signOut() = signOut()
+                    },
+                listenTogether = listenTogether?.let { manager -> XmbListenTogether(manager) { text -> context.copyText(text) } },
+                volume =
+                    object : XmbVolume {
+                        override val level: Float get() = playerConnection.volume.value
+
+                        override fun set(level: Float) = playerConnection.setVolume(level)
+                    },
+                wallpaper = wallpaper,
+            )
+        }
+    ImmersiveSystemBars()
+    CompositionLocalProvider(
+        LocalXmbSoundPlayer provides sounds,
+        LocalVisualWorkActive provides rememberStartedState(),
+    ) {
+        XmbApp(Modifier.fillMaxSize(), services = services, input = input)
+    }
+}
+
+private class AndroidXmbDownloads(
+    private val manager: SongDownloadManager,
+    override val downloadedSongIds: StateFlow<Set<String>>,
+    private val scope: CoroutineScope,
+) : XmbDownloads {
+    override fun download(song: SongItem) {
+        scope.launch { manager.download(song) }
+    }
+
+    override fun remove(song: SongItem) {
+        scope.launch { manager.removeDownload(song) }
+    }
+}
+
+/** True while the app is at least started: the XMB stops animating in the background. */
+@Composable
+private fun rememberStartedState(): StateFlow<Boolean> {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val scope = rememberCoroutineScope()
+    return remember(lifecycle) {
+        lifecycle.currentStateFlow
+            .map { it.isAtLeast(Lifecycle.State.STARTED) }
+            .stateIn(scope, SharingStarted.Eagerly, lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+}
+
+/** The XMB fills the screen like the console's: system bars hide, and a swipe shows them for a moment. */
+@Composable
+private fun ImmersiveSystemBars() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = view.context.findActivity()?.window ?: return@DisposableEffect onDispose {}
+        val bars = WindowCompat.getInsetsController(window, view)
+        bars.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        bars.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { bars.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+}
+
+/**
+ * Background images from the system photo picker. The chosen image is copied into the app's files
+ * (picker links don't last), and loaded scaled down to about the screen's size.
+ */
+@Composable
+private fun rememberAndroidXmbWallpaper(context: Context): XmbWallpaper {
+    val scope = rememberCoroutineScope()
+    val wallpaper = remember(context) { AndroidXmbWallpaper(context.applicationContext) }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            val onPicked = wallpaper.pending ?: return@rememberLauncherForActivityResult
+            wallpaper.pending = null
+            if (uri != null) scope.launch { wallpaper.copy(uri)?.let(onPicked) }
+        }
+    SideEffect {
+        wallpaper.launch = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    }
+    return wallpaper
+}
+
+private class AndroidXmbWallpaper(
+    private val context: Context,
+) : XmbWallpaper {
+    var pending: ((String) -> Unit)? = null
+    var launch: () -> Unit = {}
+
+    override fun pick(onPicked: (String) -> Unit) {
+        pending = onPicked
+        launch()
+    }
+
+    /** Copies the picked image to a new file (a new name, so the XMB reloads it) and removes older ones. */
+    suspend fun copy(uri: Uri): String? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val directory = File(context.filesDir, "xmb").apply { mkdirs() }
+                val target = File(directory, "wallpaper-${System.currentTimeMillis()}")
+                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use(input::copyTo) }
+                    ?: return@runCatching null
+                directory.listFiles()?.filter { it.name.startsWith("wallpaper-") && it != target }?.forEach(File::delete)
+                target.absolutePath
+            }.getOrNull()
+        }
+
+    override suspend fun load(path: String): ImageBitmap? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val metrics = context.resources.displayMetrics
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                var sample = 1
+                val longest = maxOf(metrics.widthPixels, metrics.heightPixels)
+                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= longest) sample *= 2
+                BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
+            }.getOrNull()
+        }
+}
+
+private fun Context.copyText(text: String) {
+    getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Listen Together", text))
+}

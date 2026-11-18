@@ -241,6 +241,7 @@ import com.metrolist.android.utils.startActivitySafely
 import com.metrolist.android.viewmodels.LibraryViewModel
 import com.metrolist.android.viewmodels.PlaybackViewModel
 import com.metrolist.android.widget.PlaylistWidgetReceiver
+import com.metrolist.android.xmb.XmbAndroidHost
 import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.auth.YouTubeSessionState
@@ -913,6 +914,29 @@ fun MetrolistApp(
             LocalMouseScrollFactors provides rememberMouseScrollFactors(),
             LocalPlaylistAdder provides addToPlaylist,
         ) {
+            // XMB Music (M7): the XMB is the interface. Stock screens show only when the XMB opens one
+            // (sign-in, a settings page it doesn't draw); back from them returns to the XMB.
+            if (currentRoute in topLevelRoutes) {
+                XmbAndroidHost(
+                    playback = playbackController,
+                    playerConnection = playerConnection,
+                    listenTogether = listenTogetherManager,
+                    database = database,
+                    downloads = downloadManager,
+                    downloadedSongIds = downloadedSongIds,
+                    navigator = navigator,
+                    onSignOut = {
+                        coroutineScope.launch {
+                            authManager.clearAllCredentials()
+                            context.packageManager
+                                .getLaunchIntentForPackage(context.packageName)
+                                ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK) }
+                                ?.let(context::startActivitySafely)
+                        }
+                    },
+                )
+                return@NavigationContentProvider
+            }
             val appAccountButton: @Composable (Modifier) -> Unit = { buttonModifier ->
                 val accountName = authManager.accountName
                 val accountThumbnail = authManager.accountThumbnail

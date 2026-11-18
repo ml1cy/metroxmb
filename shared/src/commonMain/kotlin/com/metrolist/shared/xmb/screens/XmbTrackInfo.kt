@@ -150,17 +150,27 @@ internal fun XmbTrackInfo(
         val width = constraints.maxWidth.toFloat()
         val height = constraints.maxHeight.toFloat()
         val free = Constraints()
+        // Upright phones: the console's layout doesn't fit side by side, so the artwork and titles
+        // sit above the time and a full-width bar, with the card's margins.
+        val portrait = metrics.portrait
+        val start = if (portrait) CARD_MARGIN else OVERLAY_START
+        val end = if (portrait) CARD_MARGIN else OVERLAY_END
+        val overlayBarWidth = if (portrait) width / u - start - end else OVERLAY_BAR_WIDTH
+        // Titles stop short of the time block beside them (or the screen edge when upright).
+        val beside = if (portrait) 0f else OVERLAY_BAR_WIDTH + 24f
+        val titleRoom = (width / u - start - OVERLAY_ART - 1f - end - beside).coerceAtLeast(CARD_COLUMN)
+        val overlayColumn = if (portrait) titleRoom else minOf(OVERLAY_COLUMN, titleRoom)
 
         fun wide(units: Float) = Constraints(maxWidth = (units * u).roundToInt())
         val art = measurables[0].measure(free)
-        val title = measurables[1].measure(wide(lerp(CARD_COLUMN * OVERLAY_TITLE / CARD_TITLE, OVERLAY_COLUMN, e)))
+        val title = measurables[1].measure(wide(lerp(CARD_COLUMN * OVERLAY_TITLE / CARD_TITLE, overlayColumn, e)))
         val cardArtist = measurables[2].measure(wide(CARD_COLUMN))
-        val overlayArtist = measurables[3].measure(wide(lerp(CARD_COLUMN * OVERLAY_ARTIST / CARD_DETAIL, OVERLAY_COLUMN, e)))
+        val overlayArtist = measurables[3].measure(wide(lerp(CARD_COLUMN * OVERLAY_ARTIST / CARD_DETAIL, overlayColumn, e)))
         val cardTime = measurables[4].measure(free)
         val overlayTime = measurables[5].measure(free)
         val queue = measurables[6].measure(free)
         val badge = measurables[7].measure(free)
-        val barWidth = lerp(CARD_COLUMN, OVERLAY_BAR_WIDTH, e) * u
+        val barWidth = lerp(CARD_COLUMN, overlayBarWidth, e) * u
         val barHeight = lerp(CARD_BAR, OVERLAY_BAR, e) * u
         val bar = measurables[8].measure(Constraints.fixed(barWidth.roundToInt(), barHeight.roundToInt().coerceAtLeast(1)))
 
@@ -177,19 +187,21 @@ internal fun XmbTrackInfo(
         val cardBar = Offset(cardX, cardDetail.y + cardArtist.height + CARD_GAP * u)
         val cardClock = Offset(cardX, cardBar.y + (CARD_BAR + CARD_TIME_GAP) * u)
 
-        // The overlay: artwork and titles at the bottom left, the rest at the bottom right.
-        val overlayColumnHeight = title.height + overlayArtist.height.toFloat()
-        val overlayRow = max(OVERLAY_ART * u, overlayColumnHeight)
-        val overlayTop = height - OVERLAY_BOTTOM * u - overlayRow
-        val overlayArt = Offset(OVERLAY_START * u, overlayTop + (overlayRow - OVERLAY_ART * u) / 2f)
-        val overlayTitle = Offset((OVERLAY_START + OVERLAY_ART + 1f) * u, overlayTop + (overlayRow - overlayColumnHeight) / 2f)
-        val overlayDetail = Offset(overlayTitle.x, overlayTitle.y + title.height)
-        val right = width - OVERLAY_END * u
-        val left = right - OVERLAY_BAR_WIDTH * u
+        // The overlay: the time block at the bottom right; artwork and titles at the bottom left,
+        // or above the time block when upright.
+        val right = width - end * u
+        val left = right - overlayBarWidth * u
         val overlayBar = Offset(left, height - (OVERLAY_BOTTOM + 4f + OVERLAY_BAR) * u)
         val timeRow = max(overlayTime.height, badge.height).toFloat()
         val timeTop = overlayBar.y - 18f * u - timeRow
         val overlayClock = Offset(left, timeTop + (timeRow - overlayTime.height) / 2f)
+        val queueTop = timeTop - 26f * u - queue.height
+        val overlayColumnHeight = title.height + overlayArtist.height.toFloat()
+        val overlayRow = max(OVERLAY_ART * u, overlayColumnHeight)
+        val overlayTop = if (portrait) queueTop - 24f * u - overlayRow else height - OVERLAY_BOTTOM * u - overlayRow
+        val overlayArt = Offset(start * u, overlayTop + (overlayRow - OVERLAY_ART * u) / 2f)
+        val overlayTitle = Offset((start + OVERLAY_ART + 1f) * u, overlayTop + (overlayRow - overlayColumnHeight) / 2f)
+        val overlayDetail = Offset(overlayTitle.x, overlayTitle.y + title.height)
 
         layout(constraints.maxWidth, constraints.maxHeight) {
             fun move(
@@ -203,7 +215,7 @@ internal fun XmbTrackInfo(
             move(overlayArtist, cardDetail, overlayDetail)
             move(cardTime, cardClock, overlayClock)
             move(overlayTime, cardClock, overlayClock)
-            queue.place((right - queue.width).roundToInt(), (timeTop - 26f * u - queue.height).roundToInt())
+            queue.place((right - queue.width).roundToInt(), queueTop.roundToInt())
             badge.place((right - badge.width).roundToInt(), (timeTop + (timeRow - badge.height) / 2f).roundToInt())
             move(bar, cardBar, overlayBar)
         }

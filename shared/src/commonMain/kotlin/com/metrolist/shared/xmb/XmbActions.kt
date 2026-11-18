@@ -69,7 +69,7 @@ internal class XmbActions(
             XmbOption.START_RADIO -> song?.let(playback::startRadio)
             XmbOption.LIKE, XmbOption.UNLIKE -> song?.let(services.toggleLike)
             XmbOption.DOWNLOAD -> song?.let { services.downloads?.download(it) }
-            XmbOption.REMOVE_DOWNLOAD -> song?.let { services.downloads?.remove(it.id) }
+            XmbOption.REMOVE_DOWNLOAD -> song?.let { services.downloads?.remove(it) }
             XmbOption.VIEW_ALBUM -> return song?.albumLevel()
             XmbOption.VIEW_ARTIST -> return song?.artistLevel()
         }
