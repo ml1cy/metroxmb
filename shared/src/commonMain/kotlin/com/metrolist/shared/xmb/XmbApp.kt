@@ -70,11 +70,19 @@ import com.metrolist.shared.generated.resources.create_playlist
 import com.metrolist.shared.generated.resources.device_connect_title
 import com.metrolist.shared.generated.resources.downloads
 import com.metrolist.shared.generated.resources.history
+import com.metrolist.shared.generated.resources.lastfm_invalid_credentials
+import com.metrolist.shared.generated.resources.lastfm_login_session_invalid
+import com.metrolist.shared.generated.resources.lastfm_service_error
 import com.metrolist.shared.generated.resources.liked_songs
+import com.metrolist.shared.generated.resources.listenbrainz_connect_failed
+import com.metrolist.shared.generated.resources.listenbrainz_user_token
 import com.metrolist.shared.generated.resources.no
+import com.metrolist.shared.generated.resources.password
 import com.metrolist.shared.generated.resources.playlist
 import com.metrolist.shared.generated.resources.podcast
+import com.metrolist.shared.generated.resources.scrobble_connection_failed
 import com.metrolist.shared.generated.resources.sleep_timer
+import com.metrolist.shared.generated.resources.username
 import com.metrolist.shared.generated.resources.xmb_cat_search
 import com.metrolist.shared.generated.resources.xmb_item_album
 import com.metrolist.shared.generated.resources.xmb_item_artist
@@ -84,6 +92,7 @@ import com.metrolist.shared.generated.resources.xmb_playlist_added
 import com.metrolist.shared.generated.resources.xmb_playlist_failed
 import com.metrolist.shared.generated.resources.xmb_playlist_new
 import com.metrolist.shared.generated.resources.xmb_queue_playing
+import com.metrolist.shared.generated.resources.xmb_signed_in
 import com.metrolist.shared.generated.resources.xmb_sleep_end_of_song
 import com.metrolist.shared.generated.resources.xmb_sleep_minutes
 import com.metrolist.shared.generated.resources.xmb_sleep_off
@@ -100,8 +109,10 @@ import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsUiRegistry
+import com.metrolist.shared.ui.settings.XmbScrobbleMessages
 import com.metrolist.shared.ui.settings.rememberIntegrationsRegistry
 import com.metrolist.shared.ui.settings.rememberMetrolistSettingsRegistry
+import com.metrolist.shared.ui.settings.xmbScrobbleSignIn
 import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.background.XmbWaveNudge
@@ -170,6 +181,7 @@ import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.screens.XmbPickerView
 import com.metrolist.shared.xmb.screens.XmbToast
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
+import com.metrolist.shared.xmb.settings.XMB_HIDDEN_SETTINGS_PAGES
 import com.metrolist.shared.xmb.settings.XmbKeyChord
 import com.metrolist.shared.xmb.settings.XmbPrefs
 import com.metrolist.shared.xmb.settings.XmbSettingsHooks
@@ -180,6 +192,7 @@ import com.metrolist.shared.xmb.settings.XmbTrackOverlay
 import com.metrolist.shared.xmb.settings.rememberXmbShortcutText
 import com.metrolist.shared.xmb.settings.title
 import com.metrolist.shared.xmb.settings.xmbClockText
+import com.metrolist.shared.xmb.settings.xmbCustomRows
 import com.metrolist.shared.xmb.settings.xmbOwnSettingsItems
 import com.metrolist.shared.xmb.settings.xmbSettingsRows
 import com.metrolist.shared.xmb.settings.xmbShortcutCapture
@@ -306,10 +319,12 @@ fun XmbApp(
     // Live columns: settings pages from the registry, recent searches, the signed-in account.
     var settingsRevision by remember { mutableIntStateOf(0) }
     val settingsRegistry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
+    // A Last.fm (true) or ListenBrainz (false) sign-in to ask for on the keyboard.
+    var scrobbleSignIn by remember { mutableStateOf<Boolean?>(null) }
     val integrationsRegistry =
         services?.settings?.let { host ->
             host.integrations?.let { integrations ->
-                rememberIntegrationsRegistry(integrations(), settingsRevision) { host.openStockPage(SettingsPageId.LAST_FM) }
+                rememberIntegrationsRegistry(integrations(), settingsRevision) { lastFm -> scrobbleSignIn = lastFm }
             }
         }
     // Integrations join the settings column as one more group of pages.
@@ -347,6 +362,18 @@ fun XmbApp(
             ?.value
     val text = rememberXmbM6Text()
     val deviceConnectLabel = stringResource(Res.string.device_connect_title)
+    val scrobbleUsername = stringResource(Res.string.username)
+    val scrobblePassword = stringResource(Res.string.password)
+    val scrobbleToken = stringResource(Res.string.listenbrainz_user_token)
+    val scrobbleSignedIn = stringResource(Res.string.xmb_signed_in)
+    val scrobbleMessages =
+        XmbScrobbleMessages(
+            invalidLastFm = stringResource(Res.string.lastfm_invalid_credentials),
+            invalidLastFmSession = stringResource(Res.string.lastfm_login_session_invalid),
+            connectionFailed = stringResource(Res.string.scrobble_connection_failed),
+            serviceError = stringResource(Res.string.lastfm_service_error),
+            listenBrainzFailed = stringResource(Res.string.listenbrainz_connect_failed),
+        )
     val queuePlaying = stringResource(Res.string.xmb_queue_playing)
     val sleepTitle = stringResource(Res.string.sleep_timer)
     val sleepOff = stringResource(Res.string.xmb_sleep_off)
@@ -362,7 +389,8 @@ fun XmbApp(
     val categories =
         xmbCategories(
             users = xmbUserItems(account),
-            settings = xmbOwnSettingsItems() + registry?.let { xmbSettingsItems(it, drawnPages) }.orEmpty(),
+            settings =
+                xmbOwnSettingsItems() + registry?.let { xmbSettingsItems(it, drawnPages, hidden = XMB_HIDDEN_SETTINGS_PAGES) }.orEmpty(),
             search = xmbSearchItems(history),
             friends = xmbFriendItems(friends),
         )
@@ -425,7 +453,35 @@ fun XmbApp(
                 )
             XmbListState.loaded(xmbSystemRows(settingsPage, systemPages, hooks, settingsRevision).orEmpty().map { it.toXmbEntry(labels) })
         } else if (settingsPage != null) {
-            val page = registry?.get(settingsPage)
+            val hooks =
+                XmbSystemHooks(
+                    toast = { message ->
+                        toast = message
+                        toastUntil = seconds.floatValue + TOAST_SECONDS
+                    },
+                    openStock = { services?.settings?.openStockPage?.invoke(it) },
+                )
+            // Rows the registry draws with its own widgets become XMB rows (or are left out), and
+            // rows leading to pages that only set up the stock screens are left out.
+            val page =
+                registry?.get(settingsPage)?.let { registered ->
+                    registered.copy(
+                        groups =
+                            registered.groups
+                                .map { group ->
+                                    group.copy(
+                                        items =
+                                            group.items.flatMap { item ->
+                                                when {
+                                                    item.destination in XMB_HIDDEN_SETTINGS_PAGES -> emptyList()
+                                                    item.control == SettingsControl.CUSTOM -> xmbCustomRows(item, hooks)
+                                                    else -> listOf(item)
+                                                }
+                                            },
+                                    )
+                                }.filter { it.items.isNotEmpty() },
+                    )
+                }
             // Slider formatters are composable, so their labels are made here.
             val sliderLabels = mutableMapOf<String, String>()
             page?.groups?.forEach { group ->
@@ -557,6 +613,45 @@ fun XmbApp(
     fun showToast(message: String) {
         toast = message
         toastUntil = seconds.floatValue + TOAST_SECONDS
+    }
+
+    // Last.fm asks for the username, then the password; ListenBrainz for the user token.
+    LaunchedEffect(scrobbleSignIn) {
+        val lastFm = scrobbleSignIn ?: return@LaunchedEffect
+        scrobbleSignIn = null
+
+        fun finish(
+            user: String,
+            credential: String,
+        ) {
+            scope.launch {
+                val error = xmbScrobbleSignIn(lastFm, user, credential, scrobbleMessages)
+                showToast(error ?: scrobbleSignedIn)
+                settingsRevision++
+            }
+        }
+        if (lastFm) {
+            openKeyboard(
+                KeyboardSession(XmbKeyboard(title = scrobbleUsername, text = ""), forSearch = false) { user ->
+                    if (user.isNotBlank()) {
+                        openKeyboard(
+                            KeyboardSession(
+                                XmbKeyboard(title = scrobblePassword, text = "", secret = true),
+                                forSearch = false,
+                            ) { password ->
+                                if (password.isNotEmpty()) finish(user, password)
+                            },
+                        )
+                    }
+                },
+            )
+        } else {
+            openKeyboard(
+                KeyboardSession(XmbKeyboard(title = scrobbleToken, text = "", secret = true), forSearch = false) { token ->
+                    if (token.isNotBlank()) finish("", token)
+                },
+            )
+        }
     }
 
     /** Add to Playlist: the user's playlists in a picker, after New Playlist (named on the keyboard). */
@@ -820,7 +915,10 @@ fun XmbApp(
             }
 
             is XmbSettingStep.Stock -> {
-                services?.settings?.openStockPage?.invoke(step.page) ?: return XmbFeedback.ERROR
+                val settingsHost = services?.settings ?: return XmbFeedback.ERROR
+                val host = settingsHost.host()
+                // External pages (the system's link settings) open outside the app.
+                if (step.page in host.externalPages) host.onOpenPage(step.page) else settingsHost.openStockPage(step.page)
             }
 
             is XmbSettingStep.Run -> {

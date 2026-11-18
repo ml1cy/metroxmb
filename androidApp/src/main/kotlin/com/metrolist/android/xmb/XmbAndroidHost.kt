@@ -146,7 +146,15 @@ internal fun XmbAndroidHost(
     )
     val storage = rememberAndroidXmbStorage()
     val backup = rememberAndroidXmbBackup(database)
-    val system = remember(storage, backup) { XmbSystemPages(storage = storage, backup = backup) }
+    val system =
+        remember(storage, backup, listenTogether, database) {
+            XmbSystemPages(
+                storage = storage,
+                backup = backup,
+                listenTogether = listenTogether,
+                platformPages = mapOf(SettingsPageId.ANDROID_AUTO to { hooks -> androidAutoXmbRows(database, hooks) }),
+            )
+        }
     val services =
         remember(model, playback, listenTogether, lyrics, video, system) {
             XmbServices(

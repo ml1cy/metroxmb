@@ -284,10 +284,12 @@ fun xmbSearchItems(history: List<String>): List<XmbItem> =
 fun xmbSettingsItems(
     registry: SettingsUiRegistry,
     drawn: Set<SettingsPageId> = emptySet(),
+    hidden: Set<SettingsPageId> = emptySet(),
 ): List<XmbItem> =
     registry.rootGroups
         .flatMap { it.pages }
         .distinct()
+        .filterNot { it in hidden }
         .mapNotNull { id -> registry[id] }
         .map { page ->
             XmbItem(

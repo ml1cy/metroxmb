@@ -646,7 +646,9 @@ fun MetrolistApp(
             mutableStateOf(AndroidListenTogetherManager.currentManager)
         }
         LaunchedEffect(playerConnection, currentRoute) {
+            // XMB Music: the XMB's Friends column and Listen Together settings need the manager.
             if (listenTogetherManager != null || Settings.shared.listenTogetherDesktopSession.isNotBlank() ||
+                currentRoute in topLevelRoutes ||
                 currentRoute in
                 setOf(
                     Screen.ListenTogether,

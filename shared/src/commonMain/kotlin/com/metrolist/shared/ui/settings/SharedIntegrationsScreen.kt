@@ -228,14 +228,14 @@ fun SharedIntegrationsScreen(
 
 /**
  * XMB Music: the integrations pages outside the stock screen, for the XMB's settings column. The
- * same state as [SharedIntegrationsScreen]; a Last.fm or ListenBrainz sign-in calls [onOpenLogin],
- * and the platform opens its stock integrations screen for it.
+ * same state as [SharedIntegrationsScreen]; a Last.fm or ListenBrainz sign-in calls [onOpenLogin]
+ * (true for Last.fm), which the XMB asks for on its keyboard ([xmbScrobbleSignIn]).
  */
 @Composable
 fun rememberIntegrationsRegistry(
     host: SharedIntegrationsHost,
     revision: Int,
-    onOpenLogin: () -> Unit,
+    onOpenLogin: (lastFm: Boolean) -> Unit,
 ): SettingsUiRegistry {
     val scope = rememberCoroutineScope()
     val accessToken by DiscordRpcManager.accessTokenFlow.collectAsState()
@@ -258,7 +258,7 @@ fun rememberIntegrationsRegistry(
         connectionStatus = connectionStatus,
         currentUser = currentUser,
         discordError = discordError,
-        onOpenLogin = { onOpenLogin() },
+        onOpenLogin = { onOpenLogin(it == ScrobbleLoginProvider.LAST_FM) },
         onAccountsChanged = { accountRevision++ },
         onDisconnectScrobble = { provider ->
             scope.launch {
@@ -1087,3 +1087,48 @@ private fun ScrobbleLoginDialog(
         },
     )
 }
+
+/**
+ * XMB Music: signs in to Last.fm (a [username] and [credential] password) or ListenBrainz (a user
+ * token in [credential]) as the stock dialog does; null on success, or the message to show.
+ */
+suspend fun xmbScrobbleSignIn(
+    lastFm: Boolean,
+    username: String,
+    credential: String,
+    messages: XmbScrobbleMessages,
+): String? =
+    if (lastFm) {
+        LastFM
+            .getMobileSession(GlobalYouTube.client, username.trim(), credential)
+            .fold(
+                { response ->
+                    val session = response.session ?: return messages.invalidLastFmSession
+                    ScrobbleSessions.connectLastFm(session.name, session.key)
+                    null
+                },
+                {
+                    when (it.lastFmLoginFailure()) {
+                        LastFmLoginFailure.INVALID_CREDENTIALS -> messages.invalidLastFm
+                        LastFmLoginFailure.CONNECTION -> messages.connectionFailed
+                        LastFmLoginFailure.SERVICE -> messages.serviceError
+                    }
+                },
+            )
+    } else {
+        ListenBrainz
+            .validateToken(GlobalYouTube.client, credential.trim())
+            .fold({ user ->
+                ScrobbleSessions.connectListenBrainz(user.username, credential.trim())
+                null
+            }, { messages.listenBrainzFailed })
+    }
+
+/** The messages [xmbScrobbleSignIn] reports, as the stock dialog words them. */
+class XmbScrobbleMessages(
+    val invalidLastFm: String,
+    val invalidLastFmSession: String,
+    val connectionFailed: String,
+    val serviceError: String,
+    val listenBrainzFailed: String,
+)

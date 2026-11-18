@@ -3,9 +3,14 @@ package com.metrolist.desktop.xmb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import coil3.PlatformContext
 import com.metrolist.desktop.auth.DesktopDiscordLogin
+import com.metrolist.desktop.auth.registerDesktopDiscordCallback
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
+import com.metrolist.desktop.crash.DesktopCrashRecovery
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
 import com.metrolist.desktop.state.playback.DiscordRpcState
@@ -15,6 +20,8 @@ import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.desktop.ui.screens.settings.rememberDeviceConnectSettingsHost
 import com.metrolist.desktop.utils.DesktopImageLoader
+import com.metrolist.desktop.utils.DesktopRenderBackend
+import com.metrolist.desktop.utils.desktopRenderBackends
 import com.metrolist.shared.api.musicvideo.MusicVideoResolver
 import com.metrolist.shared.backup.defaultBackupFilename
 import com.metrolist.shared.discord.openDiscordUrl
@@ -22,15 +29,29 @@ import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.album
 import com.metrolist.shared.generated.resources.artist
 import com.metrolist.shared.generated.resources.backup_filename_prefix
+import com.metrolist.shared.generated.resources.crash_logs
+import com.metrolist.shared.generated.resources.crash_restart
+import com.metrolist.shared.generated.resources.devtools_render_backend
+import com.metrolist.shared.generated.resources.devtools_render_backend_auto
+import com.metrolist.shared.generated.resources.devtools_render_backend_description
+import com.metrolist.shared.generated.resources.devtools_render_backend_direct3d
+import com.metrolist.shared.generated.resources.devtools_render_backend_metal
+import com.metrolist.shared.generated.resources.devtools_render_backend_opengl
+import com.metrolist.shared.generated.resources.devtools_render_backend_software
 import com.metrolist.shared.generated.resources.playlist
 import com.metrolist.shared.generated.resources.podcast
+import com.metrolist.shared.generated.resources.sign_in_discord
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.storage.DesktopAnimatedArtworkCache
 import com.metrolist.shared.storage.ResizableImageDiskCache
 import com.metrolist.shared.storage.SongCacheLimitsMb
 import com.metrolist.shared.ui.settings.IntegrationPlaybackState
+import com.metrolist.shared.ui.settings.SettingsChoice
+import com.metrolist.shared.ui.settings.SettingsControl
+import com.metrolist.shared.ui.settings.SettingsItemRegistration
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedIntegrationsHost
+import com.metrolist.shared.utils.tryOpenUrl
 import com.metrolist.shared.xmb.XmbInputController
 import com.metrolist.shared.xmb.nav.XmbOpen
 import com.metrolist.shared.xmb.settings.XmbBackup
@@ -46,6 +67,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 import org.koin.core.context.GlobalContext
 import java.io.File
 
@@ -186,6 +208,7 @@ internal object DesktopXmbLinks {
 @Composable
 internal fun rememberDesktopXmbIntegrationsHost(): SharedIntegrationsHost {
     val discordLogin = DesktopDiscordLogin.flow
+    val discordTitle = stringResource(Res.string.sign_in_discord)
     val playbackSpeed by PlayerState.player.playbackSpeed.collectAsState()
     val playbackDuration by PlayerState.playbackDuration.collectAsState()
     return SharedIntegrationsHost(
@@ -206,7 +229,11 @@ internal fun rememberDesktopXmbIntegrationsHost(): SharedIntegrationsHost {
             },
         onStartDiscordLogin = { session ->
             discordLogin.start(session)
-            UiState.showIntegrationsSettings = true
+            // The browser sign-in returns through the app's link handler; the XMB shows a notice meanwhile.
+            AppState.scope.launch {
+                val registered = withContext(Dispatchers.IO) { registerDesktopDiscordCallback(discordTitle) }
+                if (registered) tryOpenUrl(session.authorizeUrl) {} else DesktopXmbDiscord.unavailable = true
+            }
         },
         discordLoginInProgress = discordLogin.session != null || discordLogin.exchanging,
         onDiscordSettingsChanged = {
@@ -218,4 +245,59 @@ internal fun rememberDesktopXmbIntegrationsHost(): SharedIntegrationsHost {
         onOpenUrl = { openDiscordUrl(it, null) },
         onCopyText = { _, text -> AppState.copyToClipboard(text) },
     )
+}
+
+/**
+ * Developer Tools rows only the desktop has: the render backend (applied after a restart), a
+ * restart, and sharing the last crash report.
+ */
+@Composable
+internal fun desktopXmbDevtoolsRows(): List<SettingsItemRegistration> {
+    val backends = remember { desktopRenderBackends() }
+    val labels =
+        backends.associateWith { backend ->
+            stringResource(
+                when (backend) {
+                    DesktopRenderBackend.AUTO -> Res.string.devtools_render_backend_auto
+                    DesktopRenderBackend.DIRECT3D -> Res.string.devtools_render_backend_direct3d
+                    DesktopRenderBackend.OPENGL -> Res.string.devtools_render_backend_opengl
+                    DesktopRenderBackend.SOFTWARE -> Res.string.devtools_render_backend_software
+                    DesktopRenderBackend.METAL -> Res.string.devtools_render_backend_metal
+                },
+            )
+        }
+    val selected = backends.firstOrNull { it.name == Settings.shared.desktopRenderBackend } ?: DesktopRenderBackend.AUTO
+    val lastCrash = remember { runCatching { DesktopCrashRecovery.store.list().firstOrNull() }.getOrNull() }
+    return listOfNotNull(
+        SettingsItemRegistration(
+            id = "xmb_render_backend",
+            title = stringResource(Res.string.devtools_render_backend),
+            description = stringResource(Res.string.devtools_render_backend_description),
+            control = SettingsControl.CHOICE,
+            choices = backends.map { SettingsChoice(it.name, labels.getValue(it)) },
+            selectedChoiceId = selected.name,
+            valueLabel = labels[selected],
+            onChoiceSelected = { Settings.shared.desktopRenderBackend = it },
+        ),
+        SettingsItemRegistration(
+            id = "xmb_restart",
+            title = stringResource(Res.string.crash_restart),
+            control = SettingsControl.ACTION,
+            onClick = { UiState.restartRequested = true },
+        ),
+        lastCrash?.let { report ->
+            SettingsItemRegistration(
+                id = "xmb_crash_report",
+                title = stringResource(Res.string.crash_logs),
+                description = report.stackTrace.lineSequence().firstOrNull(),
+                control = SettingsControl.ACTION,
+                onClick = { DesktopCrashRecovery.share(report.text) },
+            )
+        },
+    )
+}
+
+/** Whether the system wouldn't take the Discord sign-in's return link (the browser can't finish it). */
+internal object DesktopXmbDiscord {
+    var unavailable by mutableStateOf(false)
 }

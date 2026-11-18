@@ -2,6 +2,7 @@ package com.metrolist.shared.xmb.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -9,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalUriHandler
+import com.metrolist.innertubex.extraction.strategy.PlaybackClientCatalog
 import com.metrolist.shared.BuildConfig
 import com.metrolist.shared.equalizer.EqualizerPreset
 import com.metrolist.shared.equalizer.EqualizerProfiles
@@ -37,10 +39,25 @@ import com.metrolist.shared.generated.resources.create_backup
 import com.metrolist.shared.generated.resources.create_backup_desc
 import com.metrolist.shared.generated.resources.devmode_already_active
 import com.metrolist.shared.generated.resources.devtools_enabled
+import com.metrolist.shared.generated.resources.devtools_playback_client
+import com.metrolist.shared.generated.resources.devtools_playback_client_automatic
+import com.metrolist.shared.generated.resources.devtools_playback_client_sabr_first
+import com.metrolist.shared.generated.resources.devtools_switch_description
+import com.metrolist.shared.generated.resources.devtools_title
 import com.metrolist.shared.generated.resources.disable
 import com.metrolist.shared.generated.resources.download_location
 import com.metrolist.shared.generated.resources.equalizer_stream_unavailable
 import com.metrolist.shared.generated.resources.error_unknown
+import com.metrolist.shared.generated.resources.listen_together
+import com.metrolist.shared.generated.resources.listen_together_add_custom_server
+import com.metrolist.shared.generated.resources.listen_together_auto_approval_joins
+import com.metrolist.shared.generated.resources.listen_together_auto_approval_suggestions
+import com.metrolist.shared.generated.resources.listen_together_auto_approval_suggestions_desc
+import com.metrolist.shared.generated.resources.listen_together_blocked_users
+import com.metrolist.shared.generated.resources.listen_together_description
+import com.metrolist.shared.generated.resources.listen_together_server
+import com.metrolist.shared.generated.resources.listen_together_sync_volume
+import com.metrolist.shared.generated.resources.listen_together_sync_volume_desc
 import com.metrolist.shared.generated.resources.max_animated_artwork_cache_size
 import com.metrolist.shared.generated.resources.max_image_cache_size
 import com.metrolist.shared.generated.resources.max_song_cache_size
@@ -55,7 +72,10 @@ import com.metrolist.shared.generated.resources.restore_backup
 import com.metrolist.shared.generated.resources.restore_backup_desc
 import com.metrolist.shared.generated.resources.restore_failed
 import com.metrolist.shared.generated.resources.restore_replaces_data
+import com.metrolist.shared.generated.resources.unblock
 import com.metrolist.shared.generated.resources.unlimited
+import com.metrolist.shared.generated.resources.username
+import com.metrolist.shared.generated.resources.username_to_block
 import com.metrolist.shared.generated.resources.xmb_about_app
 import com.metrolist.shared.generated.resources.xmb_about_app_description
 import com.metrolist.shared.generated.resources.xmb_about_based_on
@@ -74,6 +94,7 @@ import com.metrolist.shared.generated.resources.xmb_eq_reset
 import com.metrolist.shared.generated.resources.xmb_eq_save
 import com.metrolist.shared.generated.resources.xmb_eq_save_description
 import com.metrolist.shared.generated.resources.xmb_value_none
+import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.settings.SettingsChoice
 import com.metrolist.shared.ui.settings.SettingsControl
@@ -130,14 +151,21 @@ class XmbSystemPages(
     val backup: XmbBackup? = null,
     /** False where the audio path can't apply MetroEQ to the stream (shown on the page). */
     val audioProcessing: () -> Boolean = { true },
+    /** Listen Together's settings page (name, server, approvals, blocked users) when the platform has it. */
+    val listenTogether: ListenTogetherManager? = null,
+    /** Pages only one platform has, drawn from its own rows (Android Auto, say, or Developer Tools' extras). */
+    val platformPages: Map<SettingsPageId, @Composable (XmbSystemHooks) -> List<SettingsItemRegistration>> = emptyMap(),
 ) {
     /** The custom registry pages the XMB draws itself; any other custom page opens its stock screen. */
     val drawn: Set<SettingsPageId> =
         buildSet {
             add(SettingsPageId.ABOUT)
             add(SettingsPageId.EQUALIZER)
+            add(SettingsPageId.DEVTOOLS)
             if (storage != null) add(SettingsPageId.STORAGE)
             if (backup != null) add(SettingsPageId.BACKUP_RESTORE)
+            if (listenTogether != null) add(SettingsPageId.LISTEN_TOGETHER)
+            addAll(platformPages.keys)
         }
 }
 
@@ -159,12 +187,15 @@ fun xmbSystemRows(
     revision: Int,
 ): List<SettingsItemRegistration>? {
     if (page !in pages.drawn) return null
+    // Developer Tools' extras are added to the shared rows, not drawn instead of them.
     return when (page) {
         SettingsPageId.ABOUT -> aboutRows(hooks)
         SettingsPageId.EQUALIZER -> equalizerRows(pages, revision)
         SettingsPageId.STORAGE -> pages.storage?.let { storageRows(it, hooks) }
         SettingsPageId.BACKUP_RESTORE -> pages.backup?.let { backupRows(it, hooks) }
-        else -> null
+        SettingsPageId.DEVTOOLS -> devtoolsRows() + pages.platformPages[page]?.invoke(hooks).orEmpty()
+        SettingsPageId.LISTEN_TOGETHER -> pages.listenTogether?.let { listenTogetherRows(it) }
+        else -> pages.platformPages[page]?.invoke(hooks)
     }
 }
 
@@ -540,3 +571,168 @@ private const val METROLIST_URL = "https://github.com/MetrolistGroup/Metrolist"
 private const val LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html"
 private const val RIBBON_URL = "https://github.com/tsbehlman/xmb"
 private const val NASA_URL = "https://earthobservatory.nasa.gov/features/BlueMarble"
+
+/**
+ * Developer Tools: turning them off (which also resets the client override) and the playback
+ * client, as the stock pages offer them. Platforms add their own rows after these.
+ */
+@Composable
+private fun devtoolsRows(): List<SettingsItemRegistration> {
+    val settings = Settings.shared
+    val automatic = stringResource(Res.string.devtools_playback_client_automatic)
+    val sabrFirst = stringResource(Res.string.devtools_playback_client_sabr_first)
+    val selected =
+        settings.devtoolsPlaybackClient.takeIf(PlaybackClientCatalog::isDevtoolsSelectionAllowed)
+            ?: PlaybackClientCatalog.AUTOMATIC_ID
+    val choices =
+        listOf(
+            SettingsChoice(PlaybackClientCatalog.AUTOMATIC_ID, automatic),
+            SettingsChoice(PlaybackClientCatalog.SABR_FIRST_ID, sabrFirst),
+        ) + PlaybackClientCatalog.devtoolsOverrideOptions.map { SettingsChoice(it.id, it.displayName) }
+    return listOf(
+        SettingsItemRegistration(
+            id = "xmb_devtools_enabled",
+            title = stringResource(Res.string.devtools_title),
+            description = stringResource(Res.string.devtools_switch_description),
+            control = SettingsControl.SWITCH,
+            checked = settings.devtoolsUnlocked,
+            onCheckedChange = settings::setDevtoolsEnabled,
+        ),
+        SettingsItemRegistration(
+            id = "xmb_devtools_client",
+            title = stringResource(Res.string.devtools_playback_client),
+            control = SettingsControl.CHOICE,
+            choices = choices,
+            selectedChoiceId = selected,
+            valueLabel = choices.firstOrNull { it.id == selected }?.label,
+            onChoiceSelected = { settings.devtoolsPlaybackClient = it },
+        ),
+    )
+}
+
+/**
+ * Listen Together's settings: on or off, the name others see, the server (or a custom one),
+ * the host's approvals and volume sync, and blocked users (selecting one unblocks it; a name can be
+ * typed to block it). Rooms themselves are in the Friends column.
+ */
+@Composable
+private fun listenTogetherRows(manager: ListenTogetherManager): List<SettingsItemRegistration> {
+    val settings = Settings.shared
+    val username by manager.username.collectAsState()
+    val serverUrl by manager.serverUrl.collectAsState()
+    val servers by manager.servers.collectAsState()
+    val approveJoins by manager.autoApproveJoinRequests.collectAsState()
+    val approveSuggestions by manager.autoApproveSongSuggestions.collectAsState()
+    val syncVolume by manager.syncHostVolume.collectAsState()
+    val blocked by manager.blockedUsernames.collectAsState()
+    val unblock = stringResource(Res.string.unblock)
+    val blockedTitle = stringResource(Res.string.listen_together_blocked_users)
+    val serverChoices =
+        (servers.map { SettingsChoice(it.url, it.name.ifBlank { it.url }) } + SettingsChoice(serverUrl, serverUrl))
+            .distinctBy { it.id }
+            .filter { it.id.isNotBlank() }
+    return buildList {
+        add(
+            SettingsItemRegistration(
+                id = "xmb_lt_enabled",
+                title = stringResource(Res.string.listen_together),
+                description = stringResource(Res.string.listen_together_description),
+                control = SettingsControl.SWITCH,
+                checked = settings.listenTogetherEnabled,
+                onCheckedChange = { settings.listenTogetherEnabled = it },
+            ),
+        )
+        add(
+            SettingsItemRegistration(
+                id = "xmb_lt_username",
+                title = stringResource(Res.string.username),
+                control = SettingsControl.TEXT,
+                textValue = username,
+                onTextChanged = { if (it.isNotBlank()) manager.setUsername(it.trim()) },
+            ),
+        )
+        add(
+            SettingsItemRegistration(
+                id = "xmb_lt_server",
+                title = stringResource(Res.string.listen_together_server),
+                control = SettingsControl.CHOICE,
+                choices = serverChoices,
+                selectedChoiceId = serverUrl,
+                valueLabel = serverChoices.firstOrNull { it.id == serverUrl }?.label ?: serverUrl,
+                onChoiceSelected = manager::setServerUrl,
+            ),
+        )
+        add(
+            SettingsItemRegistration(
+                id = "xmb_lt_custom_server",
+                title = stringResource(Res.string.listen_together_add_custom_server),
+                control = SettingsControl.TEXT,
+                textValue = "",
+                onTextChanged = { if (it.isNotBlank()) manager.addCustomServer(it.trim()) },
+            ),
+        )
+        add(
+            ltSwitch(
+                "xmb_lt_approve_joins",
+                stringResource(Res.string.listen_together_auto_approval_joins),
+                null,
+                approveJoins,
+                manager::setAutoApproveJoinRequests,
+            ),
+        )
+        add(
+            ltSwitch(
+                "xmb_lt_approve_suggestions",
+                stringResource(Res.string.listen_together_auto_approval_suggestions),
+                stringResource(Res.string.listen_together_auto_approval_suggestions_desc),
+                approveSuggestions,
+                manager::setAutoApproveSongSuggestions,
+            ),
+        )
+        add(
+            ltSwitch(
+                "xmb_lt_sync_volume",
+                stringResource(Res.string.listen_together_sync_volume),
+                stringResource(Res.string.listen_together_sync_volume_desc),
+                syncVolume,
+                manager::setSyncHostVolume,
+            ),
+        )
+        blocked.sorted().forEach { name ->
+            add(
+                SettingsItemRegistration(
+                    id = "xmb_lt_blocked_$name",
+                    title = name,
+                    description = blockedTitle,
+                    control = SettingsControl.ACTION,
+                    valueLabel = unblock,
+                    onClick = { manager.unblockUser(name) },
+                ),
+            )
+        }
+        add(
+            SettingsItemRegistration(
+                id = "xmb_lt_block",
+                title = stringResource(Res.string.username_to_block),
+                control = SettingsControl.TEXT,
+                textValue = "",
+                onTextChanged = { if (it.isNotBlank()) manager.blockUser(it.trim()) },
+            ),
+        )
+    }
+}
+
+private fun ltSwitch(
+    id: String,
+    title: String,
+    description: String?,
+    checked: Boolean,
+    set: (Boolean) -> Unit,
+) = SettingsItemRegistration(
+    id = id,
+    title = title,
+    description = description,
+    control = SettingsControl.SWITCH,
+    checked = checked,
+    onCheckedChange = set,
+)

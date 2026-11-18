@@ -5672,4 +5672,10 @@
     <string name="xmb_playlist_new">New Playlist…</string>
     <string name="xmb_playlist_added">Added to %1$s</string>
     <string name="xmb_playlist_failed">Couldn\'t add to the playlist</string>
+    <string name="xmb_ai_test_passed">Connection works</string>
+    <string name="xmb_lyrics_offset_value">%1$s s</string>
+    <string name="xmb_lyrics_provider_position">Position %1$d</string>
+    <string name="xmb_openrouter_sign_out">Sign Out of OpenRouter</string>
+    <string name="xmb_value_hidden">Hidden</string>
+    <string name="xmb_signed_in">Signed in</string>
 </resources>

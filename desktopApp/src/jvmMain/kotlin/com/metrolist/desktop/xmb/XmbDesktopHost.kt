@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import coil3.compose.setSingletonImageLoaderFactory
+import com.metrolist.desktop.auth.DesktopDiscordLogin
 import com.metrolist.desktop.deviceconnect.DesktopDeviceConnect
 import com.metrolist.desktop.state.app.AppState
 import com.metrolist.desktop.state.app.UiState
@@ -43,9 +44,14 @@ import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_login
 import com.metrolist.shared.generated.resources.action_not_now
+import com.metrolist.shared.generated.resources.cancel
 import com.metrolist.shared.generated.resources.copy
+import com.metrolist.shared.generated.resources.discord_continue_in_browser
+import com.metrolist.shared.generated.resources.discord_open_browser_again
+import com.metrolist.shared.generated.resources.discord_sign_in_unavailable
 import com.metrolist.shared.generated.resources.ok
 import com.metrolist.shared.generated.resources.playback_error
+import com.metrolist.shared.generated.resources.sign_in_discord
 import com.metrolist.shared.generated.resources.youtube_session_expired_message
 import com.metrolist.shared.generated.resources.youtube_session_expired_title
 import com.metrolist.shared.model.LyricsEntry
@@ -54,6 +60,7 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.utils.tryOpenUrl
 import com.metrolist.shared.xmb.SnackbarsAsXmbToasts
 import com.metrolist.shared.xmb.XMB_INTEGRATION_PAGES
 import com.metrolist.shared.xmb.XmbAccount
@@ -123,7 +130,13 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                     settings =
                         XmbSettingsHost(
                             { settingsHost },
-                            system = XmbSystemPages(storage = DesktopXmbStorage, backup = DesktopXmbBackup(AppState.scope)),
+                            system =
+                                XmbSystemPages(
+                                    storage = DesktopXmbStorage,
+                                    backup = DesktopXmbBackup(AppState.scope),
+                                    listenTogether = ListenTogetherState.listenTogetherManager,
+                                    platformPages = mapOf(SettingsPageId.DEVTOOLS to { _ -> desktopXmbDevtoolsRows() }),
+                                ),
                             integrations = { rememberDesktopXmbIntegrationsHost() },
                             openStockPage = ::openStockSettings,
                         ),
@@ -190,6 +203,11 @@ private fun desktopXmbNotice(): XmbNoticeRequest? {
     val expiredMessage = stringResource(Res.string.youtube_session_expired_message)
     val logIn = stringResource(Res.string.action_login)
     val notNow = stringResource(Res.string.action_not_now)
+    val discordTitle = stringResource(Res.string.sign_in_discord)
+    val discordContinue = stringResource(Res.string.discord_continue_in_browser)
+    val discordAgain = stringResource(Res.string.discord_open_browser_again)
+    val discordUnavailable = stringResource(Res.string.discord_sign_in_unavailable)
+    val cancel = stringResource(Res.string.cancel)
     return when {
         PlayerState.showPlayerError -> {
             val message = PlayerState.playerErrorMessage
@@ -206,6 +224,30 @@ private fun desktopXmbNotice(): XmbNoticeRequest? {
             ) { chosen ->
                 if (chosen == 1) AppState.copyToClipboard("$message\n\n$details")
                 PlayerState.showPlayerError = false
+            }
+        }
+
+        DesktopXmbDiscord.unavailable -> {
+            XmbNoticeRequest(
+                XmbNotice(id = "discord_unavailable", title = discordTitle, message = discordUnavailable, buttons = listOf(ok), cancel = 0),
+            ) {
+                DesktopXmbDiscord.unavailable = false
+                DesktopDiscordLogin.flow.cancel()
+            }
+        }
+
+        DesktopDiscordLogin.flow.session != null -> {
+            val session = DesktopDiscordLogin.flow.session
+            XmbNoticeRequest(
+                XmbNotice(
+                    id = "discord_sign_in",
+                    title = discordTitle,
+                    message = discordContinue,
+                    buttons = listOf(discordAgain, cancel),
+                    cancel = 1,
+                ),
+            ) { chosen ->
+                if (chosen == 0 && session != null) tryOpenUrl(session.authorizeUrl) {} else DesktopDiscordLogin.flow.cancel()
             }
         }
 
