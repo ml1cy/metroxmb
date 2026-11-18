@@ -265,6 +265,10 @@ the parts only it has (`XmbSystemPages`: `XmbStorage`, `XmbBackup`); the rest is
 Other custom pages (developer tools, Android Auto, supported links, AI setup) and custom widgets
 inside registry pages (previews, OAuth sign-ins) still open the stock screen.
 
+Integrations (Discord, Last.fm, ListenBrainz, Device Connect, Listen Together) join the settings
+column as one more group, from the stock integrations registry (`rememberIntegrationsRegistry`).
+Their sign-ins and the Listen Together screen open the stock integrations screen.
+
 ## Links and shortcuts (M7; `XmbOpen`)
 
 A link, app shortcut or notification becomes an `XmbOpen` (a category, and a level to open over

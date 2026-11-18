@@ -78,6 +78,9 @@ import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
+import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.settings.SettingsUiRegistry
+import com.metrolist.shared.ui.settings.rememberIntegrationsRegistry
 import com.metrolist.shared.ui.settings.rememberMetrolistSettingsRegistry
 import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
@@ -277,7 +280,25 @@ fun XmbApp(
 
     // Live columns: settings pages from the registry, recent searches, the signed-in account.
     var settingsRevision by remember { mutableIntStateOf(0) }
-    val registry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
+    val settingsRegistry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
+    val integrationsRegistry =
+        services?.settings?.let { host ->
+            host.integrations?.let { integrations ->
+                rememberIntegrationsRegistry(integrations(), settingsRevision) { host.openStockPage(SettingsPageId.LAST_FM) }
+            }
+        }
+    // Integrations join the settings column as one more group of pages.
+    val registry =
+        remember(settingsRegistry, integrationsRegistry) {
+            if (settingsRegistry == null || integrationsRegistry == null) {
+                settingsRegistry
+            } else {
+                SettingsUiRegistry(
+                    settingsRegistry.pages + integrationsRegistry.pages,
+                    settingsRegistry.rootGroups + integrationsRegistry.rootGroups,
+                )
+            }
+        }
     val systemPages = services?.settings?.system
     val drawnPages = systemPages?.drawn.orEmpty()
     val labels =

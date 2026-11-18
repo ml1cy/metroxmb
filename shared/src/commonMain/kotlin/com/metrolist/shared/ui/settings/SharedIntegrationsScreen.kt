@@ -226,6 +226,49 @@ fun SharedIntegrationsScreen(
     }
 }
 
+/**
+ * XMB Music: the integrations pages outside the stock screen, for the XMB's settings column. The
+ * same state as [SharedIntegrationsScreen]; a Last.fm or ListenBrainz sign-in calls [onOpenLogin],
+ * and the platform opens its stock integrations screen for it.
+ */
+@Composable
+fun rememberIntegrationsRegistry(
+    host: SharedIntegrationsHost,
+    revision: Int,
+    onOpenLogin: () -> Unit,
+): SettingsUiRegistry {
+    val scope = rememberCoroutineScope()
+    val accessToken by DiscordRpcManager.accessTokenFlow.collectAsState()
+    val connectionStatus by DiscordRpcManager.connectionStatus.collectAsState()
+    val currentUser by DiscordRpcManager.currentUser.collectAsState()
+    val discordError by DiscordRpcManager.lastError.collectAsState()
+    var accountRevision by remember { mutableIntStateOf(0) }
+    LaunchedEffect(currentUser, accessToken) {
+        if (accessToken.isNullOrBlank()) return@LaunchedEffect
+        currentUser?.let { user ->
+            Settings.shared.discordUsername = user.username
+            Settings.shared.discordName = user.name
+            Settings.shared.discordAvatar = user.avatar.orEmpty()
+        }
+    }
+    return buildIntegrationsRegistry(
+        host = host,
+        revision = revision + accountRevision,
+        accessToken = accessToken,
+        connectionStatus = connectionStatus,
+        currentUser = currentUser,
+        discordError = discordError,
+        onOpenLogin = { onOpenLogin() },
+        onAccountsChanged = { accountRevision++ },
+        onDisconnectScrobble = { provider ->
+            scope.launch {
+                ScrobbleSessions.disconnect(provider)
+                accountRevision++
+            }
+        },
+    )
+}
+
 @Composable
 private fun buildIntegrationsRegistry(
     host: SharedIntegrationsHost,

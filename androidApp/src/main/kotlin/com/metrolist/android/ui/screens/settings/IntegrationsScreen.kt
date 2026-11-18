@@ -39,6 +39,19 @@ fun IntegrationsScreen(
     onNavigateToListenTogether: () -> Unit,
     initialPage: SettingsPageId? = null,
 ) {
+    SharedIntegrationsScreen(host = rememberAndroidIntegrationsHost(onNavigateBack, onNavigateToListenTogether, initialPage))
+}
+
+/**
+ * The integrations screen's host. XMB Music's settings column uses it too (XmbAndroidHost), so
+ * the integrations pages behave the same there.
+ */
+@Composable
+internal fun rememberAndroidIntegrationsHost(
+    onNavigateBack: () -> Unit,
+    onNavigateToListenTogether: () -> Unit,
+    initialPage: SettingsPageId? = null,
+): SharedIntegrationsHost {
     val copiedMessage = stringResource(Res.string.copied)
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current
@@ -58,41 +71,38 @@ fun IntegrationsScreen(
         }
     }
 
-    SharedIntegrationsScreen(
-        host =
-            SharedIntegrationsHost(
-                platform = SettingsPlatform.ANDROID,
-                onClose = onNavigateBack,
-                bottomContentPadding = LocalMiniPlayerBottomInset.current,
-                initialPage = initialPage,
-                discordLoginInProgress = discordLoginInProgress,
-                playbackPosition = playerConnection?.currentPosition,
-                currentPositionMs = { playerConnection?.currentPositionMs() ?: 0L },
-                playback =
-                    currentSong?.let { song ->
-                        IntegrationPlaybackState(
-                            song = song,
-                            artworkUrl = song.thumbnail,
-                            artistArtworkUrl = song.artists.firstOrNull()?.thumbnail,
-                            durationMs = duration,
-                            isPlaying = isPlaying,
-                            playbackSpeed = playbackSpeed,
-                        )
-                    },
-                onStartDiscordLogin = { session ->
-                    DiscordLoginFlow.start(session)
-                    runCatching { context.openDiscordUrl(session.authorizeUrl) }
-                        .onFailure {
-                            DiscordLoginFlow.clear()
-                            DiscordRpcManager.setError("discord_error_no_browser")
-                        }
-                },
-                deviceConnect = rememberDeviceConnectSettingsHost(),
-                onOpenListenTogether = onNavigateToListenTogether,
-                onOpenUrl = { url -> runCatching { context.openDiscordUrl(url) } },
-                onCopyText = { label, text -> context.copyToClipboard(label, text, copiedMessage) },
-                onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
-            ),
+    return SharedIntegrationsHost(
+        platform = SettingsPlatform.ANDROID,
+        onClose = onNavigateBack,
+        bottomContentPadding = LocalMiniPlayerBottomInset.current,
+        initialPage = initialPage,
+        discordLoginInProgress = discordLoginInProgress,
+        playbackPosition = playerConnection?.currentPosition,
+        currentPositionMs = { playerConnection?.currentPositionMs() ?: 0L },
+        playback =
+            currentSong?.let { song ->
+                IntegrationPlaybackState(
+                    song = song,
+                    artworkUrl = song.thumbnail,
+                    artistArtworkUrl = song.artists.firstOrNull()?.thumbnail,
+                    durationMs = duration,
+                    isPlaying = isPlaying,
+                    playbackSpeed = playbackSpeed,
+                )
+            },
+        onStartDiscordLogin = { session ->
+            DiscordLoginFlow.start(session)
+            runCatching { context.openDiscordUrl(session.authorizeUrl) }
+                .onFailure {
+                    DiscordLoginFlow.clear()
+                    DiscordRpcManager.setError("discord_error_no_browser")
+                }
+        },
+        deviceConnect = rememberDeviceConnectSettingsHost(),
+        onOpenListenTogether = onNavigateToListenTogether,
+        onOpenUrl = { url -> runCatching { context.openDiscordUrl(url) } },
+        onCopyText = { label, text -> context.copyToClipboard(label, text, copiedMessage) },
+        onMessage = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
     )
 }
 

@@ -1,13 +1,23 @@
 package com.metrolist.desktop.xmb
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import coil3.PlatformContext
+import com.metrolist.desktop.auth.DesktopDiscordLogin
 import com.metrolist.desktop.backup.DesktopBackupRestoreManager
 import com.metrolist.desktop.state.app.AppState
+import com.metrolist.desktop.state.app.UiState
+import com.metrolist.desktop.state.playback.DiscordRpcState
+import com.metrolist.desktop.state.playback.ListenTogetherState
+import com.metrolist.desktop.state.playback.PlayerState
 import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.SongCacheManager
+import com.metrolist.desktop.ui.screens.settings.rememberDeviceConnectSettingsHost
 import com.metrolist.desktop.utils.DesktopImageLoader
 import com.metrolist.shared.api.musicvideo.MusicVideoResolver
 import com.metrolist.shared.backup.defaultBackupFilename
+import com.metrolist.shared.discord.openDiscordUrl
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.album
 import com.metrolist.shared.generated.resources.artist
@@ -18,6 +28,9 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.storage.DesktopAnimatedArtworkCache
 import com.metrolist.shared.storage.ResizableImageDiskCache
 import com.metrolist.shared.storage.SongCacheLimitsMb
+import com.metrolist.shared.ui.settings.IntegrationPlaybackState
+import com.metrolist.shared.ui.settings.SettingsPlatform
+import com.metrolist.shared.ui.settings.SharedIntegrationsHost
 import com.metrolist.shared.xmb.XmbInputController
 import com.metrolist.shared.xmb.nav.XmbOpen
 import com.metrolist.shared.xmb.settings.XmbBackup
@@ -164,4 +177,45 @@ internal object DesktopXmbLinks {
     fun openPlaylist(id: String) = AppState.scope.launch { open(XmbOpen.playlist(id, getString(Res.string.playlist))) }
 
     fun openPodcast(id: String) = AppState.scope.launch { open(XmbOpen.podcast(id, getString(Res.string.podcast))) }
+}
+
+/**
+ * The integrations dialog's host, for the XMB's settings column. Starting a Discord sign-in opens
+ * the integrations dialog, which shows its code; the rest is as in `IntegrationsOverlay`.
+ */
+@Composable
+internal fun rememberDesktopXmbIntegrationsHost(): SharedIntegrationsHost {
+    val discordLogin = DesktopDiscordLogin.flow
+    val playbackSpeed by PlayerState.player.playbackSpeed.collectAsState()
+    val playbackDuration by PlayerState.playbackDuration.collectAsState()
+    return SharedIntegrationsHost(
+        platform = SettingsPlatform.DESKTOP,
+        onClose = {},
+        playbackPosition = PlayerState.playbackPosition,
+        currentPositionMs = PlayerState::currentMediaPositionMs,
+        playback =
+            PlayerState.currentTrack?.let { song ->
+                IntegrationPlaybackState(
+                    song = song,
+                    artworkUrl = PlayerState.currentArtworkUrl,
+                    artistArtworkUrl = song.artists.firstOrNull()?.thumbnail,
+                    durationMs = playbackDuration,
+                    isPlaying = PlayerState.isPlaying,
+                    playbackSpeed = playbackSpeed,
+                )
+            },
+        onStartDiscordLogin = { session ->
+            discordLogin.start(session)
+            UiState.showIntegrationsSettings = true
+        },
+        discordLoginInProgress = discordLogin.session != null || discordLogin.exchanging,
+        onDiscordSettingsChanged = {
+            DiscordRpcState.discordRpcEnabled = Settings.shared.enableDiscordIntegration
+            DiscordRpcState.updateDiscordRpc()
+        },
+        deviceConnect = rememberDeviceConnectSettingsHost(),
+        listenTogetherManager = ListenTogetherState.listenTogetherManager,
+        onOpenUrl = { openDiscordUrl(it, null) },
+        onCopyText = { _, text -> AppState.copyToClipboard(text) },
+    )
 }

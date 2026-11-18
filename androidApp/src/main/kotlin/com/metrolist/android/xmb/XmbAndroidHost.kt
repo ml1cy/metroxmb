@@ -43,6 +43,7 @@ import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
 import com.metrolist.android.ui.player.MusicVideoSurface
 import com.metrolist.android.ui.screens.rememberAndroidSettingsHost
+import com.metrolist.android.ui.screens.settings.rememberAndroidIntegrationsHost
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
@@ -54,6 +55,7 @@ import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.viewmodels.PlayerViewModel
 import com.metrolist.shared.xmb.SnackbarsAsXmbToasts
+import com.metrolist.shared.xmb.XMB_INTEGRATION_PAGES
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
@@ -147,8 +149,24 @@ internal fun XmbAndroidHost(
                 downloads = AndroidXmbDownloads(downloads, model.downloaded, model.viewModelScope),
                 search = model.search,
                 settings =
-                    XmbSettingsHost({ settingsHost }, system = system) { page ->
-                        navigator.navigate(Screen.SettingsPage(page))
+                    XmbSettingsHost(
+                        { settingsHost },
+                        system = system,
+                        integrations = {
+                            rememberAndroidIntegrationsHost(
+                                onNavigateBack = {},
+                                onNavigateToListenTogether = { navigator.navigate(Screen.ListenTogetherSettings) },
+                            )
+                        },
+                    ) { page ->
+                        navigator.navigate(
+                            when (page) {
+                                SettingsPageId.LISTEN_TOGETHER -> Screen.ListenTogetherSettings
+                                SettingsPageId.DISCORD -> Screen.Discord
+                                in XMB_INTEGRATION_PAGES -> Screen.Integrations
+                                else -> Screen.SettingsPage(page)
+                            },
+                        )
                     },
                 account =
                     object : XmbAccount {

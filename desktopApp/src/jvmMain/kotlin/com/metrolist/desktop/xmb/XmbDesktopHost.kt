@@ -47,6 +47,7 @@ import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.playback.LocalPlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.xmb.SnackbarsAsXmbToasts
+import com.metrolist.shared.xmb.XMB_INTEGRATION_PAGES
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
@@ -114,6 +115,7 @@ internal fun XmbDesktopHost(checkDarkMode: (Boolean) -> Unit) {
                         XmbSettingsHost(
                             { settingsHost },
                             system = XmbSystemPages(storage = DesktopXmbStorage, backup = DesktopXmbBackup(AppState.scope)),
+                            integrations = { rememberDesktopXmbIntegrationsHost() },
                             openStockPage = ::openStockSettings,
                         ),
                     account = DesktopXmbAccount,
@@ -222,6 +224,11 @@ private fun desktopXmbNotice(): XmbNoticeRequest? {
 
 /** Opens the stock settings overlay at [page]. */
 private fun openStockSettings(page: SettingsPageId) {
+    // Integrations pages (sign-ins, the Listen Together screen) live in the integrations dialog.
+    if (page in XMB_INTEGRATION_PAGES) {
+        UiState.showIntegrationsSettings = true
+        return
+    }
     UiState.selectedSettingsPage = page
     UiState.showSettings = true
 }

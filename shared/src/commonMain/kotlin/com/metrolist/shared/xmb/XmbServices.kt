@@ -9,6 +9,7 @@ import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.state.SongLikeState
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.settings.SharedIntegrationsHost
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
 import com.metrolist.shared.xmb.adapters.XmbSearch
@@ -45,8 +46,24 @@ interface XmbAccount {
 class XmbSettingsHost(
     val host: () -> SharedSettingsHost,
     val system: XmbSystemPages? = null,
+    /**
+     * The integrations host (Discord, Last.fm, ListenBrainz, Device Connect, Listen Together), whose
+     * pages join the settings column; [openStockPage] gets those pages too, for what the XMB can't
+     * draw (sign-ins, the room screen).
+     */
+    val integrations: (@Composable () -> SharedIntegrationsHost)? = null,
     val openStockPage: (SettingsPageId) -> Unit,
 )
+
+/** The integrations registry's pages, which open the stock integrations screen rather than settings. */
+val XMB_INTEGRATION_PAGES =
+    setOf(
+        SettingsPageId.DISCORD,
+        SettingsPageId.LAST_FM,
+        SettingsPageId.LISTEN_BRAINZ,
+        SettingsPageId.DEVICE_CONNECT,
+        SettingsPageId.LISTEN_TOGETHER,
+    )
 
 /** The platform's music video surface: draws the playing video's frames, scaled to fit. */
 interface XmbVideo {
