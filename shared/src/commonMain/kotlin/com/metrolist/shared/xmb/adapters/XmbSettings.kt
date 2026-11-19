@@ -99,8 +99,8 @@ sealed interface XmbSettingStep {
         val page: SettingsPageId,
     ) : XmbSettingStep
 
-    /** Show the stock settings screen at [page]: custom pages and rows the XMB can't draw. */
-    data class Stock(
+    /** Open a page outside the app (Android's link settings). */
+    data class External(
         val page: SettingsPageId,
     ) : XmbSettingStep
 
@@ -112,15 +112,17 @@ sealed interface XmbSettingStep {
 /**
  * Decides what selecting [entry] (a row of settings [page]) does. The XMB's own pages have no
  * registry [page]: their rows always have handlers, and anything else is unavailable there.
+ * Custom pages in [drawn] open as XMB levels like registry pages.
  */
 fun xmbSettingStep(
     entry: XmbEntry,
     page: SettingsPageId?,
     registry: SettingsUiRegistry?,
     labels: XmbSettingLabels,
+    drawn: Set<SettingsPageId> = emptySet(),
 ): XmbSettingStep {
     val item = entry.setting ?: return XmbSettingStep.Unavailable
-    val stock = page?.let(XmbSettingStep::Stock) ?: XmbSettingStep.Unavailable
+    val stock = XmbSettingStep.Unavailable
     if (!entry.enabled) return XmbSettingStep.Unavailable
     return when (item.control) {
         SettingsControl.SWITCH, SettingsControl.MAIN_SWITCH -> {
@@ -153,7 +155,13 @@ fun xmbSettingStep(
         SettingsControl.NAVIGATION -> {
             val destination = item.destination ?: return XmbSettingStep.Unavailable
             val target = registry?.get(destination)
-            if (target != null && !target.custom) XmbSettingStep.Open(destination) else XmbSettingStep.Stock(destination)
+            if (target != null &&
+                (!target.custom || destination in drawn)
+            ) {
+                XmbSettingStep.Open(destination)
+            } else {
+                XmbSettingStep.External(destination)
+            }
         }
 
         SettingsControl.ACTION -> {

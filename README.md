@@ -25,11 +25,12 @@ next to the XMB in December (right).</sub>
 
 ## Status
 
-**Current milestone: M4 and M6 done (desktop); M7 (Android) started; M5 on hold.** The XMB runs on desktop (Windows,
+**Current milestone: M4, M5 and M6 done; M7 (Android) well along.** The XMB runs on desktop (Windows,
 macOS, Linux): music, podcasts, music videos, search, Listen Together, lyrics, casting, every
-setting and sign-in, and the Waves visualizer. The stock desktop screens are removed. On Android
-the XMB is now the interface too (M7, started), with touch and an upright phone layout; the
-standard Android screens open only for sign-in and a few settings pages. iOS was removed.
+setting and sign-in, statistics, song recognition (Android) and the visualizers. On Android the
+XMB is the interface too, with touch and an upright phone layout. Metrolist's original screens
+are gone on both platforms: Google's sign-in shows in an XMB frame, and first-run setup, sign-in
+progress and the crash screen are XMB notices. iOS was removed.
 
 | | Milestone | Status |
 |---|---|---|
@@ -38,9 +39,9 @@ standard Android screens open only for sign-in and a few settings pages. iOS was
 | M2 | Music: home feed, quick picks, liked songs, playlists, albums, artists, history, downloads; playback; drill-down; △ options; now playing | ✅ Done |
 | M3 | Search with an XMB on-screen keyboard; every setting in the XMB Settings column; account sign-in; layout matched to console frames; the home wave with sparkles reacting to navigation | ✅ Done |
 | M4 | The Waves visualizer for real: layered ribbons reacting to the music; full-screen visualizer mode | Done: matched to the owner's videos, checked with real music |
-| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | On hold (reference stills saved) |
+| M5 | Valley (raymarched terrain) and Gaia (day/night Earth) visualizers | Done: Valley and Gaia (NASA Earth maps), Random and Auto-cycle |
 | M6 | Podcasts, Video, Friends (Listen Together), lyrics view, casting picker | ✅ Done |
-| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Started: the XMB is Android's interface, with touch, portrait and back; not yet run on devices |
+| M7 | Android, Android TV and touch: gestures, phone and tablet layouts, D-pad, quality settings; the XMB replaces Android's stock UI | Well along: the XMB is the only interface, with touch, portrait and back; not yet run on devices |
 
 **After the core:** theme picker (monthly, fixed, custom or album-art colors), lyrics over the
 waves, beat-synced colors, party mode, shared visualizers in Listen Together rooms, gamepad-driven
@@ -57,14 +58,19 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   lists scroll with easing, items above the focus jump over the category row, and each category
   remembers its position.
 - **Music.** Home (each shelf opens as a folder), Quick picks, Liked songs, Playlists, Albums,
-  Artists, History and Downloads. Albums, playlists and artists open further levels. Selecting a
-  song plays its list from that song.
-- **△ options.** Play, Shuffle, Play next, Add to queue, Start radio, Like/Unlike,
-  Download/Remove download, View album, View artist.
+  Artists, History and Downloads, then Lyrics, Play on Device (cast devices and your other
+  devices through Device Connect), Play Queue (select a song to jump to it) and Sleep Timer.
+  Albums, playlists and artists open further levels. Selecting a song plays its list from that
+  song.
+- **△ options.** Play, Shuffle, Play next, Add to queue, Start radio, Like/Unlike, Add to
+  playlist (or a new one), Download/Remove download, View album, View artist.
 - **Settings.** Every page of Metrolist's settings as XMB lists with the current value on the
   right. Switches and choices open a value list, sliders a slider, text the on-screen keyboard;
-  nothing changes until ✕ confirms. Pages with their own screens (storage, backup, updates, about,
-  MetroEQ, fonts) open the standard settings window over the XMB.
+  nothing changes until ✕ confirms. About, MetroEQ, Storage and Backup are XMB pages too, and
+  Integrations (Discord, Last.fm, ListenBrainz, Device Connect, Listen Together) follow the
+  settings pages. A few pages with their own screens (developer tools, Android Auto, AI lyrics
+  setup) and sign-ins still open the standard window. Updates are off: Metrolist's releases would
+  replace XMB Music.
 - **XMB settings.** Five pages at the top of the Settings column:
   - **Theme Settings:** color (the console's monthly color, any one month's color all year, or a
     custom hue), dim at night, a background image with dimming, and the wave, sparkles, the wave
@@ -76,7 +82,9 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
     - Volume: up, down, mute.
     - Other: like, visualizer, lyrics, search.
   - **Music Player Settings:** the now-playing card, the track info over the visualizer
-    (briefly, always or never), and opening Waves after the menu is left alone while music plays.
+    (briefly, always or never), opening Waves after the menu is left alone while music plays, and
+    visualizer quality (High, Balanced or Low).
+  - **Frame rate** (Theme Settings): 60, or 30 frames a second to save power.
 - **Search.** New search opens the on-screen keyboard: type on your keyboard or pick keys with
   the arrows, with suggestions in a column on the right. Results open as folders (top result,
   songs, albums, artists...). Recent searches are listed under New search.
@@ -86,7 +94,16 @@ boots straight into the XMB. The full plan is in [PLAN.md](PLAN.md).
   the music (bass deepens it, louder passages add silk lines and make the particles streak), with
   the console's track overlay (artwork, title, artist / album, queue position, time, codec badge
   and progress). ○ returns to the
-  XMB; any other key shows the track for a few seconds. Valley and Gaia come in M5.
+  XMB; any other key shows the track for a few seconds.
+  - **Valley:** a soft flight over glowing ridges and far mountains, its colors drifting through
+    molten orange, gold, night blue and crimson.
+  - **Gaia:** the Earth from NASA satellite maps, with drifting clouds, moving between a close
+    orbit, the whole globe, a sunrise over the
+    edge and a distant view; city lights on the night side pulse with the beat.
+  - **Random and Auto-cycle:** a different visualizer each time, or all three in turn (a crossfade
+    every 45 seconds).
+
+  On Android 12 and older, Valley and Gaia draw a simpler version, since shaders need Android 13.
 - **Podcasts.** Subscriptions (each opens its episodes), New episodes and Episodes for later.
 - **Video.** Watch video shows the playing song's music video full screen; Liked videos and Music
   videos (from the home feed) play full screen when selected. ○ goes back.
@@ -206,19 +223,19 @@ XMB code lives in the shared module; platform glue sits in each app.
 
 - On Windows the app turns off background power throttling and asks for 1 ms timers, so the XMB
   and playback stay smooth behind other windows (Windows 11 throttles background apps otherwise).
-- Android (M7, started) shows the XMB but hasn't been run on a phone, tablet or TV here: it builds
-  and its touch and layout logic is tested. Lyrics and video aren't wired on Android yet, and
-  sign-in and some settings pages open the standard Android screens.
+- Android (M7) is XMB-only, like desktop, but hasn't been run on a phone, tablet or TV here: it
+  builds, its drawing and shaders are tested under Robolectric, and its touch logic is tested.
+  Web sign-in, song recognition, browse pages, playlist import, the Listen Together room screen
+  and a few settings pages still open standard screens.
 
 - Navigation sounds decode and load (tested), but nobody has listened to them on real hardware
   yet.
 - The Windows portable build is assembled on Linux. The title bar over the XMB and the
   keys-after-Alt+Tab fix were checked on Linux only.
 - Sign-in on Linux needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), as in the standard interface.
-- Searches made in the XMB show up in the standard search screen's history after a restart.
 - The on-screen keyboard and value pickers have no console frames to match yet.
-- Features without an XMB screen yet (statistics, playlist editing) aren't reachable on desktop;
-  their settings are in the Settings column.
+- Features without an XMB screen yet (statistics, playlist editing, queue reordering) aren't
+  reachable; their settings are in the Settings column.
 - Podcasts, videos and Listen Together were built and tested without network access to YouTube or
   the Listen Together server; full-screen video was only checked with a stand-in frame.
 - `users.png` and `artist.png` are 68×68 and look soft when enlarged.
@@ -232,4 +249,5 @@ MetrolistGroup and its contributors; see [LICENSE](LICENSE). This project isn't 
 MetrolistGroup, YouTube or Sony. PlayStation, XMB and the PS3 system assets are Sony's; they're
 included only for personal use. The Podcasts and Visualizer category icons were drawn for this
 project. The XMB ribbon and its particles are ported from [tsbehlman/xmb](https://github.com/tsbehlman/xmb),
-itself adapted from [RetroArch](https://github.com/libretro/RetroArch)'s XMB ribbon shader (both GPL-3.0).
+itself adapted from [RetroArch](https://github.com/libretro/RetroArch)'s XMB ribbon shader (both GPL-3.0). Gaia's Earth uses NASA's
+Blue Marble and Black Marble imagery (NASA Earth Observatory, public domain).

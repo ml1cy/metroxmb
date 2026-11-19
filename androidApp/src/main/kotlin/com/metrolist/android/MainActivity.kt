@@ -47,6 +47,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import com.metrolist.android.deviceconnect.AndroidDeviceConnect
+import com.metrolist.android.discord.DiscordLoginFlow
 import com.metrolist.android.listentogether.AndroidListenTogetherManager
 import com.metrolist.android.locale.AppLocale
 import com.metrolist.android.onboarding.OnboardingDestination
@@ -58,7 +59,6 @@ import com.metrolist.android.playback.resolveIncomingPlaybackSong
 import com.metrolist.android.playback.toAndroidContentHints
 import com.metrolist.android.ui.IncomingDestination
 import com.metrolist.android.ui.MetrolistApp
-import com.metrolist.android.ui.screens.settings.DiscordLoginFlow
 import com.metrolist.android.ui.theme.MetrolistTheme
 import com.metrolist.android.ui.toIncomingDestination
 import com.metrolist.android.utils.CrashHandler
@@ -310,10 +310,8 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize().onGloballyPositioned { startupPresentation.contentLaidOut = true }) {
                     if (onboardingComplete) {
                         MetrolistApp(
-                            navigationSaveKey = navigationRestoration.saveKey,
                             incomingIntent = incomingIntentState.value,
                             incomingPlaybackSong = incomingPlaybackSong,
-                            onExitApp = ::finish,
                             onIncomingIntentConsumed = { consumed ->
                                 if (incomingIntentState.value === consumed) {
                                     incomingIntentState.value = null

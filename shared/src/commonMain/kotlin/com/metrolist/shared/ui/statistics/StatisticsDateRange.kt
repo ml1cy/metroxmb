@@ -1,6 +1,5 @@
 package com.metrolist.shared.ui.statistics
 
-import com.metrolist.shared.ui.screens.StatisticsPeriod
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -103,4 +102,19 @@ fun StatisticsPeriod.epochRange(
             days?.let { now.minus(it, DateTimeUnit.DAY, zone) }
         }
     return (start?.toEpochMilliseconds() ?: 0L) to now.toEpochMilliseconds()
+}
+
+enum class StatisticsPeriod {
+    WEEK,
+    MONTH,
+    THREE_MONTHS,
+    SIX_MONTHS,
+    YEAR,
+    ALL,
+}
+
+enum class StatisticsDetail {
+    TRACKS,
+    ALBUMS,
+    ARTISTS,
 }

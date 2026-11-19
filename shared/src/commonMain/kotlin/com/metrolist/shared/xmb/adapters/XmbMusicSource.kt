@@ -58,9 +58,12 @@ class DefaultXmbMusicSource(
     private val downloadedSongIds: Flow<Set<String>> = flowOf(emptySet()),
     private val search: XmbSearch? = null,
     private val repository: () -> YouTubeRepository = { GlobalYouTubeRepository.instance },
+    /** The app's own home feed when it has one, so the feed isn't loaded twice. */
+    private val homeViewModel: (() -> HomeViewModel)? = null,
     private val loadSongs: suspend (YTItem) -> List<SongItem> = ::loadMediaItemSongs,
 ) : XmbMusicSource {
-    private val home by lazy { HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
+    private val home by lazy { homeViewModel?.invoke() ?: HomeViewModel(database, scope, likedSongsName = "Liked Songs") }
+    private val statistics by lazy { XmbStatistics(database) }
     private val library by lazy {
         LibraryViewModel(scope, database, downloadedSongIds).also {
             it.setActive(true)
@@ -128,6 +131,18 @@ class DefaultXmbMusicSource(
                 }
             }
 
+            XmbList.Statistics -> {
+                once { statistics.periods() }
+            }
+
+            is XmbList.StatisticsPeriod -> {
+                once { statistics.period(list.period) }
+            }
+
+            is XmbList.StatisticsTop -> {
+                once { statistics.top(list.period, list.kind) }
+            }
+
             is XmbList.Section -> {
                 flowOf(XmbListState.loaded(list.section.items.map(YTItem::toXmbEntry)))
             }
@@ -168,7 +183,7 @@ class DefaultXmbMusicSource(
             }
 
             // Built in XmbApp from the playback and room state.
-            XmbList.CastDevices, XmbList.RoomMembers -> {
+            XmbList.CastDevices, XmbList.RoomMembers, XmbList.Queue -> {
                 flowOf(XmbListState.loaded(emptyList()))
             }
 
@@ -191,6 +206,16 @@ class DefaultXmbMusicSource(
                         ?.episodes
                         .orEmpty()
                         .map(YTItem::toXmbEntry)
+                }
+            }
+
+            is XmbList.Browse -> {
+                once {
+                    repository()
+                        .getBrowsePageData(list.browseId, list.params, list.title, loadAllPages = false)
+                        .sections
+                        .filter { it.items.isNotEmpty() }
+                        .mapIndexed { index, section -> section.toXmbEntry(index) }
                 }
             }
 

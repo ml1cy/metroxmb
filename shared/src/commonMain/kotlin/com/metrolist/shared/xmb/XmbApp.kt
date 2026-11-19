@@ -1,5 +1,6 @@
 package com.metrolist.shared.xmb
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -46,6 +47,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
@@ -54,6 +56,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
@@ -62,23 +65,68 @@ import androidx.compose.ui.unit.Density
 import com.metrolist.shared.auth.AuthManager
 import com.metrolist.shared.cast.CastState
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.generated.resources.add_to_playlist
+import com.metrolist.shared.generated.resources.album
+import com.metrolist.shared.generated.resources.artist
+import com.metrolist.shared.generated.resources.create_playlist
+import com.metrolist.shared.generated.resources.device_connect_title
+import com.metrolist.shared.generated.resources.downloads
+import com.metrolist.shared.generated.resources.history
+import com.metrolist.shared.generated.resources.lastfm_invalid_credentials
+import com.metrolist.shared.generated.resources.lastfm_login_session_invalid
+import com.metrolist.shared.generated.resources.lastfm_service_error
+import com.metrolist.shared.generated.resources.liked_songs
+import com.metrolist.shared.generated.resources.listenbrainz_connect_failed
+import com.metrolist.shared.generated.resources.listenbrainz_user_token
 import com.metrolist.shared.generated.resources.no
+import com.metrolist.shared.generated.resources.password
+import com.metrolist.shared.generated.resources.playlist
+import com.metrolist.shared.generated.resources.podcast
+import com.metrolist.shared.generated.resources.scrobble_connection_failed
+import com.metrolist.shared.generated.resources.sleep_timer
+import com.metrolist.shared.generated.resources.token_login_error_missing_auth_cookie
+import com.metrolist.shared.generated.resources.token_login_save_failed
+import com.metrolist.shared.generated.resources.token_login_saved
+import com.metrolist.shared.generated.resources.token_login_saving
+import com.metrolist.shared.generated.resources.token_login_title
+import com.metrolist.shared.generated.resources.username
 import com.metrolist.shared.generated.resources.xmb_cat_search
+import com.metrolist.shared.generated.resources.xmb_item_album
+import com.metrolist.shared.generated.resources.xmb_item_artist
+import com.metrolist.shared.generated.resources.xmb_item_playlist
 import com.metrolist.shared.generated.resources.xmb_item_subsetting
+import com.metrolist.shared.generated.resources.xmb_playlist_added
+import com.metrolist.shared.generated.resources.xmb_playlist_failed
+import com.metrolist.shared.generated.resources.xmb_playlist_new
+import com.metrolist.shared.generated.resources.xmb_queue_playing
+import com.metrolist.shared.generated.resources.xmb_signed_in
+import com.metrolist.shared.generated.resources.xmb_sleep_end_of_song
+import com.metrolist.shared.generated.resources.xmb_sleep_minutes
+import com.metrolist.shared.generated.resources.xmb_sleep_off
+import com.metrolist.shared.generated.resources.xmb_sleep_set
 import com.metrolist.shared.generated.resources.xmb_ui_clock
 import com.metrolist.shared.generated.resources.xmb_users_sign_out_confirm
 import com.metrolist.shared.generated.resources.xmb_value_off
 import com.metrolist.shared.generated.resources.xmb_value_on
 import com.metrolist.shared.generated.resources.yes
 import com.metrolist.shared.model.RepeatMode
+import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.settings.SettingsControl
+import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.settings.SettingsUiRegistry
+import com.metrolist.shared.ui.settings.XmbScrobbleMessages
+import com.metrolist.shared.ui.settings.rememberIntegrationsRegistry
 import com.metrolist.shared.ui.settings.rememberMetrolistSettingsRegistry
+import com.metrolist.shared.ui.settings.xmbScrobbleSignIn
 import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
 import com.metrolist.shared.visualizer.background.XmbWaveNudge
+import com.metrolist.shared.visualizer.background.setRibbonPasses
+import com.metrolist.shared.visualizer.gaia.GaiaVisualizer
 import com.metrolist.shared.visualizer.rememberVisualizerAudio
+import com.metrolist.shared.visualizer.valley.ValleyVisualizer
 import com.metrolist.shared.visualizer.waves.XmbBackdrop
 import com.metrolist.shared.xmb.adapters.XmbEntry
 import com.metrolist.shared.xmb.adapters.XmbEntryKind
@@ -90,7 +138,10 @@ import com.metrolist.shared.xmb.adapters.castEntries
 import com.metrolist.shared.xmb.adapters.currentLyricIndex
 import com.metrolist.shared.xmb.adapters.matches
 import com.metrolist.shared.xmb.adapters.memberEntries
+import com.metrolist.shared.xmb.adapters.peerEntries
+import com.metrolist.shared.xmb.adapters.peerId
 import com.metrolist.shared.xmb.adapters.plainNumber
+import com.metrolist.shared.xmb.adapters.song
 import com.metrolist.shared.xmb.adapters.toXmbEntries
 import com.metrolist.shared.xmb.adapters.toXmbEntry
 import com.metrolist.shared.xmb.adapters.xmbSettingStep
@@ -112,6 +163,7 @@ import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbNavigation
 import com.metrolist.shared.xmb.nav.XmbNotice
 import com.metrolist.shared.xmb.nav.XmbNoticeRequest
+import com.metrolist.shared.xmb.nav.XmbOption
 import com.metrolist.shared.xmb.nav.XmbOptionsPanel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbTouchGesture
@@ -119,6 +171,7 @@ import com.metrolist.shared.xmb.nav.XmbTouchTracker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
 import com.metrolist.shared.xmb.nav.focusCategory
 import com.metrolist.shared.xmb.nav.focusRow
+import com.metrolist.shared.xmb.nav.opening
 import com.metrolist.shared.xmb.nav.reduce
 import com.metrolist.shared.xmb.nav.resolve
 import com.metrolist.shared.xmb.nav.xmbActionFor
@@ -135,18 +188,22 @@ import com.metrolist.shared.xmb.screens.XmbOptionsPanelView
 import com.metrolist.shared.xmb.screens.XmbPickerView
 import com.metrolist.shared.xmb.screens.XmbToast
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
+import com.metrolist.shared.xmb.settings.XMB_HIDDEN_SETTINGS_PAGES
 import com.metrolist.shared.xmb.settings.XmbKeyChord
 import com.metrolist.shared.xmb.settings.XmbPrefs
 import com.metrolist.shared.xmb.settings.XmbSettingsHooks
 import com.metrolist.shared.xmb.settings.XmbShortcut
 import com.metrolist.shared.xmb.settings.XmbShortcutCapture
+import com.metrolist.shared.xmb.settings.XmbSystemHooks
 import com.metrolist.shared.xmb.settings.XmbTrackOverlay
 import com.metrolist.shared.xmb.settings.rememberXmbShortcutText
 import com.metrolist.shared.xmb.settings.title
 import com.metrolist.shared.xmb.settings.xmbClockText
+import com.metrolist.shared.xmb.settings.xmbCustomRows
 import com.metrolist.shared.xmb.settings.xmbOwnSettingsItems
 import com.metrolist.shared.xmb.settings.xmbSettingsRows
 import com.metrolist.shared.xmb.settings.xmbShortcutCapture
+import com.metrolist.shared.xmb.settings.xmbSystemRows
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.SilentXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.XmbSound
@@ -155,6 +212,7 @@ import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbMotion
 import com.metrolist.shared.xmb.theme.XmbPalette
 import com.metrolist.shared.xmb.theme.rememberXmbFontFamily
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -218,6 +276,9 @@ fun XmbApp(
     initialKeyboard: XmbKeyboard? = null,
     initialFullScreen: XmbFullScreen? = null,
 ) {
+    // Identify Song's listening and result show as notices, after the host's own.
+    @Suppress("NAME_SHADOWING")
+    val notice = notice ?: rememberXmbRecognitionNotice(services?.recognition, services?.playback)
     // The XMB's own settings (Settings column: Theme, Date and Time, Sound, Keyboard Shortcuts, Music Player).
     val prefs = XmbPrefs.current()
     val platformSounds = LocalXmbSoundPlayer.current
@@ -228,9 +289,23 @@ fun XmbApp(
     val motion = remember { XmbWaveMotion() }
     var fullScreen by remember { mutableStateOf(initialFullScreen) }
     val visualizerMode = fullScreen as? XmbFullScreen.Visualizer
+    // The visualizer on screen, kept while it fades out; Random avoids it, Auto-cycle starts from it.
+    var lastVisualizer by remember { mutableStateOf(XmbVisualizerKind.WAVES) }
+    visualizerMode?.let { lastVisualizer = it.kind }
+    LaunchedEffect(visualizerMode?.cycle, visualizerMode?.kind) {
+        val mode = visualizerMode ?: return@LaunchedEffect
+        if (!mode.cycle) return@LaunchedEffect
+        delay(CYCLE_MS)
+        val kinds = XmbVisualizerKind.entries
+        (fullScreen as? XmbFullScreen.Visualizer)?.takeIf { it.cycle }?.let { current ->
+            fullScreen = current.copy(kind = kinds[(kinds.indexOf(current.kind) + 1) % kinds.size])
+        }
+    }
     val audio = rememberVisualizerAudio(active = visualizerMode != null && animate)
     val waveSpeed by rememberUpdatedState(prefs.waveSpeed)
-    val seconds = rememberAnimationSeconds(animate, motion, audio) { waveSpeed }
+    val frameRate by rememberUpdatedState(prefs.frameRate)
+    val seconds = rememberAnimationSeconds(animate, motion, audio, { frameRate }) { waveSpeed }
+    SideEffect { setRibbonPasses(prefs.visualizerQuality.ribbonPasses) }
     // The full-screen visualizer's track overlay shows until this time, then fades.
     var overlayUntil by remember { mutableFloatStateOf(VISUALIZER_OVERLAY_SECONDS) }
     val focusRequester = remember { FocusRequester() }
@@ -249,11 +324,34 @@ fun XmbApp(
     var noticeFocus by remember(noticeId) { mutableIntStateOf(notice?.notice?.focus ?: 0) }
     LaunchedEffect(noticeId) { if (noticeId != null) sounds.play(XmbSound.NOTICE) }
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
     val actions = remember(services, scope) { services?.let { XmbActions(it, scope) } }
 
     // Live columns: settings pages from the registry, recent searches, the signed-in account.
     var settingsRevision by remember { mutableIntStateOf(0) }
-    val registry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
+    val settingsRegistry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
+    // A Last.fm (true) or ListenBrainz (false) sign-in to ask for on the keyboard.
+    var scrobbleSignIn by remember { mutableStateOf<Boolean?>(null) }
+    val integrationsRegistry =
+        services?.settings?.let { host ->
+            host.integrations?.let { integrations ->
+                rememberIntegrationsRegistry(integrations(), settingsRevision) { lastFm -> scrobbleSignIn = lastFm }
+            }
+        }
+    // Integrations join the settings column as one more group of pages.
+    val registry =
+        remember(settingsRegistry, integrationsRegistry) {
+            if (settingsRegistry == null || integrationsRegistry == null) {
+                settingsRegistry
+            } else {
+                SettingsUiRegistry(
+                    settingsRegistry.pages + integrationsRegistry.pages,
+                    settingsRegistry.rootGroups + integrationsRegistry.rootGroups,
+                )
+            }
+        }
+    val systemPages = services?.settings?.system
+    val drawnPages = systemPages?.drawn.orEmpty()
     val labels =
         XmbSettingLabels(
             on = stringResource(Res.string.xmb_value_on),
@@ -274,13 +372,59 @@ fun XmbApp(
             ?.collectAsState()
             ?.value
     val text = rememberXmbM6Text()
+    val deviceConnectLabel = stringResource(Res.string.device_connect_title)
+    val scrobbleUsername = stringResource(Res.string.username)
+    val scrobblePassword = stringResource(Res.string.password)
+    val scrobbleToken = stringResource(Res.string.listenbrainz_user_token)
+    val tokenTitle = stringResource(Res.string.token_login_title)
+    val tokenInvalid = stringResource(Res.string.token_login_error_missing_auth_cookie)
+    val tokenSaved = stringResource(Res.string.token_login_saved)
+    val tokenFailed = stringResource(Res.string.token_login_save_failed)
+    val tokenChecking = stringResource(Res.string.token_login_saving)
+    val scrobbleSignedIn = stringResource(Res.string.xmb_signed_in)
+    val scrobbleMessages =
+        XmbScrobbleMessages(
+            invalidLastFm = stringResource(Res.string.lastfm_invalid_credentials),
+            invalidLastFmSession = stringResource(Res.string.lastfm_login_session_invalid),
+            connectionFailed = stringResource(Res.string.scrobble_connection_failed),
+            serviceError = stringResource(Res.string.lastfm_service_error),
+            listenBrainzFailed = stringResource(Res.string.listenbrainz_connect_failed),
+        )
+    val queuePlaying = stringResource(Res.string.xmb_queue_playing)
+    val sleepTitle = stringResource(Res.string.sleep_timer)
+    val sleepOff = stringResource(Res.string.xmb_sleep_off)
+    val sleepMinutes = stringResource(Res.string.xmb_sleep_minutes)
+    val sleepEndOfSong = stringResource(Res.string.xmb_sleep_end_of_song)
+    val sleepSet = stringResource(Res.string.xmb_sleep_set)
+    val playlistTitle = stringResource(Res.string.add_to_playlist)
+    val playlistNew = stringResource(Res.string.xmb_playlist_new)
+    val playlistCreate = stringResource(Res.string.create_playlist)
+    val playlistAdded = stringResource(Res.string.xmb_playlist_added)
+    val playlistFailed = stringResource(Res.string.xmb_playlist_failed)
     val shortcutText = rememberXmbShortcutText()
     val categories =
         xmbCategories(
             users = xmbUserItems(account),
-            settings = xmbOwnSettingsItems() + registry?.let(::xmbSettingsItems).orEmpty(),
+            settings =
+                xmbOwnSettingsItems() +
+                    registry
+                        ?.let {
+                            xmbSettingsItems(
+                                it,
+                                drawnPages,
+                                hidden = XMB_HIDDEN_SETTINGS_PAGES,
+                                external =
+                                    services
+                                        ?.settings
+                                        ?.host
+                                        ?.invoke()
+                                        ?.externalPages
+                                        .orEmpty(),
+                            )
+                        }.orEmpty(),
             search = xmbSearchItems(history),
             friends = xmbFriendItems(friends),
+            canRecognize = services?.recognition != null,
         )
     val itemCounts = categories.map { it.items.size }
     val itemTitles = categories.map { category -> category.items.map { it.title.resolve() } }
@@ -303,7 +447,7 @@ fun XmbApp(
     val musicState by remember(level?.list?.key, services) {
         val list = level?.list
         if (list == null || services == null || settingsPage != null || xmbPage != null || list == XmbList.CastDevices ||
-            list == XmbList.RoomMembers
+            list == XmbList.RoomMembers || list == XmbList.Queue
         ) {
             flowOf(XmbListState.loaded(emptyList()))
         } else {
@@ -330,8 +474,71 @@ fun XmbApp(
     val listState =
         if (xmbPage != null) {
             XmbListState.loaded(xmbSettingsRows(xmbPage, prefs, settingsHooks).map { it.toXmbEntry(labels) })
+        } else if (settingsPage != null && systemPages != null && settingsPage in drawnPages) {
+            val hooks =
+                XmbSystemHooks(
+                    toast = { message ->
+                        toast = message
+                        toastUntil = seconds.floatValue + TOAST_SECONDS
+                    },
+                )
+            XmbListState.loaded(xmbSystemRows(settingsPage, systemPages, hooks, settingsRevision).orEmpty().map { it.toXmbEntry(labels) })
         } else if (settingsPage != null) {
-            val page = registry?.get(settingsPage)
+            val hooks =
+                XmbSystemHooks(
+                    toast = { message ->
+                        toast = message
+                        toastUntil = seconds.floatValue + TOAST_SECONDS
+                    },
+                )
+            val externalPages =
+                services
+                    ?.settings
+                    ?.host
+                    ?.invoke()
+                    ?.externalPages
+                    .orEmpty()
+            // Rows the registry draws with its own widgets become XMB rows (or are left out), and
+            // rows leading to pages that only set up the stock screens are left out.
+            val page =
+                registry?.get(settingsPage)?.let { registered ->
+                    registered.copy(
+                        groups =
+                            registered.groups
+                                .map { group ->
+                                    group.copy(
+                                        items =
+                                            group.items.flatMap { item ->
+                                                when {
+                                                    item.destination in XMB_HIDDEN_SETTINGS_PAGES -> {
+                                                        emptyList()
+                                                    }
+
+                                                    // Rows to custom pages the XMB doesn't draw (and that aren't outside the app).
+                                                    item.destination?.let { destination ->
+                                                        registry[destination]?.custom == true && destination !in drawnPages &&
+                                                            destination !in externalPages
+                                                    } == true -> {
+                                                        emptyList()
+                                                    }
+
+                                                    item.control == SettingsControl.CUSTOM -> {
+                                                        xmbCustomRows(
+                                                            item,
+                                                            hooks,
+                                                            services?.deviceConnect,
+                                                        )
+                                                    }
+
+                                                    else -> {
+                                                        listOf(item)
+                                                    }
+                                                }
+                                            },
+                                    )
+                                }.filter { it.items.isNotEmpty() },
+                    )
+                }
             // Slider formatters are composable, so their labels are made here.
             val sliderLabels = mutableMapOf<String, String>()
             page?.groups?.forEach { group ->
@@ -343,9 +550,27 @@ fun XmbApp(
                 }
             }
             XmbListState.loaded(page?.toXmbEntries(labels, sliderLabels).orEmpty())
+        } else if (level?.list == XmbList.Queue) {
+            val queue = playbackState?.queue.orEmpty()
+            val current = playbackState?.currentQueueIndex ?: -1
+            XmbListState.loaded(
+                queue.mapIndexed { index, song ->
+                    song.toXmbEntry().copy(key = "queue:$index:${song.id}", value = queuePlaying.takeIf { index == current })
+                },
+            )
         } else if (level?.list == XmbList.CastDevices) {
-            val devices =
+            val casts =
                 castEntries(playbackState?.castDevices.orEmpty(), playbackState?.castState ?: CastState(), text.connected, text.connecting)
+            // The user's other devices (Device Connect) follow the cast devices.
+            val peers =
+                services
+                    ?.deviceConnect
+                    ?.let { manager ->
+                        val state by manager.state.collectAsState()
+                        val sync by manager.remote.state.collectAsState()
+                        peerEntries(state.peers, state.localDeviceId, sync.targetId, deviceConnectLabel, text.connected)
+                    }.orEmpty()
+            val devices = casts + peers
             XmbListState(devices, isLoading = devices.isEmpty())
         } else if (level?.list == XmbList.RoomMembers) {
             val room =
@@ -442,6 +667,89 @@ fun XmbApp(
         navigation = navigation.push(XmbLevel(XmbList.SearchResults(trimmed), trimmed, XmbIcon.Drawable(Res.drawable.xmb_cat_search)))
     }
 
+    fun showToast(message: String) {
+        toast = message
+        toastUntil = seconds.floatValue + TOAST_SECONDS
+    }
+
+    // Last.fm asks for the username, then the password; ListenBrainz for the user token.
+    LaunchedEffect(scrobbleSignIn) {
+        val lastFm = scrobbleSignIn ?: return@LaunchedEffect
+        scrobbleSignIn = null
+
+        fun finish(
+            user: String,
+            credential: String,
+        ) {
+            scope.launch {
+                val error = xmbScrobbleSignIn(lastFm, user, credential, scrobbleMessages)
+                showToast(error ?: scrobbleSignedIn)
+                settingsRevision++
+            }
+        }
+        if (lastFm) {
+            openKeyboard(
+                KeyboardSession(XmbKeyboard(title = scrobbleUsername, text = ""), forSearch = false) { user ->
+                    if (user.isNotBlank()) {
+                        openKeyboard(
+                            KeyboardSession(
+                                XmbKeyboard(title = scrobblePassword, text = "", secret = true),
+                                forSearch = false,
+                            ) { password ->
+                                if (password.isNotEmpty()) finish(user, password)
+                            },
+                        )
+                    }
+                },
+            )
+        } else {
+            openKeyboard(
+                KeyboardSession(XmbKeyboard(title = scrobbleToken, text = "", secret = true), forSearch = false) { token ->
+                    if (token.isNotBlank()) finish("", token)
+                },
+            )
+        }
+    }
+
+    /** Add to Playlist: the user's playlists in a picker, after New Playlist (named on the keyboard). */
+    fun addToPlaylist(song: SongItem) {
+        val playlists = services?.playlists ?: return
+
+        fun report(
+            added: Boolean,
+            name: String,
+        ) = showToast(if (added) playlistAdded.replace("%1\$s", name) else playlistFailed)
+        scope.launch {
+            val existing =
+                try {
+                    playlists.editable()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            picker =
+                XmbPicker.Choice(playlistTitle, listOf(playlistNew) + existing.map { it.second }, focus = 0) { index ->
+                    if (index == 0) {
+                        openKeyboard(
+                            KeyboardSession(XmbKeyboard(title = playlistCreate, text = ""), forSearch = false) { typed ->
+                                val name = typed.trim()
+                                if (name.isNotEmpty()) {
+                                    scope.launch {
+                                        val id = playlists.create(name)
+                                        report(id != null && playlists.add(id, song), name)
+                                    }
+                                }
+                            },
+                        )
+                    } else {
+                        val (id, name) = existing[index - 1]
+                        scope.launch { report(playlists.add(id, song), name) }
+                    }
+                }
+        }
+    }
+
     fun commitSetting(change: () -> Unit) {
         change()
         settingsRevision++
@@ -497,6 +805,40 @@ fun XmbApp(
                 services?.account?.signIn() ?: return XmbFeedback.ERROR
             }
 
+            XmbItemAction.TokenSignIn -> {
+                val account = services?.account ?: return XmbFeedback.ERROR
+                scope.launch {
+                    // A token is pasted: Ctrl+V on the keyboard, or it's filled in when the clipboard holds one.
+                    val copied = xmbClipboardText(clipboard)?.trim()?.takeIf(::looksLikeSignInToken).orEmpty()
+                    openKeyboard(
+                        KeyboardSession(
+                            XmbKeyboard(title = tokenTitle, text = copied, secret = true, maxLength = TOKEN_MAX_LENGTH),
+                            forSearch = false,
+                        ) { token ->
+                            if (token.isNotBlank()) {
+                                showToast(tokenChecking)
+                                scope.launch {
+                                    when (val result = xmbTokenSignIn(token)) {
+                                        XmbTokenResult.Invalid -> {
+                                            showToast(tokenInvalid)
+                                        }
+
+                                        XmbTokenResult.Failed -> {
+                                            showToast(tokenFailed)
+                                        }
+
+                                        is XmbTokenResult.Saved -> {
+                                            showToast(tokenSaved)
+                                            account.tokenSaved(result.credentials)
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+
             XmbItemAction.SwitchChannel -> {
                 services?.account?.switchChannel() ?: return XmbFeedback.ERROR
             }
@@ -511,8 +853,45 @@ fun XmbApp(
                 overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
             }
 
+            XmbItemAction.OpenRandomVisualizer -> {
+                fullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.entries.filter { it != lastVisualizer }.random())
+                overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            }
+
+            XmbItemAction.CycleVisualizers -> {
+                fullScreen = XmbFullScreen.Visualizer(lastVisualizer, cycle = true)
+                overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            }
+
             XmbItemAction.WatchVideo -> {
                 if (!watchVideo()) return XmbFeedback.ERROR
+            }
+
+            XmbItemAction.IdentifySong -> {
+                services?.recognition?.start() ?: return XmbFeedback.ERROR
+            }
+
+            XmbItemAction.SleepTimer -> {
+                val playback = services?.playback ?: return XmbFeedback.ERROR
+                val minutes = SLEEP_MINUTES
+                val choices = listOf(sleepOff) + minutes.map { sleepMinutes.replace("%1\$d", it.toString()) } + sleepEndOfSong
+                val timer = playback.state.value.sleepTimerState
+                val focus =
+                    when {
+                        !timer.isActive -> 0
+                        timer.stopAfterCurrentSong || timer.finishCurrentSong -> choices.lastIndex
+                        else -> minutes.indexOfFirst { it * 60_000L == timer.totalDurationMs } + 1
+                    }.coerceIn(0, choices.lastIndex)
+                picker =
+                    XmbPicker.Choice(sleepTitle, choices, focus) { index ->
+                        when (index) {
+                            0 -> playback.cancelSleepTimer()
+                            choices.lastIndex -> playback.stopSleepTimerAfterCurrentSong(fadeOut = true)
+                            else -> playback.startSleepTimer(minutes[index - 1] * 60_000L, fadeOut = true)
+                        }
+                        toast = sleepSet.replace("%1\$s", choices[index])
+                        toastUntil = seconds.floatValue + TOAST_SECONDS
+                    }
             }
 
             XmbItemAction.OpenLyrics -> {
@@ -571,15 +950,27 @@ fun XmbApp(
                     }
             }
 
-            is XmbItemAction.StockSettings -> {
-                services?.settings?.openStockPage?.invoke(action.page) ?: return XmbFeedback.ERROR
+            is XmbItemAction.ExternalSettings -> {
+                val host = services?.settings?.host?.invoke() ?: return XmbFeedback.ERROR
+                if (action.page !in host.externalPages) return XmbFeedback.ERROR
+                host.onOpenPage(action.page)
             }
         }
         return XmbFeedback.SELECT
     }
 
-    /** Connects to a cast device, or disconnects from the one in use. */
+    /** Connects to a cast device, or disconnects from the one in use; moves playback to or back from another device. */
     fun selectCastDevice(entry: XmbEntry): XmbFeedback {
+        entry.peerId()?.let { peer ->
+            val manager = services?.deviceConnect ?: return XmbFeedback.ERROR
+            // The device playing now hands playback back here; another takes it.
+            if (manager.remote.state.value.targetId == peer) {
+                manager.remote.transferTo(manager.state.value.localDeviceId)
+                return XmbFeedback.BACK
+            }
+            manager.remote.transferTo(peer)
+            return XmbFeedback.SELECT
+        }
         val playback = services?.playback ?: return XmbFeedback.ERROR
         val state = playback.state.value
         val current = state.castState.device
@@ -595,7 +986,7 @@ fun XmbApp(
     fun selectSetting(index: Int): XmbFeedback {
         val entry = listState.entries.getOrNull(index) ?: return XmbFeedback.ERROR
         if (xmbPage == null && (settingsPage == null || registry == null)) return XmbFeedback.ERROR
-        when (val step = xmbSettingStep(entry, settingsPage, registry, labels)) {
+        when (val step = xmbSettingStep(entry, settingsPage, registry, labels, drawnPages)) {
             XmbSettingStep.Unavailable -> {
                 return XmbFeedback.ERROR
             }
@@ -620,8 +1011,11 @@ fun XmbApp(
                     )
             }
 
-            is XmbSettingStep.Stock -> {
-                services?.settings?.openStockPage?.invoke(step.page) ?: return XmbFeedback.ERROR
+            is XmbSettingStep.External -> {
+                // External pages (the system's link settings) open outside the app.
+                val host = services?.settings?.host?.invoke() ?: return XmbFeedback.ERROR
+                if (step.page !in host.externalPages) return XmbFeedback.ERROR
+                host.onOpenPage(step.page)
             }
 
             is XmbSettingStep.Run -> {
@@ -658,7 +1052,11 @@ fun XmbApp(
             val step = panel.reduce(action)
             options = step.panel
             step.chosen?.let { chosen ->
-                actions?.run(chosen, entries, navigation.level?.focus ?: -1)?.let { navigation = navigation.push(it) }
+                if (chosen == XmbOption.ADD_TO_PLAYLIST) {
+                    entries.getOrNull(navigation.level?.focus ?: -1)?.song?.let(::addToPlaylist)
+                } else {
+                    actions?.run(chosen, entries, navigation.level?.focus ?: -1)?.let { navigation = navigation.push(it) }
+                }
             }
             feedback(action, step.feedback)
             return
@@ -695,6 +1093,12 @@ fun XmbApp(
                         XmbFeedback.ERROR
                     }
 
+                    navigation.level?.list == XmbList.Queue -> {
+                        // A queued song plays from its place in the queue, which stays as it is.
+                        services?.playback?.playQueueIndex(selection.item)
+                        if (services?.playback == null) XmbFeedback.ERROR else XmbFeedback.SELECT
+                    }
+
                     navigation.level?.list == XmbList.LikedVideos || navigation.level?.list == XmbList.FeedVideos -> {
                         // Videos play full screen, like the console's Video column.
                         if (actions?.playFrom(entries, selection.item) == true && watchVideo()) XmbFeedback.SELECT else XmbFeedback.ERROR
@@ -723,6 +1127,17 @@ fun XmbApp(
         fun update(next: XmbKeyboard) {
             keyboard = KeyboardSession(next, session.forSearch, session.onSubmit)
             if (session.forSearch) services?.search?.type(next.text)
+        }
+        val paste =
+            ((event.isCtrlPressed || event.isMetaPressed) && event.key == Key.V) || (event.isShiftPressed && event.key == Key.Insert)
+        if (paste || event.key == Key.Paste) {
+            scope.launch {
+                val pasted = xmbClipboardText(clipboard) ?: return@launch
+                val current = keyboard?.takeIf { it === session } ?: return@launch
+                keyboard = KeyboardSession(current.keyboard.paste(pasted), current.forSearch, current.onSubmit)
+                if (current.forSearch) services?.search?.type(keyboard?.keyboard?.text.orEmpty())
+            }
+            return true
         }
         when (event.key) {
             Key.Backspace -> {
@@ -758,11 +1173,6 @@ fun XmbApp(
             }
         }
         return true
-    }
-
-    fun showToast(message: String) {
-        toast = message
-        toastUntil = seconds.floatValue + TOAST_SECONDS
     }
 
     fun setVolume(level: Float) {
@@ -1064,6 +1474,94 @@ fun XmbApp(
     val latestAct by rememberUpdatedState<(XmbAction) -> Unit> { act(it) }
     val latestSuspended by rememberUpdatedState(suspended)
     LaunchedEffect(input) { input?.actions?.collect { latestAct(it) } }
+    LaunchedEffect(input) { input?.toasts?.collect { showToast(it) } }
+    LaunchedEffect(systemPages) { systemPages?.playlistImport?.messages?.collect { showToast(it) } }
+    // A link, app shortcut or notification: its category, with the level opened, over anything open.
+    val pendingOpen = input?.pendingOpen
+    // A link carries only an id: its level is titled with a generic word until it loads.
+    val genericTitles =
+        mapOf(
+            "album" to stringResource(Res.string.album),
+            "artist" to stringResource(Res.string.artist),
+            "playlist" to stringResource(Res.string.playlist),
+            "podcast" to stringResource(Res.string.podcast),
+            "downloads" to stringResource(Res.string.downloads),
+            "history" to stringResource(Res.string.history),
+            "liked" to stringResource(Res.string.liked_songs),
+        )
+    LaunchedEffect(pendingOpen) {
+        val target = input?.takeOpen() ?: return@LaunchedEffect
+        if (target.identifySong) {
+            services?.recognition?.start()
+            return@LaunchedEffect
+        }
+        target.roomCode?.let { code ->
+            navigation = navigation.copy(category = XmbCategoryId.FRIENDS.ordinal, stack = emptyList())
+            val manager = together?.manager ?: return@LaunchedEffect
+            manager.setEnabled(true)
+            withName { name -> manager.joinRoom(code, name) }
+            return@LaunchedEffect
+        }
+        if (target.tokenSignIn) {
+            val users = XmbCategoryId.USERS.ordinal
+            val index = categories.getOrNull(users)?.items?.indexOfFirst { it.action == XmbItemAction.TokenSignIn } ?: -1
+            if (index >= 0) {
+                val items = navigation.items.toMutableList().also { if (users in it.indices) it[users] = index }
+                navigation = navigation.copy(category = users, items = items, stack = emptyList())
+                selectTopLevel(users, index)
+            }
+            return@LaunchedEffect
+        }
+        if (target.nowPlaying) {
+            // The player, the XMB way: the last visualizer full screen with the track, over whatever is open.
+            if (services
+                    ?.playback
+                    ?.state
+                    ?.value
+                    ?.currentSong == null
+            ) {
+                return@LaunchedEffect
+            }
+            options = null
+            picker = null
+            keyboard = null
+            if (fullScreen == null) fullScreen = XmbFullScreen.Visualizer(lastVisualizer)
+            overlayUntil = seconds.floatValue + VISUALIZER_OVERLAY_SECONDS
+            return@LaunchedEffect
+        }
+        options = null
+        picker = null
+        keyboard = null
+        // Leaving full-screen video turns the player's video mode off, as ○ does there.
+        if (fullScreen == XmbFullScreen.Video) services?.playback?.setVideoMode(false)
+        fullScreen = null
+        val list = target.list
+        val title =
+            (list as? XmbList.SettingsPage)?.let { registry?.get(it.page)?.title }
+                ?: target.title.ifBlank {
+                    when (list) {
+                        is XmbList.Album -> genericTitles["album"]
+                        is XmbList.Artist -> genericTitles["artist"]
+                        is XmbList.Playlist -> genericTitles["playlist"]
+                        is XmbList.Podcast -> genericTitles["podcast"]
+                        XmbList.Downloads -> genericTitles["downloads"]
+                        XmbList.History -> genericTitles["history"]
+                        XmbList.Liked -> genericTitles["liked"]
+                        else -> null
+                    }.orEmpty()
+                }
+        val icon =
+            XmbIcon.Drawable(
+                when (list) {
+                    is XmbList.Album -> Res.drawable.xmb_item_album
+                    is XmbList.Artist -> Res.drawable.xmb_item_artist
+                    is XmbList.SearchResults -> Res.drawable.xmb_cat_search
+                    is XmbList.SettingsPage -> Res.drawable.xmb_item_subsetting
+                    else -> Res.drawable.xmb_item_playlist
+                },
+            )
+        navigation = navigation.opening(target.copy(title = title), categories.map { it.items }, icon)
+    }
     val canGoBack =
         navigation.stack.isNotEmpty() || options != null || picker != null || keyboard != null ||
             fullScreen != null || notice != null || recording != null
@@ -1225,6 +1723,34 @@ fun XmbApp(
                     wallpaper = wallpaper,
                     wallpaperDim = prefs.wallpaperDim,
                 )
+            }
+            // Valley and Gaia cover the backdrop (which turns to Waves beneath them); Auto-cycle crossfades.
+            if ((visualizerShown > 0f && lastVisualizer != XmbVisualizerKind.WAVES) || visualizerMode?.cycle == true) {
+                Crossfade(
+                    targetState = lastVisualizer,
+                    animationSpec = tween(CYCLE_FADE_MS),
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = visualizerShown },
+                    label = "visualizer",
+                ) { kind ->
+                    when (kind) {
+                        XmbVisualizerKind.WAVES -> {
+                            Unit
+                        }
+
+                        XmbVisualizerKind.VALLEY -> {
+                            ValleyVisualizer(
+                                audio,
+                                { seconds.floatValue },
+                                prefs.visualizerQuality,
+                                Modifier.fillMaxSize(),
+                            )
+                        }
+
+                        XmbVisualizerKind.GAIA -> {
+                            GaiaVisualizer(audio, { seconds.floatValue }, prefs.visualizerQuality, Modifier.fillMaxSize())
+                        }
+                    }
+                }
             }
             val video = services?.video
             if (video != null && (fullScreen == XmbFullScreen.Video || videoShown > 0f)) {
@@ -1431,6 +1957,7 @@ private fun rememberAnimationSeconds(
     animate: Boolean,
     motion: XmbWaveMotion,
     audio: VisualizerAudio,
+    frameRate: () -> Int,
     waveSpeed: () -> Float,
 ): MutableFloatState {
     val seconds = remember { mutableFloatStateOf(0f) }
@@ -1442,6 +1969,8 @@ private fun rememberAnimationSeconds(
             val origin = withFrameMillis { it } - (seconds.floatValue * 1000f).toLong()
             while (true) {
                 withFrameMillis {
+                    // At 30 frames a second, every other display frame is skipped (nothing redraws).
+                    if (frameRate() < 60 && it - origin - (seconds.floatValue * 1000f).toLong() < HALF_RATE_MS) return@withFrameMillis
                     val next = (it - origin) / 1000f
                     // Wave speed (Theme Settings) scales the home wave's clock.
                     motion.advance((next - seconds.floatValue) * waveSpeed())
@@ -1463,17 +1992,30 @@ private const val MENU_FADE_SHARE = 0.6f
 private const val VISUALIZER_OVERLAY_SECONDS = 4f
 private const val VISUALIZER_OVERLAY_FADE = 0.6f
 
+/** Sleep timer lengths offered, in minutes. */
+private val SLEEP_MINUTES = listOf(15, 30, 45, 60, 90, 120)
+
 /** Keyboard shortcuts: seek and volume steps, the volume after unmuting from zero, and the toast's timing. */
 private const val SEEK_STEP_MS = 10_000L
 private const val VOLUME_STEP = 0.05f
 private const val DEFAULT_UNMUTE_VOLUME = 0.7f
 private const val TOAST_SECONDS = 1.6f
+
+/** Sign-in tokens carry the whole cookie header. */
+private const val TOKEN_MAX_LENGTH = 16_000
 private const val TOAST_FADE_SECONDS = 0.4f
 
 /** Touch: the drag slop (times the platform's, so a wobbly tap isn't a drag), and a flick's pacing. */
 private const val TOUCH_SLOP = 2f
 private const val FLING_FIRST_MS = 40L
 private const val FLING_SLOWDOWN_MS = 12L
+
+/** Auto-cycle: how long each visualizer stays, and the crossfade between them. */
+private const val CYCLE_MS = 45_000L
+private const val CYCLE_FADE_MS = 1500
+
+/** At 30 frames a second, the least time between two animation frames. */
+private const val HALF_RATE_MS = 30L
 
 /** How often the idle timer checks for the visualizer. */
 private const val IDLE_CHECK_MS = 1000L

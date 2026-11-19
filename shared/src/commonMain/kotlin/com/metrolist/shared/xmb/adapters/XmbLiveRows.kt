@@ -4,6 +4,7 @@ import com.metrolist.shared.cast.CastConnectionStatus
 import com.metrolist.shared.cast.CastDevice
 import com.metrolist.shared.cast.CastProtocol
 import com.metrolist.shared.cast.CastState
+import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.listentogether.network.UserInfo
 import com.metrolist.shared.model.LyricsEntry
 
@@ -35,6 +36,35 @@ fun castEntries(
         )
     }
 }
+
+/**
+ * The user's other devices (Device Connect peers that are connected) as rows after the cast devices:
+ * the one playing now is marked [playingThere]; selecting another moves playback to it.
+ */
+fun peerEntries(
+    peers: List<DeviceConnectManager.PeerDevice>,
+    localDeviceId: String,
+    targetId: String?,
+    subtitle: String,
+    playingThere: String,
+): List<XmbEntry> =
+    peers
+        .filter { it.state == DeviceConnectManager.PeerState.CONNECTED && it.id != localDeviceId }
+        .map { peer ->
+            XmbEntry(
+                key = "$PEER_KEY${peer.id}",
+                title = peer.name,
+                subtitle = peer.model.ifBlank { subtitle },
+                artwork = null,
+                kind = XmbEntryKind.DEVICE,
+                value = playingThere.takeIf { peer.id == targetId },
+            )
+        }
+
+/** The Device Connect peer a row is for, or null for a cast device. */
+fun XmbEntry.peerId(): String? = key.takeIf { it.startsWith(PEER_KEY) }?.removePrefix(PEER_KEY)
+
+private const val PEER_KEY = "peer:"
 
 private val CastProtocol.label: String
     get() =

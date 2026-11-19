@@ -23,7 +23,7 @@ internal actual fun DrawScope.drawRibbonMesh(
     indices: ShortArray,
 ) {
     val canvas = drawContext.canvas.nativeCanvas
-    RIBBON_SAMPLE_OFFSETS.forEachIndexed { pass, offset ->
+    ribbonSampleOffsets.forEachIndexed { pass, offset ->
         ribbonPassColors(levels, rgb, pass, passColors)
         canvas.save()
         canvas.translate(offset.x, offset.y)

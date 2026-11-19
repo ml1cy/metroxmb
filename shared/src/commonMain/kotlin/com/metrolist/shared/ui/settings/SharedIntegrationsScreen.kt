@@ -87,7 +87,6 @@ import com.metrolist.shared.ui.components.PopupContent
 import com.metrolist.shared.ui.components.images.AsyncImage
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.icons.MetrolistIconsBrand
-import com.metrolist.shared.ui.mobile.MobileListenTogetherScreen
 import com.metrolist.shared.ui.navigation.NavigationBackHandler
 import com.metrolist.shared.ui.playback.wholeSecondPosition
 import com.metrolist.shared.utils.MetrolistClock
@@ -133,23 +132,23 @@ private enum class ScrobbleLoginProvider {
     LISTEN_BRAINZ,
 }
 
+/**
+ * XMB Music: the integrations pages for the XMB's settings column (the stock screen is gone). The
+ * same state the stock screen kept; a Last.fm or ListenBrainz sign-in calls [onOpenLogin]
+ * (true for Last.fm), which the XMB asks for on its keyboard ([xmbScrobbleSignIn]).
+ */
 @Composable
-fun SharedIntegrationsScreen(
+fun rememberIntegrationsRegistry(
     host: SharedIntegrationsHost,
-    modifier: Modifier = Modifier,
-) {
-    DisposableEffect(host.platform, Settings.shared.enableDiscordIntegration) {
-        discordSettingsVisible = Settings.shared.enableDiscordIntegration
-        onDispose { discordSettingsVisible = false }
-    }
+    revision: Int,
+    onOpenLogin: (lastFm: Boolean) -> Unit,
+): SettingsUiRegistry {
     val scope = rememberCoroutineScope()
     val accessToken by DiscordRpcManager.accessTokenFlow.collectAsState()
     val connectionStatus by DiscordRpcManager.connectionStatus.collectAsState()
     val currentUser by DiscordRpcManager.currentUser.collectAsState()
     val discordError by DiscordRpcManager.lastError.collectAsState()
     var accountRevision by remember { mutableIntStateOf(0) }
-    var loginProvider by remember { mutableStateOf<ScrobbleLoginProvider?>(null) }
-
     LaunchedEffect(currentUser, accessToken) {
         if (accessToken.isNullOrBlank()) return@LaunchedEffect
         currentUser?.let { user ->
@@ -158,72 +157,22 @@ fun SharedIntegrationsScreen(
             Settings.shared.discordAvatar = user.avatar.orEmpty()
         }
     }
-
-    var showListenTogether by remember { mutableStateOf(host.initialPage == SettingsPageId.LISTEN_TOGETHER) }
-    if (showListenTogether && host.listenTogetherManager != null) {
-        NavigationBackHandler(onBack = { showListenTogether = false })
-        MobileListenTogetherScreen(
-            manager = host.listenTogetherManager,
-            onBack = { showListenTogether = false },
-            onCopyText = host.onCopyText,
-            onShareText = host.onShareText,
-            onMessage = host.onMessage,
-            bottomInset = host.bottomContentPadding,
-            initialSettings = true,
-        )
-        return
-    }
-
-    val settingsHost =
-        SharedSettingsHost(
-            platform = host.platform,
-            onClose = host.onClose,
-            title = stringResource(Res.string.integrations),
-            bottomContentPadding = host.bottomContentPadding,
-            initialPage = host.initialPage?.takeUnless { it == SettingsPageId.LISTEN_TOGETHER },
-            singlePane = true,
-            externalPages = setOf(SettingsPageId.LISTEN_TOGETHER),
-            onOpenPage = { page ->
-                when (page) {
-                    SettingsPageId.LISTEN_TOGETHER -> host.onOpenListenTogether?.invoke() ?: run { showListenTogether = true }
-                    else -> Unit
-                }
-            },
-        )
-
-    SharedSettingsRegistryScreen(
-        host = settingsHost,
-        modifier = modifier,
-    ) { settingsRevision ->
-        buildIntegrationsRegistry(
-            host = host,
-            revision = settingsRevision + accountRevision,
-            accessToken = accessToken,
-            connectionStatus = connectionStatus,
-            currentUser = currentUser,
-            discordError = discordError,
-            onOpenLogin = { loginProvider = it },
-            onAccountsChanged = { accountRevision++ },
-            onDisconnectScrobble = { provider ->
-                scope.launch {
-                    ScrobbleSessions.disconnect(provider)
-                    accountRevision++
-                }
-            },
-        )
-    }
-
-    PopupContent(loginProvider) { provider ->
-        ScrobbleLoginDialog(
-            provider = provider,
-            onOpenUrl = host.onOpenUrl,
-            onDismiss = { loginProvider = null },
-            onConnected = {
-                loginProvider = null
+    return buildIntegrationsRegistry(
+        host = host,
+        revision = revision + accountRevision,
+        accessToken = accessToken,
+        connectionStatus = connectionStatus,
+        currentUser = currentUser,
+        discordError = discordError,
+        onOpenLogin = { onOpenLogin(it == ScrobbleLoginProvider.LAST_FM) },
+        onAccountsChanged = { accountRevision++ },
+        onDisconnectScrobble = { provider ->
+            scope.launch {
+                ScrobbleSessions.disconnect(provider)
                 accountRevision++
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 @Composable
@@ -905,142 +854,43 @@ private fun DiscordPresencePreview(
     }
 }
 
-@Composable
-private fun ScrobbleLoginDialog(
-    provider: ScrobbleLoginProvider,
-    onOpenUrl: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onConnected: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var username by remember(provider) { mutableStateOf("") }
-    val credentialState = remember(provider) { TextFieldState("") }
-    val credential = credentialState.text.toString()
-    var connecting by remember(provider) { mutableStateOf(false) }
-    var error by remember(provider) { mutableStateOf<String?>(null) }
-    val isLastFm = provider == ScrobbleLoginProvider.LAST_FM
-    val invalidLastFm = stringResource(Res.string.lastfm_invalid_credentials)
-    val lastFmConnectionFailed = stringResource(Res.string.scrobble_connection_failed)
-    val lastFmServiceError = stringResource(Res.string.lastfm_service_error)
-    val invalidLastFmSession = stringResource(Res.string.lastfm_login_session_invalid)
-    val listenBrainzFailed = stringResource(Res.string.listenbrainz_connect_failed)
-
-    AlertDialog(
-        onDismissRequest = { if (!connecting) onDismiss() },
-        title = {
-            Text(
-                stringResource(
-                    if (isLastFm) Res.string.lastfm_connect_title else Res.string.listenbrainz_connect_title,
-                ),
-            )
-        },
-        text = {
-            Column(modifier = Modifier.width(IntrinsicSize.Min), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (isLastFm) {
-                    OutlinedTextField(
-                        value = username,
-                        modifier = Modifier.semantics { contentType = ContentType.Username },
-                        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
-                        onValueChange = { username = it },
-                        label = { Text(stringResource(Res.string.username)) },
-                        singleLine = true,
-                        enabled = !connecting,
-                    )
-                }
-                OutlinedSecureTextField(
-                    state = credentialState,
-                    modifier = Modifier.semantics { contentType = ContentType.Password },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    label = {
-                        Text(
-                            stringResource(
-                                if (isLastFm) Res.string.password else Res.string.listenbrainz_user_token,
-                            ),
-                        )
-                    },
-                    enabled = !connecting,
-                    textObfuscationMode = TextObfuscationMode.Hidden,
-                )
-                if (!isLastFm) {
-                    TextButton(onClick = { onOpenUrl("https://listenbrainz.org/settings/") }, shapes = ButtonDefaults.shapes()) {
-                        Text(stringResource(Res.string.listenbrainz_user_token))
-                        Spacer(Modifier.width(8.dp))
-                        Icon(MetrolistIcons.AutoMirrored.Filled.OpenInNew, stringResource(Res.string.open_website))
-                    }
-                }
-                TextButton(
-                    onClick = {
-                        onOpenUrl(
-                            if (isLastFm) {
-                                "https://www.last.fm/join"
-                            } else {
-                                "https://listenbrainz.org/login/musicbrainz/?login_hint=register"
-                            },
-                        )
-                    },
-                    shapes = ButtonDefaults.shapes(),
-                ) {
-                    Text(stringResource(Res.string.scrobble_create_account))
-                    Spacer(Modifier.width(8.dp))
-                    Icon(MetrolistIcons.AutoMirrored.Filled.OpenInNew, stringResource(Res.string.open_website))
-                }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !connecting && credential.isNotBlank() && (!isLastFm || username.isNotBlank()),
-                onClick = {
-                    connecting = true
-                    error = null
-                    scope.launch {
-                        if (isLastFm) {
-                            LastFM
-                                .getMobileSession(GlobalYouTube.client, username.trim(), credential)
-                                .onSuccess { response ->
-                                    val session = response.session
-                                    if (session == null) {
-                                        error = invalidLastFmSession
-                                    } else {
-                                        ScrobbleSessions.connectLastFm(session.name, session.key)
-                                        onConnected()
-                                    }
-                                }.onFailure {
-                                    error =
-                                        when (it.lastFmLoginFailure()) {
-                                            LastFmLoginFailure.INVALID_CREDENTIALS -> invalidLastFm
-                                            LastFmLoginFailure.CONNECTION -> lastFmConnectionFailed
-                                            LastFmLoginFailure.SERVICE -> lastFmServiceError
-                                        }
-                                }
-                        } else {
-                            ListenBrainz
-                                .validateToken(GlobalYouTube.client, credential.trim())
-                                .onSuccess { user ->
-                                    ScrobbleSessions.connectListenBrainz(user.username, credential.trim())
-                                    onConnected()
-                                }.onFailure {
-                                    error = listenBrainzFailed
-                                }
-                        }
-                        connecting = false
+suspend fun xmbScrobbleSignIn(
+    lastFm: Boolean,
+    username: String,
+    credential: String,
+    messages: XmbScrobbleMessages,
+): String? =
+    if (lastFm) {
+        LastFM
+            .getMobileSession(GlobalYouTube.client, username.trim(), credential)
+            .fold(
+                { response ->
+                    val session = response.session ?: return messages.invalidLastFmSession
+                    ScrobbleSessions.connectLastFm(session.name, session.key)
+                    null
+                },
+                {
+                    when (it.lastFmLoginFailure()) {
+                        LastFmLoginFailure.INVALID_CREDENTIALS -> messages.invalidLastFm
+                        LastFmLoginFailure.CONNECTION -> messages.connectionFailed
+                        LastFmLoginFailure.SERVICE -> messages.serviceError
                     }
                 },
-                shapes = ButtonDefaults.shapes(),
-            ) {
-                if (connecting) {
-                    LoadingIndicator(Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(stringResource(Res.string.connect))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !connecting,
-                shapes = ButtonDefaults.shapes(),
-            ) { Text(stringResource(Res.string.cancel)) }
-        },
-    )
-}
+            )
+    } else {
+        ListenBrainz
+            .validateToken(GlobalYouTube.client, credential.trim())
+            .fold({ user ->
+                ScrobbleSessions.connectListenBrainz(user.username, credential.trim())
+                null
+            }, { messages.listenBrainzFailed })
+    }
+
+/** The messages [xmbScrobbleSignIn] reports, as the stock dialog words them. */
+class XmbScrobbleMessages(
+    val invalidLastFm: String,
+    val invalidLastFmSession: String,
+    val connectionFailed: String,
+    val serviceError: String,
+    val listenBrainzFailed: String,
+)

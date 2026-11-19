@@ -12,6 +12,7 @@ enum class XmbOption {
     PLAY_NEXT,
     ADD_TO_QUEUE,
     START_RADIO,
+    ADD_TO_PLAYLIST,
     LIKE,
     UNLIKE,
     DOWNLOAD,
@@ -29,6 +30,7 @@ fun xmbOptionsFor(
     liked: Boolean,
     downloaded: Boolean,
     canDownload: Boolean,
+    canAddToPlaylist: Boolean = false,
 ): List<XmbOption> =
     when (entry.kind) {
         XmbEntryKind.SONG, XmbEntryKind.EPISODE -> {
@@ -40,6 +42,7 @@ fun xmbOptionsFor(
                 if (entry.kind == XmbEntryKind.SONG) {
                     add(XmbOption.START_RADIO)
                     add(if (liked) XmbOption.UNLIKE else XmbOption.LIKE)
+                    if (canAddToPlaylist) add(XmbOption.ADD_TO_PLAYLIST)
                 }
                 if (canDownload && song?.isLocal != true) add(if (downloaded) XmbOption.REMOVE_DOWNLOAD else XmbOption.DOWNLOAD)
                 if (song?.albumId() != null && song.podcastId == null) add(XmbOption.VIEW_ALBUM)

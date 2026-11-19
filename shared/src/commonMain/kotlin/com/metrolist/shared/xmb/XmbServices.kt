@@ -3,15 +3,20 @@ package com.metrolist.shared.xmb
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import com.metrolist.shared.deviceconnect.DeviceConnectManager
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.state.SongLikeState
+import com.metrolist.shared.ui.TokenLoginCredentials
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.ui.settings.SharedIntegrationsHost
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.xmb.adapters.XmbMusicSource
+import com.metrolist.shared.xmb.adapters.XmbPlaylists
 import com.metrolist.shared.xmb.adapters.XmbSearch
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import kotlinx.coroutines.flow.StateFlow
 
 /** Platform downloads, where the platform has them. */
@@ -33,17 +38,32 @@ interface XmbAccount {
     fun switchChannel()
 
     fun signOut()
+
+    /** A token sign-in was saved ([xmbTokenSignIn]); the platform reloads what depends on the account. */
+    fun tokenSaved(credentials: TokenLoginCredentials) {}
 }
 
 /**
- * The settings registry's host for this platform (the same kind of [SharedSettingsHost] the stock
- * settings screen gets; [host] is read in composition, so a host backed by state stays current),
- * and a way to show a stock settings page the XMB doesn't draw itself.
+ * The settings registry's host for this platform ([host] is read in composition, so a host backed
+ * by state stays current) and the platform parts of the custom pages the XMB draws itself
+ * ([system]). Pages the XMB doesn't draw are left out of the column.
  */
 class XmbSettingsHost(
     val host: () -> SharedSettingsHost,
-    val openStockPage: (SettingsPageId) -> Unit,
+    val system: XmbSystemPages? = null,
+    /** The integrations host (Discord, Last.fm, ListenBrainz, Device Connect), whose pages join the settings column. */
+    val integrations: (@Composable () -> SharedIntegrationsHost)? = null,
 )
+
+/** The integrations registry's pages, which open the stock integrations screen rather than settings. */
+val XMB_INTEGRATION_PAGES =
+    setOf(
+        SettingsPageId.DISCORD,
+        SettingsPageId.LAST_FM,
+        SettingsPageId.LISTEN_BRAINZ,
+        SettingsPageId.DEVICE_CONNECT,
+        SettingsPageId.LISTEN_TOGETHER,
+    )
 
 /** The platform's music video surface: draws the playing video's frames, scaled to fit. */
 interface XmbVideo {
@@ -102,6 +122,12 @@ class XmbServices(
     val video: XmbVideo? = null,
     val lyrics: XmbLyrics? = null,
     val listenTogether: XmbListenTogether? = null,
+    /** Device Connect: the user's other devices, listed with the cast devices to move playback to. */
+    val deviceConnect: DeviceConnectManager? = null,
+    /** Playlists for Add to Playlist; null hides the option. */
+    val playlists: XmbPlaylists? = null,
+    /** Identify Song (Android's microphone recognition); null hides it. */
+    val recognition: XmbRecognition? = null,
     val volume: XmbVolume? = null,
     val wallpaper: XmbWallpaper? = null,
 )

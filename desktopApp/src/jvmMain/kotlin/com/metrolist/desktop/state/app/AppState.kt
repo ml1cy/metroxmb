@@ -28,6 +28,7 @@ import com.metrolist.shared.state.GlobalYouTube
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.utils.OsUtil
 import com.metrolist.shared.utils.tryOpenUrl
+import com.metrolist.shared.xmb.XMB_SELF_UPDATES
 import dev.nucleusframework.share.ShareException
 import dev.nucleusframework.share.ShareSheet
 import kotlinx.coroutines.CoroutineScope
@@ -52,7 +53,8 @@ object AppState {
     private val updateInitialization: Job =
         scope.launch {
             applyReleases(DesktopUpdateManager.cachedReleases())
-            if (Settings.shared.checkForUpdates &&
+            // XMB Music: Metrolist's releases would replace this app, so it never checks them.
+            if (XMB_SELF_UPDATES && Settings.shared.checkForUpdates &&
                 desktopUpdateCheckIsDue(Settings.shared.lastUpdateCheckAttemptTimestamp, System.currentTimeMillis())
             ) {
                 checkForUpdates(notify = true)

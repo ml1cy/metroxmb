@@ -92,6 +92,19 @@ PNGs they replace were copies of `reference/icons-extra/menu_stream.png` and `me
 
 Desktop decodes these with the bundled FFmpeg and Android's `SoundPool` plays Vorbis.
 
+## Gaia Earth maps
+
+Public-domain NASA imagery (not Sony assets): Blue Marble for the surface, clouds and water mask,
+Black Marble for the city lights, downsized and saved as JPEG. Gaia's shader samples them; while they
+load, or if they can't, it draws its procedural Earth.
+
+| Map | Path | Size |
+|---|---|---|
+| Surface (Blue Marble) | `files/xmb/gaia/day.jpg` | 4096×2048 |
+| Clouds (white on black) | `files/xmb/gaia/clouds.jpg` | 4096×2048 |
+| Water mask (white = water) | `files/xmb/gaia/water.jpg` | 2048×1024 |
+| City lights (Black Marble) | `files/xmb/gaia/lights.jpg` | 2048×1024 |
+
 ## Not shipped
 
 - `reference/xmb/bg_sample.png`: static sample of the console background, for comparison only.

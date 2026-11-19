@@ -45,6 +45,26 @@ sealed interface XmbList {
         override val key = "downloads"
     }
 
+    /** Listening statistics: one folder per period. */
+    data object Statistics : XmbList {
+        override val key = "statistics"
+    }
+
+    /** One period's statistics: folders of top tracks, artists and albums. */
+    data class StatisticsPeriod(
+        val period: XmbStatsPeriod,
+    ) : XmbList {
+        override val key = "statistics:${period.name}"
+    }
+
+    /** The most played tracks, artists or albums of [period]. */
+    data class StatisticsTop(
+        val period: XmbStatsPeriod,
+        val kind: XmbStatsKind,
+    ) : XmbList {
+        override val key = "statistics:${period.name}:${kind.name}"
+    }
+
     /** One home feed shelf, by its position in the feed. */
     data class Section(
         val section: HomeSection,
@@ -101,6 +121,20 @@ sealed interface XmbList {
     /** Music videos from the home feed's shelves. */
     data object FeedVideos : XmbList {
         override val key = "feed_videos"
+    }
+
+    /** A browse page (a mood, a genre, a chart): its shelves, each opening as a [Section]. */
+    data class Browse(
+        val browseId: String,
+        val params: String? = null,
+        val title: String? = null,
+    ) : XmbList {
+        override val key = "browse:$browseId:$params"
+    }
+
+    /** The play queue, built from the playback state. */
+    data object Queue : XmbList {
+        override val key = "queue"
     }
 
     /** Cast devices found on the network; the XMB builds these rows from the playback state. */

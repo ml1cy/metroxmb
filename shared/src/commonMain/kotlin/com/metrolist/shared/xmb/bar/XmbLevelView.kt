@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,7 +14,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImagePainter
@@ -69,8 +73,19 @@ internal fun XmbLevelView(
     }
     val enter = remember(level.list.key) { Animatable(0f) }
     LaunchedEffect(level.list.key) { enter.animateTo(1f, tween(XmbMotion.FADE_MS, easing = XmbMotion.scrollEasing)) }
-    val slide = with(LocalDensity.current) { metrics.unit.toPx() * 40f }
+    val density = LocalDensity.current
+    val slide = with(density) { metrics.unit.toPx() * 40f }
     val taps = LocalXmbTaps.current
+    // Values in the right-hand column fade out where they'd run under the clock box (top right)
+    // or the now-playing card (bottom right).
+    var height by remember { mutableIntStateOf(0) }
+    Spacer(Modifier.fillMaxSize().onSizeChanged { height = it.height })
+    val clockBottom = with(density) { (metrics.clockBoxTop + metrics.clockBoxHeight).toPx() }
+    val fade = with(density) { (metrics.unit * VALUE_FADE).toPx() }
+    val cardClearance = with(density) { (metrics.unit * NOW_PLAYING_CLEARANCE).toPx() }
+    val valueAlpha = { y: Float ->
+        ((y - clockBottom) / fade).coerceIn(0f, 1f) * ((height - cardClearance - y) / fade).coerceIn(0f, 1f)
+    }
 
     Box(
         Modifier
@@ -122,6 +137,7 @@ internal fun XmbLevelView(
                             alpha = visible() * enter.value * rest * (if (entry.enabled) 1f else DISABLED_ALPHA)
                         }.xmbTap(onLongPress = { taps?.levelRow(index, true) }) { taps?.levelRow(index, false) },
                 iconScale = { lerp(XmbMotion.UNFOCUSED_ITEM_SCALE, 1f, emphasis()) },
+                valueAlpha = { if (height == 0) 1f else valueAlpha(geometry.itemY(relative())) },
             ) {
                 XmbArtwork(entry.artwork, entry.icon, metrics.itemIcon)
             }
@@ -157,3 +173,7 @@ internal fun XmbArtwork(
         )
     }
 }
+
+/** Over how much the value column fades out, and how far above the bottom edge the now-playing card reaches. */
+private const val VALUE_FADE = 24f
+private const val NOW_PLAYING_CLEARANCE = 78f

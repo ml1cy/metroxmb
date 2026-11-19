@@ -10,10 +10,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,6 +28,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -33,30 +38,44 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.metrolist.android.LocalStartupPresentation
+import com.metrolist.android.deviceconnect.AndroidDeviceConnect
 import com.metrolist.android.extensions.findActivity
 import com.metrolist.android.playback.PlayerConnection
 import com.metrolist.android.playback.SongDownloadManager
+import com.metrolist.android.ui.player.MusicVideoSurface
+import com.metrolist.android.viewmodels.HomeViewModel
 import com.metrolist.shared.db.MusicDatabase
 import com.metrolist.shared.listentogether.ListenTogetherManager
+import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.playlistimport.PlaylistImportManager
+import com.metrolist.shared.state.GlobalYouTubeRepository
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
 import com.metrolist.shared.ui.navigation.Navigator
-import com.metrolist.shared.ui.navigation.Screen
 import com.metrolist.shared.ui.playback.PlaybackController
-import com.metrolist.shared.ui.settings.SettingsPlatform
-import com.metrolist.shared.ui.settings.SharedSettingsHost
+import com.metrolist.shared.ui.settings.SettingsPageId
+import com.metrolist.shared.viewmodels.PlayerViewModel
+import com.metrolist.shared.xmb.SnackbarsAsXmbToasts
+import com.metrolist.shared.xmb.XMB_INTEGRATION_PAGES
 import com.metrolist.shared.xmb.XmbAccount
 import com.metrolist.shared.xmb.XmbApp
 import com.metrolist.shared.xmb.XmbDownloads
 import com.metrolist.shared.xmb.XmbInputController
 import com.metrolist.shared.xmb.XmbListenTogether
+import com.metrolist.shared.xmb.XmbLyrics
 import com.metrolist.shared.xmb.XmbServices
 import com.metrolist.shared.xmb.XmbSettingsHost
+import com.metrolist.shared.xmb.XmbVideo
 import com.metrolist.shared.xmb.XmbVolume
 import com.metrolist.shared.xmb.XmbWallpaper
+import com.metrolist.shared.xmb.adapters.DatabaseXmbPlaylists
 import com.metrolist.shared.xmb.adapters.DefaultXmbMusicSource
+import com.metrolist.shared.xmb.adapters.XmbPlaylistImport
 import com.metrolist.shared.xmb.adapters.XmbSearch
 import com.metrolist.shared.xmb.nav.XmbAction
+import com.metrolist.shared.xmb.nav.XmbOpen
+import com.metrolist.shared.xmb.rememberXmbPairingNotice
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.sound.AndroidXmbSoundPlayer
 import com.metrolist.shared.xmb.sound.LocalXmbSoundPlayer
 import kotlinx.coroutines.CoroutineScope
@@ -69,15 +88,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.compose.viewmodel.koinViewModel
 import java.io.File
 
 /**
- * Android glue for the XMB (M7). `MetrolistApp` shows it whenever its navigation is at a top-level
- * route, keeping its player connection, Listen Together, incoming links and the rest of its setup;
- * a screen the XMB opens (sign-in, a settings page the XMB doesn't draw) shows as before, and back
- * returns here. The XMB runs full screen with the system bars hidden, takes Android's back (gesture
- * or TV remote) while it has somewhere to go back to, and pauses its animation while the app is in
- * the background.
+ * Android glue for the XMB (M7): `MetrolistApp` shows it as the whole interface, keeping the player
+ * connection, Listen Together, incoming links and the rest of the app's setup. Google's sign-in
+ * shows over it in an XMB frame ([XmbLoginScreen]). The XMB runs full screen with the system bars
+ * hidden, takes Android's back (gesture or TV remote) while it has somewhere to go back to, and
+ * pauses its animation while the app is in the background.
  */
 @Composable
 internal fun XmbAndroidHost(
@@ -87,32 +106,77 @@ internal fun XmbAndroidHost(
     database: MusicDatabase,
     downloads: SongDownloadManager,
     downloadedSongIds: Set<String>,
-    navigator: Navigator,
+    playerViewModel: PlayerViewModel,
+    snackbars: SnackbarHostState,
     onSignOut: () -> Unit,
 ) {
     val context = LocalContext.current
     // One per activity: kept while a stock screen (sign-in, a settings page) is open over the XMB,
     // and stopped with the activity. Rebuilding these on every return left the old copies running
     // on the main thread, all reloading at once when signing in changed the library.
-    val model = viewModel { XmbAndroidModel(context.applicationContext, database) }
+    // The settings host below uses the app's home feed too; the XMB's lists share it.
+    val home: HomeViewModel = koinViewModel()
+    val model = viewModel { XmbAndroidModel(context.applicationContext, database, home) }
     SideEffect { model.downloaded.value = downloadedSongIds }
     val input = model.input
     BackHandler(enabled = input.canGoBack) { input.send(XmbAction.BACK) }
+    SnackbarsAsXmbToasts(snackbars, input)
+    val notice =
+        rememberAndroidXmbNotice(playerConnection) { AndroidXmbOverlays.show(AndroidXmbOverlay.SignIn()) }
+            ?: rememberXmbPairingNotice(AndroidDeviceConnect.manager)
+    // Links, app shortcuts and notifications MetrolistApp handed over.
+    val link by AndroidXmbLinks.pending.collectAsState()
+    LaunchedEffect(link) {
+        val target = link ?: return@LaunchedEffect
+        AndroidXmbLinks.pending.value = null
+        input.open(target)
+    }
     val wallpaper = rememberAndroidXmbWallpaper(context)
     val signOut by rememberUpdatedState(onSignOut)
+    // Lyrics come from the player's view model, as on the stock player; its state is read as
+    // Compose state so the lyrics view updates when they arrive.
+    val playerState = playerViewModel.uiState.collectAsState()
+    val lyrics = remember(playerViewModel) { AndroidXmbLyrics(playerViewModel, playerState) }
+    val video = remember(playerConnection) { AndroidXmbVideo(playerConnection) }
+    // The stock settings screen's host, so a setting changed in the XMB applies the same way
+    // (audio preferences, playback speed, content region, app language and icon...).
+    val settingsHost by rememberUpdatedState(
+        // MetroEQ is added by the stock settings screen itself, so it's added here too.
+        rememberAndroidSettingsHost().let { host ->
+            host.copy(availablePages = host.availablePages + SettingsPageId.EQUALIZER)
+        },
+    )
+    val storage = rememberAndroidXmbStorage()
+    val recognition = rememberAndroidXmbRecognition()
+    val backup = rememberAndroidXmbBackup(database)
+    val system =
+        remember(storage, backup, listenTogether, database) {
+            XmbSystemPages(
+                storage = storage,
+                backup = backup,
+                listenTogether = listenTogether,
+                playlistImport = XmbPlaylistImport(PlaylistImportManager(database, GlobalYouTubeRepository.instance)),
+                platformPages = mapOf(SettingsPageId.ANDROID_AUTO to { hooks -> androidAutoXmbRows(database, hooks) }),
+            )
+        }
     val services =
-        remember(model, playback, listenTogether) {
+        remember(model, playback, listenTogether, lyrics, video, system, recognition) {
             XmbServices(
                 playback = playback,
                 music = model.music,
                 downloads = AndroidXmbDownloads(downloads, model.downloaded, model.viewModelScope),
                 search = model.search,
-                settings = XmbSettingsHost({ model.settingsHost }) { page -> navigator.navigate(Screen.SettingsPage(page)) },
+                settings =
+                    XmbSettingsHost(
+                        { settingsHost },
+                        system = system,
+                        integrations = { rememberAndroidIntegrationsHost() },
+                    ),
                 account =
                     object : XmbAccount {
-                        override fun signIn() = navigator.navigate(Screen.Login)
+                        override fun signIn() = AndroidXmbOverlays.show(AndroidXmbOverlay.SignIn())
 
-                        override fun switchChannel() = navigator.navigate(Screen.SwitchChannel)
+                        override fun switchChannel() = AndroidXmbOverlays.show(AndroidXmbOverlay.SignIn(switchingChannel = true))
 
                         override fun signOut() = signOut()
                     },
@@ -124,6 +188,11 @@ internal fun XmbAndroidHost(
                         override fun set(level: Float) = playerConnection.setVolume(level)
                     },
                 wallpaper = wallpaper,
+                lyrics = lyrics,
+                video = video,
+                deviceConnect = AndroidDeviceConnect.manager,
+                playlists = DatabaseXmbPlaylists(database),
+                recognition = recognition,
             )
         }
     ImmersiveSystemBars()
@@ -134,6 +203,7 @@ internal fun XmbAndroidHost(
         // The splash screen waits for the stock Home screen to be laid out (StartupPresentation);
         // the XMB takes its place, so it says so once it's laid out, or the splash never lifts.
         val startup = LocalStartupPresentation.current
+        val overlay by AndroidXmbOverlays.current.collectAsState()
         XmbApp(
             Modifier.fillMaxSize().onGloballyPositioned {
                 startup?.homeLaidOut = true
@@ -141,24 +211,80 @@ internal fun XmbAndroidHost(
             },
             services = services,
             input = input,
+            notice = notice,
+            suspended = overlay != null,
         )
+        when (val shown = overlay) {
+            is AndroidXmbOverlay.SignIn -> {
+                XmbLoginScreen(
+                    onDone = AndroidXmbOverlays::close,
+                    onTokenLogin = {
+                        AndroidXmbOverlays.close()
+                        input.open(XmbOpen.tokenSignIn())
+                    },
+                    isSwitchingChannel = shown.switchingChannel,
+                )
+            }
+
+            null -> {}
+        }
     }
 }
 
-/** The XMB's long-lived parts for one activity: its lists, search, settings host, input and sounds. */
+/** The XMB's long-lived parts for one activity: its lists, search, input and sounds. */
 internal class XmbAndroidModel(
     context: Context,
     database: MusicDatabase,
+    home: HomeViewModel,
 ) : ViewModel() {
     val downloaded = MutableStateFlow<Set<String>>(emptySet())
     val search = XmbSearch(viewModelScope)
-    val music = DefaultXmbMusicSource(database, viewModelScope, downloaded, search = search)
-    val settingsHost = SharedSettingsHost(platform = SettingsPlatform.ANDROID, onClose = {})
+    val music = DefaultXmbMusicSource(database, viewModelScope, downloaded, search = search, homeViewModel = { home.shared })
     val input = XmbInputController(systemBack = true)
     val sounds = AndroidXmbSoundPlayer(context)
 
     override fun onCleared() {
         sounds.close()
+    }
+}
+
+/** The player's music video, filling the screen without the stock player's controls. */
+private class AndroidXmbVideo(
+    private val connection: PlayerConnection,
+) : XmbVideo {
+    @Composable
+    override fun Surface(modifier: Modifier) {
+        val connected by connection.isConnected.collectAsState()
+        val song by connection.currentSong.collectAsState()
+        MusicVideoSurface(
+            player = if (connected) connection.videoPlayer else null,
+            artworkUrl = song?.thumbnail,
+            modifier = modifier,
+            cornerRadius = 0.dp,
+            fillContainer = true,
+            showControls = false,
+        )
+    }
+}
+
+/** Lyrics through the player's view model: loaded per song, null until this song's lines are in. */
+private class AndroidXmbLyrics(
+    private val viewModel: PlayerViewModel,
+    private val state: State<PlayerViewModel.PlayerUiState>,
+) : XmbLyrics {
+    override fun request(song: SongItem) {
+        viewModel.loadLyrics(
+            songId = song.id,
+            title = song.title,
+            artist = song.artists.joinToString { it.name },
+            duration = song.duration?.toLong(),
+            album = song.album?.name,
+        )
+    }
+
+    override fun lines(songId: String): List<LyricsEntry>? {
+        val current = state.value
+        return if (current.currentSong?.id == songId && !current.isLyricsLoading) current.lyrics else null
     }
 }
 

@@ -1,0 +1,288 @@
+name: Build XMB Music (Android APKs, Windows portable ZIP and installer)
+
+# Builds on every push and pull request, and by hand (Actions → Run workflow).
+# Pushing a tag like v14.0.0 also publishes the builds as a GitHub release.
+#
+# Android release signing (optional): add these repository secrets to sign the release APK
+# with your own key, so each build installs over the last:
+#   ANDROID_KEYSTORE_BASE64   base64 of the .jks/.keystore file
+#   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# Without them the release APK is signed with the workflow's own debug key (kept in the Actions
+# cache), like the debug APK.
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android APKs (debug and release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # AGP keeps its debug key here; the folder is cached so every run signs with the same key.
+      ANDROID_USER_HOME: /home/runner/.xmb-android
+
+    steps:
+      - name: Check out the repository with submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Make scripts executable
+        run: chmod +x gradlew scripts/*.sh scripts/xmb/*.sh
+
+      - name: Check Compose string resources
+        run: python3 scripts/check_compose_resource_escapes.py
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Install Android SDK platforms, build tools, NDK and CMake
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK_ROOT" ]; then
+            echo "ANDROID_SDK_ROOT and ANDROID_HOME are unset"
+            exit 1
+          fi
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found under $SDK_ROOT/cmdline-tools"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "build-tools;36.0.0" \
+            "platforms;android-35" \
+            "platforms;android-37.1" \
+            "ndk;30.0.16248370" \
+            "cmake;4.1.2"
+
+      # One debug key for every run, so later builds install over earlier ones.
+      - name: Restore the workflow's Android debug key
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.xmb-android/debug.keystore
+          key: xmb-android-debug-keystore-v1
+
+      - name: Create the debug key on the first run
+        run: |
+          mkdir -p "$ANDROID_USER_HOME"
+          if [ ! -f "$ANDROID_USER_HOME/debug.keystore" ]; then
+            # The same alias and passwords AGP uses for its own debug key.
+            keytool -genkeypair -v -keystore "$ANDROID_USER_HOME/debug.keystore" \
+              -storetype PKCS12 -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Read the app version
+        id: version
+        run: echo "app=$(sed -n 's/^appVersion=//p' gradle.properties)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the debug APK
+        run: |
+          ./gradlew :androidApp:assembleDebug --no-configuration-cache --console=plain
+          python3 scripts/collect_android_apks.py androidApp/build/outputs/apk/debug dist "${{ steps.version.outputs.app }}" debug
+          mv "dist/metrolist-android-${{ steps.version.outputs.app }}-debug.apk" "dist/xmb-music-android-${{ steps.version.outputs.app }}-debug.apk"
+
+      - name: Choose the release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
+              echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "KEY_ALIAS=$KEY_ALIAS"
+              echo "KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "::add-mask::$KEYSTORE_PASSWORD"
+            echo "::add-mask::$KEY_PASSWORD"
+            echo "Signing the release APK with the repository's key."
+          else
+            # The workflow's debug key (see "Create the debug key on the first run").
+            test -f "$ANDROID_USER_HOME/debug.keystore"
+            {
+              echo "KEYSTORE_PATH=$ANDROID_USER_HOME/debug.keystore"
+              echo "KEYSTORE_PASSWORD=android"
+              echo "KEY_ALIAS=androiddebugkey"
+              echo "KEY_PASSWORD=android"
+            } >> "$GITHUB_ENV"
+            echo "::warning::No ANDROID_KEYSTORE_* secrets: the release APK is signed with the workflow's debug key."
+          fi
+
+      - name: Build the release APK
+        run: |
+          ./gradlew :androidApp:assembleRelease --no-configuration-cache --console=plain
+          python3 scripts/collect_android_apks.py androidApp/build/outputs/apk/release dist "${{ steps.version.outputs.app }}" release
+          mv dist/Metrolist.apk "dist/xmb-music-android-${{ steps.version.outputs.app }}-release.apk"
+
+      - name: Remove the decoded release key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Upload the Android APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: xmb-music-android-apks
+          path: dist/xmb-music-android-*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows x64 portable ZIP and installer
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out the repository with submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 25 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up the .NET SDK (for the WebView2 sign-in helper)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: metro-wv2-helper/global.json
+
+      # Google's sign-in on Windows runs in this helper (Microsoft WebView2).
+      - name: Build the WebView2 sign-in helper
+        shell: pwsh
+        run: |
+          dotnet publish metro-wv2-helper/metro-wv2-helper.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            /p:PublishSingleFile=true `
+            /p:IncludeNativeLibrariesForSelfExtract=true `
+            /p:DebugType=None `
+            /p:DebugSymbols=false `
+            /p:PublishReadyToRun=true
+          $dest = "desktopApp/src/desktopMain/resources/windows"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Force `
+            "metro-wv2-helper/bin/Release/net10.0-windows/win-x64/publish/metro-wv2-helper.exe" `
+            "$dest/metro-wv2-helper.exe"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Read the app version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path gradle.properties -Pattern '^appVersion=(.+)$').Matches[0].Groups[1].Value.Trim()
+          "app=$version" >> $env:GITHUB_OUTPUT
+
+      # The Windows app folder (Metrolist.exe with its Java runtime), zipped as the portable build.
+      - name: Build the portable ZIP
+        shell: pwsh
+        run: |
+          # Arguments as an array: PowerShell would split -Pmetrolist.debug=false at the dot.
+          $gradleArgs = @(
+            ":desktopApp:assembleWindowsRelease"
+            "-Pmetrolist.debug=false"
+            "--no-configuration-cache"
+            "--console=plain"
+          )
+          & ./gradlew.bat $gradleArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Move-Item -Force dist/Metrolist-Desktop-Windows.zip "dist/XMB-Music-Windows-x64-portable-${{ steps.version.outputs.app }}.zip"
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup's compiler is missing at $iscc" }
+          "ISCC=$iscc" >> $env:GITHUB_ENV
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $appDir = Resolve-Path "desktopApp/build/compose/binaries/main-release/app/Metrolist"
+          if (-not (Test-Path (Join-Path $appDir "Metrolist.exe"))) { throw "Metrolist.exe is missing from $appDir" }
+          $dist = Resolve-Path dist
+          $icon = Resolve-Path "desktopApp/src/desktopMain/resources/logo.ico"
+          & $env:ISCC `
+            "/DAppVersion=${{ steps.version.outputs.app }}" `
+            "/DSourceDir=$appDir" `
+            "/DOutputDir=$dist" `
+            "/DIconFile=$icon" `
+            packaging/windows/xmb-music.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist
+
+      - name: Upload the portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: xmb-music-windows-x64-portable
+          path: dist/XMB-Music-Windows-x64-portable-*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: xmb-music-windows-x64-installer
+          path: dist/XMB-Music-Setup-x64-*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish the release (tags only)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the builds
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Publish the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

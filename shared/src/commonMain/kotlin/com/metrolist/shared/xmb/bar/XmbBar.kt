@@ -287,6 +287,7 @@ internal fun XmbRow(
     metrics: XmbMetrics,
     modifier: Modifier = Modifier,
     iconScale: () -> Float = { 1f },
+    valueAlpha: () -> Float = { 1f },
     icon: @Composable () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
@@ -317,6 +318,7 @@ internal fun XmbRow(
                 style = if (focused) styles.focusedTitle else styles.value,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.graphicsLayer { alpha = valueAlpha() },
             )
         }
     }

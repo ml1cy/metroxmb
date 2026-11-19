@@ -8,7 +8,7 @@ Build on **Metrolist-KMP**'s source code to make a **PS3 XrossMediaBar (XMB)-sty
 with a faithful replica of the PS3's built-in music visualizers (made by Q-Games) as the live
 background. Metrolist's backend (streaming, playback, library, lyrics, casting, MetroEQ,
 Listen Together) stays as is. The XMB is the only interface: after M3 the owner had the stock
-desktop screens removed (Android keeps its stock UI until M7 replaces it; iOS was removed).
+desktop screens removed (Android's went in M7, except the few the XMB still borrows; iOS was removed).
 
 **Visualizers for the 1:1 core:** Waves (XMB silk ribbon), Valley (terrain), Gaia (Earth).
 
@@ -145,6 +145,10 @@ long-press = options.
 ### M5: Valley and Gaia
 - Valley: raymarched heightfield, fog, gliding camera
 - Gaia: day/night Earth (NASA textures), oceans, atmosphere, clouds, city lights, starfield
+- Done: both as runtime shaders (SkSL/AGSL, Android 13+, drawn fallbacks below), matched to the
+  owner's recordings. Valley's terrain is layered ridges rather than raymarched. Gaia uses NASA's
+  Blue Marble and Black Marble maps, with its procedural Earth while they load. Random and
+  Auto-cycle in the Visualizer column
 
 ### M6: Remaining categories
 - Podcasts, Video (music videos via the existing player), Friends (Listen Together),
@@ -157,8 +161,13 @@ long-press = options.
 - The XMB replaces Android's stock UI; then remove the stock Android screens the XMB doesn't borrow
 - Started: the XMB at Android's top level (`XmbAndroidHost`), touch, portrait layout, system back,
   SoundPool sounds, full screen, pausing in the background, and the ribbon's software fallback
-  below Android 10. To do: lyrics and video on Android, quality settings and an FPS cap, tablet
-  and TV checks on devices, XMB versions of the borrowed screens, removing the stock screens
+  below Android 10, lyrics and video on Android, visualizer quality and a 30 fps option.
+- Then: About, MetroEQ, Storage and Backup as XMB pages; integrations in the Settings column;
+  first-run setup drawn the XMB way; links, shortcuts and notifications open in the XMB; snackbars
+  and Android's dialogs as XMB toasts and notices; no stock player; the stock Android home,
+  library, search, collection, history and downloads screens deleted. Still borrowed: web sign-in,
+  developer tools, Android Auto, AI lyrics setup, song recognition, browse pages, playlist import,
+  the Listen Together room screen. To do: tablet and TV checks on devices
 
 ## Extra features (after the core is done)
 - Theme picker: monthly colors, fixed colors, custom, or album-art tint

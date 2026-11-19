@@ -23,11 +23,16 @@ import com.metrolist.shared.xmb.nav.XmbItemAction
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbText
 import com.metrolist.shared.xmb.nav.xmbSettingsItems
+import com.metrolist.shared.xmb.settings.XmbBackup
+import com.metrolist.shared.xmb.settings.XmbSystemPages
+import com.metrolist.shared.xmb.settings.decibels
+import com.metrolist.shared.xmb.settings.frequency
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class XmbSettingsAdapterTest {
     private val labels = XmbSettingLabels(on = "On", off = "Off", yes = "Yes", no = "No")
@@ -140,7 +145,7 @@ class XmbSettingsAdapterTest {
         assertEquals(1, choice.focus)
         choice.apply(0)
         assertEquals(listOf<Any>("a"), changes)
-        assertIs<XmbSettingStep.Stock>(step(item(SettingsControl.CHOICE) { copy(onChoiceSelected = {}) }))
+        assertEquals(XmbSettingStep.Unavailable, step(item(SettingsControl.CHOICE) { copy(onChoiceSelected = {}) }))
     }
 
     @Test
@@ -187,12 +192,12 @@ class XmbSettingsAdapterTest {
         assertEquals(listOf<Any>("new"), changes)
         question.apply(0)
         assertEquals("clicked", changes.last())
-        assertEquals(XmbSettingStep.Stock(SettingsPageId.PLAYER), step(item(SettingsControl.CUSTOM)))
+        assertEquals(XmbSettingStep.Unavailable, step(item(SettingsControl.CUSTOM)))
         assertEquals(XmbSettingStep.Unavailable, step(item(SettingsControl.SWITCH, enabled = false) { copy(onCheckedChange = {}) }))
     }
 
     @Test
-    fun navigationOpensRegistryPagesAndHandsCustomOrMissingPagesToTheStockScreen() {
+    fun navigationOpensRegistryPagesAndOtherPagesOutsideTheApp() {
         assertEquals(
             XmbSettingStep.Open(SettingsPageId.PLAYER_QUEUE),
             step(
@@ -202,7 +207,7 @@ class XmbSettingsAdapterTest {
             ),
         )
         assertEquals(
-            XmbSettingStep.Stock(SettingsPageId.STORAGE),
+            XmbSettingStep.External(SettingsPageId.STORAGE),
             step(
                 item(SettingsControl.NAVIGATION) {
                     copy(destination = SettingsPageId.STORAGE)
@@ -210,7 +215,7 @@ class XmbSettingsAdapterTest {
             ),
         )
         assertEquals(
-            XmbSettingStep.Stock(SettingsPageId.FONTS),
+            XmbSettingStep.External(SettingsPageId.FONTS),
             step(
                 item(SettingsControl.NAVIGATION) {
                     copy(destination = SettingsPageId.FONTS)
@@ -220,14 +225,55 @@ class XmbSettingsAdapterTest {
     }
 
     @Test
-    fun settingsColumnListsRootPagesOnceAndCustomPagesOpenStock() {
+    fun settingsColumnListsRootPagesOnceAndLeavesOutCustomPagesItDoesNotDraw() {
         val items = xmbSettingsItems(registry)
-        assertEquals(listOf("settings:PLAYER", "settings:STORAGE"), items.map { it.id })
+        assertEquals(listOf("settings:PLAYER"), items.map { it.id })
         assertEquals(XmbText.Plain("PLAYER"), items[0].title)
         assertEquals(XmbList.SettingsPage(SettingsPageId.PLAYER), items[0].list)
-        assertEquals(XmbItemAction.StockSettings(SettingsPageId.STORAGE), items[1].action)
-        assertNull(items[1].list)
         assertFalse(items.any { !it.isAvailable })
+    }
+
+    @Test
+    fun customPagesOutsideTheAppAreListedAndOpenedByTheHost() {
+        val items = xmbSettingsItems(registry, external = setOf(SettingsPageId.STORAGE))
+        assertEquals(listOf("settings:PLAYER", "settings:STORAGE"), items.map { it.id })
+        assertEquals(XmbItemAction.ExternalSettings(SettingsPageId.STORAGE), items[1].action)
+        assertNull(items[1].list)
+    }
+
+    @Test
+    fun customPagesTheXmbDrawsOpenAsLevels() {
+        val drawn = setOf(SettingsPageId.STORAGE)
+        val items = xmbSettingsItems(registry, drawn)
+        assertEquals(XmbList.SettingsPage(SettingsPageId.STORAGE), items[1].list)
+        assertEquals(XmbItemAction.None, items[1].action)
+        val entry = item(SettingsControl.NAVIGATION) { copy(destination = SettingsPageId.STORAGE) }.toXmbEntry(labels)
+        assertEquals(XmbSettingStep.Open(SettingsPageId.STORAGE), xmbSettingStep(entry, SettingsPageId.PLAYER, registry, labels, drawn))
+    }
+
+    @Test
+    fun systemPagesDrawAboutAndMetroEqAlwaysAndTheRestWithABackend() {
+        assertEquals(setOf(SettingsPageId.ABOUT, SettingsPageId.EQUALIZER, SettingsPageId.DEVTOOLS), XmbSystemPages().drawn)
+        val backup =
+            object : XmbBackup {
+                override fun create(done: (Boolean?) -> Unit) = Unit
+
+                override fun restore(done: (Boolean?) -> Unit) = Unit
+            }
+        assertTrue(SettingsPageId.BACKUP_RESTORE in XmbSystemPages(backup = backup).drawn)
+        assertFalse(SettingsPageId.STORAGE in XmbSystemPages(backup = backup).drawn)
+    }
+
+    @Test
+    fun equalizerValuesReadLikeTheStockPage() {
+        assertEquals("0 dB", decibels(0f))
+        assertEquals("+3.5 dB", decibels(3.5f))
+        assertEquals("-12 dB", decibels(-12f))
+        assertEquals("-0.5 dB", decibels(-0.4f))
+        assertEquals("60 Hz", frequency(60.0))
+        assertEquals("1 kHz", frequency(1000.0))
+        assertEquals("2.5 kHz", frequency(2480.0))
+        assertEquals("16 kHz", frequency(16000.0))
     }
 
     @Test

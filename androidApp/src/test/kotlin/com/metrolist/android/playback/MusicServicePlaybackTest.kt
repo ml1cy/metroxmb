@@ -2,7 +2,7 @@ package com.metrolist.android.playback
 
 import android.app.Application
 import androidx.media3.common.Player
-import com.metrolist.android.ui.screens.applyPlaybackFloatSetting
+import com.metrolist.android.xmb.applyPlaybackFloatSetting
 import com.metrolist.shared.playback.PauseOnMuteController
 import com.metrolist.shared.playback.SleepTimerController
 import com.metrolist.shared.settings.Settings

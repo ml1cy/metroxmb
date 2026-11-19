@@ -58,6 +58,7 @@ import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.ui.settings.settingsHomeSections
 import com.metrolist.shared.ui.settings.settingsPageSubtitle
+import com.metrolist.shared.xmb.XMB_SELF_UPDATES
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -115,12 +116,6 @@ internal fun rememberDesktopXmbSettingsHost(): SharedSettingsHost {
     val fonts = rememberDesktopXmbFontActions()
     val diagnostics =
         listOf(
-            SettingsHostAction(
-                id = "viewApplicationLogs",
-                title = stringResource(Res.string.settings_view_application_logs),
-                description = stringResource(Res.string.settings_diagnostic_logs_summary),
-                onClick = { UiState.showLogViewer = true },
-            ),
             SettingsHostAction(
                 id = "openLogFolder",
                 title = stringResource(Res.string.settings_open_log_folder),
@@ -229,7 +224,8 @@ internal fun xmbDesktopSettingsPages(devtoolsUnlocked: Boolean): Set<SettingsPag
     buildSet {
         add(SettingsPageId.STORAGE)
         add(SettingsPageId.BACKUP_RESTORE)
-        add(SettingsPageId.UPDATES)
+        // Updates are off in this project (XMB_SELF_UPDATES): Metrolist's releases would replace it.
+        if (XMB_SELF_UPDATES) add(SettingsPageId.UPDATES)
         add(SettingsPageId.ABOUT)
         if (devtoolsUnlocked) add(SettingsPageId.DEVTOOLS)
         add(SettingsPageId.EQUALIZER)

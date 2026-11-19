@@ -88,7 +88,6 @@ import com.metrolist.shared.ui.components.GroupedListItem
 import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.onboarding.OnboardingPage
 import com.metrolist.shared.ui.onboarding.OnboardingPageContent
-import com.metrolist.shared.ui.onboarding.OnboardingPreferences
 import com.metrolist.shared.ui.onboarding.OnboardingTransition
 import com.metrolist.shared.ui.settings.SettingsHostChoice
 import com.metrolist.shared.ui.settings.SettingsPageId
@@ -96,6 +95,8 @@ import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import com.metrolist.shared.utils.isCrashReportingAvailable
+import com.metrolist.shared.xmb.screens.XmbOnboarding
+import com.metrolist.shared.xmb.screens.XmbOnboardingAction
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -115,12 +116,10 @@ fun DesktopOnboarding(onComplete: (sendCrashReports: Boolean, openLogin: Boolean
             buildList {
                 add(OnboardingPage.WELCOME)
                 if (isCrashReportingAvailable()) add(OnboardingPage.CRASH_REPORTS)
-                add(OnboardingPage.LANGUAGE_LYRICS)
-                add(OnboardingPage.PLAYBACK)
+                // XMB Music: language, lyrics and playback are in the XMB's Settings column.
                 add(OnboardingPage.FINISH)
             }
         }
-    val languages = appLanguageChoices()
     var pageIndex by rememberSaveable { mutableStateOf(0) }
     var sendCrashReports by rememberSaveable { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
@@ -256,233 +255,18 @@ fun DesktopOnboarding(onComplete: (sendCrashReports: Boolean, openLogin: Boolean
         )
     }
     val content = pageContent(pageIndex)
-    val previousContent = if (pageIndex > 0) pageContent(pageIndex - 1) else null
 
-    DesktopOnboardingCard(content, previousContent) { targetPage ->
-        if (targetPage == OnboardingPage.LANGUAGE_LYRICS || targetPage == OnboardingPage.PLAYBACK) {
-            OnboardingPreferences(
-                page = targetPage,
-                host =
-                    SharedSettingsHost(
-                        platform = SettingsPlatform.DESKTOP,
-                        onClose = {},
-                        availablePages = setOf(SettingsPageId.LYRICS_AI_TRANSLATION, SettingsPageId.LYRICS_ROMANIZATION),
-                        hostChoices = mapOf(SettingsHostChoice.APP_LANGUAGE to languages),
-                        onHostChoiceSelected = { _, selected ->
-                            Settings.shared.appLanguage = selected
-                            DesktopLocaleManager.apply(selected)
-                        },
-                    ),
-            )
-        }
-        if (targetPage == OnboardingPage.FINISH) {
-            FinishActions(
-                onLogin = { onComplete(sendCrashReports, true) },
-                onRestore = ::restoreBackup,
-                enabled = !isWorking,
-            )
-        }
-        if (isWorking) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                ContainedLoadingIndicator()
-            }
-        }
-    }
-}
-
-@Composable
-private fun DesktopOnboardingCard(
-    content: OnboardingPageContent,
-    previousContent: OnboardingPageContent?,
-    featureContent: @Composable (OnboardingPage) -> Unit,
-) {
-    OnboardingTransition(content, previousContent) { page ->
-        DesktopOnboardingPage(page, featureContent)
-    }
-}
-
-@Composable
-private fun DesktopOnboardingPage(
-    content: OnboardingPageContent,
-    featureContent: @Composable (OnboardingPage) -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    val stepDescription = stringResource(Res.string.onboarding_step_of, content.step, content.stepCount)
-    Box(
-        Modifier.fillMaxSize().background(colors.surfaceContainer).padding(32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Surface(
-            modifier =
-                Modifier.widthIn(max = 720.dp).heightIn(max = 600.dp).fillMaxWidth().fillMaxHeight().semantics {
-                    paneTitle = content.title
-                    stateDescription = stepDescription
-                },
-            shape = RoundedCornerShape(12.dp),
-            color = colors.surface,
-        ) {
-            Column {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Image(
-                        painter = painterResource(Res.drawable.logo),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colors.onSurface),
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Text(stringResource(Res.string.app_name), style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.weight(1f))
-                    StepIndicator(step = content.step, stepCount = content.stepCount)
-                }
-                HorizontalDivider(color = colors.outlineVariant)
-                Box(Modifier.weight(1f)) {
-                    val page = content
-                    Column(Modifier.fillMaxWidth().verticalScrollWithDrag(rememberScrollState()).padding(32.dp)) {
-                        Icon(page.icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(28.dp))
-                        Text(
-                            page.title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.padding(top = 16.dp).semantics { heading() },
-                        )
-                        Text(
-                            page.description,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colors.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                        if (page.page == OnboardingPage.CRASH_REPORTS) SentryDetails()
-                        featureContent(page.page)
-                        page.error?.let {
-                            Text(
-                                it,
-                                color = colors.error,
-                                modifier = Modifier.padding(top = 16.dp).semantics { liveRegion = LiveRegionMode.Polite },
-                            )
-                        }
-                    }
-                }
-                HorizontalDivider(color = colors.outlineVariant)
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (content.page == OnboardingPage.WELCOME || content.page == OnboardingPage.CRASH_REPORTS) {
-                        val uriHandler = LocalUriHandler.current
-                        TextButton(
-                            onClick = { runCatching { uriHandler.openUri("https://metrolist.cc/privacy") } },
-                            shapes = ButtonDefaults.shapes(),
-                        ) {
-                            Text(stringResource(Res.string.privacy_policy))
-                        }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    content.onBack?.let { back ->
-                        TextButton(
-                            onClick = back,
-                            enabled = !content.isWorking,
-                            shapes = ButtonDefaults.shapes(),
-                        ) { Text(content.backLabel) }
-                    }
-                    content.secondaryLabel?.let { secondary ->
-                        OutlinedButton(
-                            onClick = content.onSecondary ?: {},
-                            enabled = !content.isWorking,
-                            shapes = ButtonDefaults.shapes(),
-                        ) { Text(secondary) }
-                    }
-                    Button(
-                        onClick = content.onPrimary,
-                        enabled = !content.isWorking,
-                        shapes = ButtonDefaults.shapes(),
-                    ) { Text(content.primaryLabel) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StepIndicator(
-    step: Int,
-    stepCount: Int,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.clearAndSetSemantics {}) {
-        repeat(stepCount) { index ->
-            Box(
-                Modifier
-                    .size(width = if (index + 1 == step) 20.dp else 8.dp, height = 8.dp)
-                    .background(
-                        if (index + 1 <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                        CircleShape,
-                    ),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SentryDetails() {
-    val details =
-        listOf(
-            MetrolistIcons.Outlined.Tune to stringResource(Res.string.onboarding_sentry_opt_in),
-            MetrolistIcons.Outlined.Info to stringResource(Res.string.onboarding_sentry_diagnostics),
-            MetrolistIcons.Rounded.Lock to stringResource(Res.string.onboarding_sentry_private),
-        )
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-        details.forEachIndexed { index, (icon, label) ->
-            GroupedListItem(index = index, count = details.size) {
-                Row(
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FinishActions(
-    onLogin: () -> Unit,
-    onRestore: () -> Unit,
-    enabled: Boolean,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        FilledTonalButton(
-            onClick = onLogin,
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            shapes = ButtonDefaults.shapes(),
-        ) {
-            Icon(MetrolistIcons.AutoMirrored.Filled.Login, contentDescription = null)
-            Text(stringResource(Res.string.log_in), modifier = Modifier.padding(start = 10.dp))
-        }
-        OutlinedButton(
-            onClick = onRestore,
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            shapes = ButtonDefaults.shapes(),
-        ) {
-            Icon(MetrolistIcons.Outlined.SettingsBackupRestore, contentDescription = null)
-            Text(stringResource(Res.string.restore_from_backup), modifier = Modifier.padding(start = 10.dp))
-        }
-        Text(
-            stringResource(Res.string.onboarding_settings_hint),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-    }
+    // XMB Music: the pages draw the XMB way.
+    XmbOnboarding(
+        content = content,
+        actions =
+            if (content.page == OnboardingPage.FINISH && !isWorking) {
+                listOf(
+                    XmbOnboardingAction(stringResource(Res.string.log_in)) { onComplete(sendCrashReports, true) },
+                    XmbOnboardingAction(stringResource(Res.string.restore_from_backup), ::restoreBackup),
+                )
+            } else {
+                emptyList()
+            },
+    )
 }

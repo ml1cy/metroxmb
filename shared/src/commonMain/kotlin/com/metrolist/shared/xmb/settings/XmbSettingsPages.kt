@@ -21,6 +21,8 @@ import com.metrolist.shared.generated.resources.xmb_color_silver
 import com.metrolist.shared.generated.resources.xmb_date_day_month
 import com.metrolist.shared.generated.resources.xmb_date_hidden
 import com.metrolist.shared.generated.resources.xmb_date_month_day
+import com.metrolist.shared.generated.resources.xmb_frame_rate_30
+import com.metrolist.shared.generated.resources.xmb_frame_rate_60
 import com.metrolist.shared.generated.resources.xmb_idle_1m
 import com.metrolist.shared.generated.resources.xmb_idle_30s
 import com.metrolist.shared.generated.resources.xmb_idle_3m
@@ -31,6 +33,9 @@ import com.metrolist.shared.generated.resources.xmb_item_volume
 import com.metrolist.shared.generated.resources.xmb_overlay_always
 import com.metrolist.shared.generated.resources.xmb_overlay_brief
 import com.metrolist.shared.generated.resources.xmb_overlay_never
+import com.metrolist.shared.generated.resources.xmb_quality_balanced
+import com.metrolist.shared.generated.resources.xmb_quality_high
+import com.metrolist.shared.generated.resources.xmb_quality_low
 import com.metrolist.shared.generated.resources.xmb_setting_background
 import com.metrolist.shared.generated.resources.xmb_setting_color
 import com.metrolist.shared.generated.resources.xmb_setting_custom_hue
@@ -38,6 +43,8 @@ import com.metrolist.shared.generated.resources.xmb_setting_custom_hue_descripti
 import com.metrolist.shared.generated.resources.xmb_setting_date_format
 import com.metrolist.shared.generated.resources.xmb_setting_dim_at_night
 import com.metrolist.shared.generated.resources.xmb_setting_dim_at_night_description
+import com.metrolist.shared.generated.resources.xmb_setting_frame_rate
+import com.metrolist.shared.generated.resources.xmb_setting_frame_rate_description
 import com.metrolist.shared.generated.resources.xmb_setting_idle_visualizer
 import com.metrolist.shared.generated.resources.xmb_setting_idle_visualizer_description
 import com.metrolist.shared.generated.resources.xmb_setting_menu_sound_volume
@@ -48,6 +55,8 @@ import com.metrolist.shared.generated.resources.xmb_setting_show_clock
 import com.metrolist.shared.generated.resources.xmb_setting_sparkles
 import com.metrolist.shared.generated.resources.xmb_setting_time_format
 import com.metrolist.shared.generated.resources.xmb_setting_track_overlay
+import com.metrolist.shared.generated.resources.xmb_setting_visualizer_quality
+import com.metrolist.shared.generated.resources.xmb_setting_visualizer_quality_description
 import com.metrolist.shared.generated.resources.xmb_setting_wallpaper
 import com.metrolist.shared.generated.resources.xmb_setting_wallpaper_description
 import com.metrolist.shared.generated.resources.xmb_setting_wallpaper_dim
@@ -93,6 +102,7 @@ import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.settings.SettingsChoice
 import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.SettingsItemRegistration
+import com.metrolist.shared.visualizer.VisualizerQuality
 import com.metrolist.shared.xmb.adapters.XmbList
 import com.metrolist.shared.xmb.nav.XmbIcon
 import com.metrolist.shared.xmb.nav.XmbItem
@@ -273,6 +283,13 @@ fun xmbSettingsRows(
                     enabled = prefs.wave,
                 ) { settings.xmbWaveReacts = it },
                 choice(
+                    "xmb_frame_rate",
+                    stringResource(Res.string.xmb_setting_frame_rate),
+                    listOf("60" to stringResource(Res.string.xmb_frame_rate_60), "30" to stringResource(Res.string.xmb_frame_rate_30)),
+                    prefs.frameRate.toString(),
+                    description = stringResource(Res.string.xmb_setting_frame_rate_description),
+                ) { id -> id.toIntOrNull()?.let { settings.xmbFrameRate = it } },
+                choice(
                     "xmb_wave_speed",
                     stringResource(Res.string.xmb_setting_wave_speed),
                     WAVE_SPEEDS.map { (speed, name) -> speed.toString() to stringResource(name) },
@@ -363,6 +380,17 @@ fun xmbSettingsRows(
                     ),
                     prefs.trackOverlay.id,
                 ) { settings.xmbTrackOverlay = it },
+                choice(
+                    "xmb_visualizer_quality",
+                    stringResource(Res.string.xmb_setting_visualizer_quality),
+                    listOf(
+                        VisualizerQuality.HIGH.id to stringResource(Res.string.xmb_quality_high),
+                        VisualizerQuality.BALANCED.id to stringResource(Res.string.xmb_quality_balanced),
+                        VisualizerQuality.LOW.id to stringResource(Res.string.xmb_quality_low),
+                    ),
+                    prefs.visualizerQuality.id,
+                    description = stringResource(Res.string.xmb_setting_visualizer_quality_description),
+                ) { settings.xmbVisualizerQuality = it },
                 choice(
                     "xmb_idle_visualizer",
                     stringResource(Res.string.xmb_setting_idle_visualizer),

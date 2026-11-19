@@ -1,6 +1,6 @@
 package com.metrolist.shared.ui.statistics
 
-import com.metrolist.shared.ui.screens.StatisticsPeriod
+import com.metrolist.shared.ui.statistics.StatisticsPeriod
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone

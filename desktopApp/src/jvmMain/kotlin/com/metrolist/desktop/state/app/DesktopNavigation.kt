@@ -9,11 +9,12 @@ import com.metrolist.shared.ui.navigation.Screen
 object DesktopNavigation {
     var listenTogetherRoomCode by mutableStateOf<String?>(null)
 
-    // shortcut: Bridge legacy desktop state until shared screens accept Navigator directly.
+    // XMB Music: no stock screens are shown, so nothing binds a navigator in the app; the content
+    // states still record where they'd go, harmlessly. Tests bind one.
     private var boundNavigator: Navigator? = null
 
-    val navigator: Navigator
-        get() = checkNotNull(boundNavigator) { "Desktop navigation is not bound" }
+    /** The bound navigator's current route, or null when none is bound. */
+    val currentRoute: Screen? get() = boundNavigator?.state?.currentRoute as? Screen
 
     fun bind(navigator: Navigator) {
         boundNavigator = navigator
@@ -24,7 +25,7 @@ object DesktopNavigation {
     }
 
     fun navigate(route: Screen) {
-        navigator.navigate(route)
+        boundNavigator?.navigate(route)
     }
 
     fun openListenTogetherInvitation(

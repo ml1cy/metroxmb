@@ -15,12 +15,15 @@ import com.metrolist.desktop.state.content.PodcastState
 import com.metrolist.desktop.state.content.SearchState
 import com.metrolist.desktop.state.playback.ListenTogetherState
 import com.metrolist.desktop.state.playback.PlayerState
+import com.metrolist.desktop.xmb.DesktopXmbLinks
 import com.metrolist.innertubex.utils.YouTubeUrlParser
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.utils.extractListenTogetherRoomCode
 import com.metrolist.shared.utils.isListenTogetherUrl
 import com.metrolist.shared.utils.parseYouTubePodcastId
 import com.metrolist.shared.utils.parseYouTubeUrl
+import com.metrolist.shared.xmb.nav.XmbCategoryId
+import com.metrolist.shared.xmb.nav.XmbOpen
 import java.awt.Desktop
 import java.awt.EventQueue
 import java.net.URLDecoder
@@ -121,7 +124,8 @@ object DesktopUrlHandler {
         val roomCode = extractListenTogetherRoomCode(url)
         if (roomCode != null) {
             if (!Settings.shared.listenTogetherEnabled) return
-            DesktopNavigation.openListenTogetherInvitation(roomCode) { ListenTogetherState.listenTogetherManager.joinRoom(it) }
+            // XMB Music: the Friends column joins the room (asking for a name first if there is none).
+            DesktopXmbLinks.open(XmbOpen.joinRoom(roomCode))
             return
         }
 
@@ -129,14 +133,15 @@ object DesktopUrlHandler {
         val parsed = parseYouTubeUrl(url)
         if (podcastId == null && parsed == null) return
 
-        UiState.showSettings = false
         UiState.showSignIn = false
         UiState.showSwitchChannel = false
         PlaylistAlbumState.selectedLocalPlaylist = null
         SearchState.reset()
 
+        // XMB Music: albums, playlists, artists and podcasts open as XMB levels (the stock screens
+        // these states fed are gone).
         if (podcastId != null) {
-            PodcastState.fetch(podcastId)
+            DesktopXmbLinks.openPodcast(podcastId)
             return
         }
         when (parsed) {
@@ -145,15 +150,15 @@ object DesktopUrlHandler {
             }
 
             is YouTubeUrlParser.ParsedUrl.Playlist -> {
-                PlaylistAlbumState.fetchPlaylistData(parsed.id)
+                DesktopXmbLinks.openPlaylist(parsed.id)
             }
 
             is YouTubeUrlParser.ParsedUrl.Album -> {
-                PlaylistAlbumState.fetchAlbumData(parsed.id)
+                DesktopXmbLinks.openAlbum(parsed.id)
             }
 
             is YouTubeUrlParser.ParsedUrl.Artist -> {
-                ArtistState.fetchArtistData(parsed.id)
+                DesktopXmbLinks.openArtist(parsed.id)
             }
 
             null -> {}

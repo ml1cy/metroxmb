@@ -21,6 +21,7 @@ fun xmbCategories(
     settings: List<XmbItem> = emptyList(),
     search: List<XmbItem> = xmbSearchItems(emptyList()),
     friends: List<XmbItem> = xmbFriendItems(null),
+    canRecognize: Boolean = false,
 ): List<XmbCategory> =
     listOf(
         XmbCategory(XmbCategoryId.USERS, Res.string.xmb_category_users, drawable(Res.drawable.xmb_cat_users), users),
@@ -37,6 +38,7 @@ fun xmbCategories(
             item("artists", Res.string.artists, Res.drawable.xmb_item_artist, XmbList.Artists),
             item("history", Res.string.menu_history, Res.drawable.xmb_item_history, XmbList.History),
             item("downloads", Res.string.downloads, Res.drawable.xmb_item_playlist, XmbList.Downloads),
+            item("statistics", Res.string.statistics, Res.drawable.xmb_item_info, XmbList.Statistics),
             XmbItem(
                 "lyrics",
                 Res.string.lyrics,
@@ -45,6 +47,29 @@ fun xmbCategories(
                 XmbItemAction.OpenLyrics,
             ),
             item("play_on_device", Res.string.xmb_cast_title, Res.drawable.xmb_item_network_settings, XmbList.CastDevices),
+            XmbItem(
+                "play_queue",
+                Res.string.xmb_queue,
+                drawable(Res.drawable.xmb_item_playlist),
+                Res.string.xmb_queue_description,
+                list = XmbList.Queue,
+            ),
+            *listOfNotNull(
+                XmbItem(
+                    "identify_song",
+                    Res.string.recognize_music,
+                    drawable(Res.drawable.xmb_item_song),
+                    Res.string.xmb_recognize_description,
+                    XmbItemAction.IdentifySong,
+                ).takeIf { canRecognize },
+            ).toTypedArray(),
+            XmbItem(
+                "sleep_timer",
+                Res.string.sleep_timer,
+                drawable(Res.drawable.xmb_item_history),
+                Res.string.xmb_sleep_timer_description,
+                XmbItemAction.SleepTimer,
+            ),
         ),
         XmbCategory(XmbCategoryId.SEARCH, Res.string.search, drawable(Res.drawable.xmb_cat_search), search),
         category(
@@ -74,11 +99,11 @@ fun xmbCategories(
             XmbCategoryId.VISUALIZER,
             Res.string.xmb_category_visualizer,
             XmbIcon.Vector(XmbIcons.Visualizer),
-            visualizer("waves", Res.string.xmb_visualizer_waves, XmbVisualizerKind.WAVES),
-            visualizer("valley", Res.string.xmb_visualizer_valley),
-            visualizer("gaia", Res.string.xmb_visualizer_gaia),
-            visualizer("random", Res.string.xmb_visualizer_random),
-            visualizer("auto_cycle", Res.string.xmb_visualizer_auto_cycle),
+            visualizer("waves", Res.string.xmb_visualizer_waves, XmbItemAction.OpenVisualizer(XmbVisualizerKind.WAVES)),
+            visualizer("valley", Res.string.xmb_visualizer_valley, XmbItemAction.OpenVisualizer(XmbVisualizerKind.VALLEY)),
+            visualizer("gaia", Res.string.xmb_visualizer_gaia, XmbItemAction.OpenVisualizer(XmbVisualizerKind.GAIA)),
+            visualizer("random", Res.string.xmb_visualizer_random, XmbItemAction.OpenRandomVisualizer),
+            visualizer("auto_cycle", Res.string.xmb_visualizer_auto_cycle, XmbItemAction.CycleVisualizers),
         ),
     )
 
@@ -104,6 +129,13 @@ fun xmbUserItems(account: XmbAccountInfo?): List<XmbItem> {
         !account.signedIn -> {
             listOf(
                 XmbItem("sign_in", Res.string.action_login, userIcon, Res.string.xmb_users_sign_in_description, XmbItemAction.SignIn),
+                XmbItem(
+                    "token_sign_in",
+                    Res.string.token_login,
+                    drawable(Res.drawable.xmb_item_subsetting),
+                    Res.string.xmb_users_token_description,
+                    XmbItemAction.TokenSignIn,
+                ),
             )
         }
 
@@ -264,21 +296,32 @@ fun xmbSearchItems(history: List<String>): List<XmbItem> =
 
 /**
  * Settings pages from the shared settings registry, in the stock root order. Pages the XMB draws
- * as rows open a level; custom pages (storage, backup, updates, MetroEQ...) open their stock screen.
+ * as rows open a level: registry pages, and the custom pages in [drawn] (About, MetroEQ, Storage,
+ * Backup); other custom pages open their stock screen.
  */
-fun xmbSettingsItems(registry: SettingsUiRegistry): List<XmbItem> =
+fun xmbSettingsItems(
+    registry: SettingsUiRegistry,
+    drawn: Set<SettingsPageId> = emptySet(),
+    hidden: Set<SettingsPageId> = emptySet(),
+    /** Pages outside the app (Android's link settings): listed, and opened by the host. */
+    external: Set<SettingsPageId> = emptySet(),
+): List<XmbItem> =
     registry.rootGroups
         .flatMap { it.pages }
         .distinct()
+        .filterNot { it in hidden }
         .mapNotNull { id -> registry[id] }
+        // Custom pages are drawn by the XMB ([drawn]) or opened outside the app; others are left out.
+        .filter { !it.custom || it.id in drawn || it.id in external }
         .map { page ->
+            val outside = page.custom && page.id !in drawn
             XmbItem(
                 id = "settings:${page.id.name}",
                 title = XmbText.Plain(page.title),
                 icon = drawable(settingsPageIcon(page.id)),
                 subtitle = page.subtitle?.takeIf(String::isNotBlank)?.let(XmbText::Plain),
-                action = if (page.custom) XmbItemAction.StockSettings(page.id) else XmbItemAction.None,
-                list = if (page.custom) null else XmbList.SettingsPage(page.id),
+                action = if (outside) XmbItemAction.ExternalSettings(page.id) else XmbItemAction.None,
+                list = if (outside) null else XmbList.SettingsPage(page.id),
             )
         }
 
@@ -309,14 +352,14 @@ private fun item(
     list: XmbList? = null,
 ) = XmbItem(id, title, drawable(icon), list = list)
 
-/** Visualizer items; those without a [kind] yet (Valley, Gaia, random, auto-cycle) arrive in M5. */
+/** A Visualizer item: one visualizer, a random one, or all in turn. */
 private fun visualizer(
     id: String,
     title: StringResource,
-    kind: XmbVisualizerKind? = null,
+    action: XmbItemAction,
 ) = XmbItem(
     "visualizer_$id",
     title,
     XmbIcon.Vector(XmbIcons.Visualizer),
-    action = kind?.let(XmbItemAction::OpenVisualizer) ?: XmbItemAction.None,
+    action = action,
 )

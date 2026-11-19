@@ -33,7 +33,7 @@ enum class XmbEntryKind {
     PODCAST,
     EPISODE,
 
-    /** Browse and mood pages; shown, but not opened yet. */
+    /** Browse and mood pages; they open as levels of shelves. */
     BROWSE,
 
     /** A row of a settings page; [XmbEntry.setting] holds the registry item. */
@@ -197,6 +197,7 @@ fun YTItem.toXmbEntry(): XmbEntry =
                 artwork = thumbnail.asArtwork(),
                 kind = XmbEntryKind.BROWSE,
                 item = this,
+                open = XmbList.Browse(id, params, title),
             )
         }
     }

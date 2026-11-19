@@ -108,19 +108,7 @@ import com.metrolist.desktop.storage.DownloadManager
 import com.metrolist.desktop.storage.DownloadState
 import com.metrolist.desktop.storage.SongCacheManager
 import com.metrolist.desktop.ui.DesktopDensityProvider
-import com.metrolist.desktop.ui.components.DesktopMenuBar
-import com.metrolist.desktop.ui.components.DesktopPlayerVisibility
-import com.metrolist.desktop.ui.components.LocalCaptionBarInsets
-import com.metrolist.desktop.ui.components.MiniplayerWindow
-import com.metrolist.desktop.ui.components.TokenLoginDialog
-import com.metrolist.desktop.ui.components.UpdateArtworkTheme
 import com.metrolist.desktop.ui.screens.DesktopOnboarding
-import com.metrolist.desktop.ui.screens.LastFmArtistBrowser
-import com.metrolist.desktop.ui.screens.LastFmArtistBrowserHost
-import com.metrolist.desktop.ui.screens.LoginDialog
-import com.metrolist.desktop.ui.screens.settings.ApplicationLogsDialog
-import com.metrolist.desktop.ui.screens.settings.IntegrationsOverlay
-import com.metrolist.desktop.ui.screens.settings.SettingsOverlay
 import com.metrolist.desktop.ui.theme.MetrolistTheme
 import com.metrolist.desktop.utils.AppLogger
 import com.metrolist.desktop.utils.ComposeTrayManager
@@ -140,9 +128,11 @@ import com.metrolist.desktop.utils.configureDesktopJvmErrorFile
 import com.metrolist.desktop.utils.configureLinuxWebKitRenderer
 import com.metrolist.desktop.utils.desktopRenderApiOverride
 import com.metrolist.desktop.utils.isDesktopPlatformSupported
-import com.metrolist.desktop.web.DesktopWebViewError
+import com.metrolist.desktop.web.LastFmArtistBrowser
+import com.metrolist.desktop.web.LastFmArtistBrowserHost
 import com.metrolist.desktop.window.IconResources
 import com.metrolist.desktop.window.LinuxWindowFrame
+import com.metrolist.desktop.window.LocalCaptionBarInsets
 import com.metrolist.desktop.window.WindowFrame
 import com.metrolist.desktop.window.WindowVisibility
 import com.metrolist.desktop.window.findSkiaLayer
@@ -166,6 +156,7 @@ import com.metrolist.shared.generated.resources.copy
 import com.metrolist.shared.generated.resources.desktop_display_unavailable
 import com.metrolist.shared.generated.resources.desktop_platform_unsupported
 import com.metrolist.shared.generated.resources.liked_songs
+import com.metrolist.shared.generated.resources.loading
 import com.metrolist.shared.generated.resources.ok
 import com.metrolist.shared.generated.resources.playback_error
 import com.metrolist.shared.generated.resources.technical_information
@@ -191,12 +182,8 @@ import com.metrolist.shared.state.SongMetadataState
 import com.metrolist.shared.state.applyContentRegion
 import com.metrolist.shared.state.coreModule
 import com.metrolist.shared.ui.YouTubeSyncSnackbar
-import com.metrolist.shared.ui.components.AlertDialog
-import com.metrolist.shared.ui.components.HomeLoadingPlaceholder
-import com.metrolist.shared.ui.components.LoadingScreen
 import com.metrolist.shared.ui.components.LocalDownloadedSongIds
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
-import com.metrolist.shared.ui.components.PopupVisibility
 import com.metrolist.shared.ui.navigation.LocalNavigationContainerState
 import com.metrolist.shared.ui.navigation.LocalNavigator
 import com.metrolist.shared.ui.navigation.NavigationContentProvider
@@ -210,6 +197,9 @@ import com.metrolist.shared.ui.utils.verticalScrollWithDrag
 import com.metrolist.shared.utils.OsUtil
 import com.metrolist.shared.utils.XdgUtils
 import com.metrolist.shared.utils.isCrashReportingAvailable
+import com.metrolist.shared.xmb.XmbAppMessages
+import com.metrolist.shared.xmb.screens.XmbBackdropScreen
+import com.metrolist.shared.xmb.screens.XmbBusyOverlay
 import com.metrolist.shared.youtube.di.sharedModule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -251,7 +241,6 @@ import java.awt.Color as AwtColor
 
 @Composable
 fun WindowScope.App(
-    navigator: Navigator,
     onMaximized: () -> Unit,
     toggleWindowFullscreen: () -> Unit,
     checkDarkMode: (Boolean) -> Unit,
@@ -262,8 +251,6 @@ fun WindowScope.App(
     val downloadStates = LibraryState.downloadStates
     val downloadedSongIds = remember(downloadStates) { downloadStates.filterValues { it == DownloadState.DOWNLOADED }.keys }
     NavigationContentProvider(
-        LocalNavigator provides navigator,
-        LocalNavigationContainerState provides navigator.state.containers,
         LocalPlaybackController provides playbackController,
         LocalDownloadedSongIds provides downloadedSongIds,
         LocalMouseScrollFactors provides desktopMouseScrollFactors(LocalDensity.current),
@@ -326,43 +313,14 @@ private fun WindowScope.AppContent(
         }
         Box(Modifier.fillMaxSize().windowInsetsPadding(LocalCaptionBarInsets.current.only(WindowInsetsSides.Top))) {
             LastFmArtistBrowserHost(lastFmBrowser)
-            DesktopWebViewError()
-            if (UiState.showIntegrationsSettings) {
-                IntegrationsOverlay(colorScheme)
-            }
-            PopupVisibility(visible = UiState.showLogViewer) {
-                ApplicationLogsDialog(onDismiss = { UiState.showLogViewer = false })
-            }
-            PopupVisibility(visible = UiState.showTokenLogin) {
-                TokenLoginDialog(
-                    onDismiss = { UiState.showTokenLogin = false },
-                    onSaved = {
-                        UiState.showTokenLogin = false
-                        UiState.appRefreshKey++
-                    },
-                )
-            }
-            // The session-expired and playback-error notices are drawn by the XMB (XmbDesktopHost).
+            // The session-expired, playback-error and browser-failure notices are drawn by the XMB (XmbDesktopHost).
             if (UiState.isRefreshingApp) {
-                Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface.copy(alpha = 0.94f)) {
-                    LoadingScreen()
-                }
+                // XMB Music: the wait shows as the XMB's notice band.
+                XmbBusyOverlay(stringResource(Res.string.loading))
             }
-            YouTubeSyncSnackbar(AppState.snackbarHostState)
-            val snackbarScheme = rememberUpdatedState(colorScheme)
-            SnackbarHost(AppState.snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter)) { data ->
-                val scheme = snackbarScheme.value
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = scheme.inverseSurface,
-                    contentColor = scheme.inverseOnSurface,
-                    actionColor = scheme.inversePrimary,
-                    actionContentColor = scheme.inversePrimary,
-                    dismissActionContentColor = scheme.inverseOnSurface,
-                )
-            }
+            // Background messages reach the XMB as toasts (SnackbarsAsXmbToasts in XmbDesktopHost).
+            XmbAppMessages(AppState.snackbarHostState, listenTogether = ListenTogetherState.listenTogetherManager)
         }
-        if (integrationsReady) MiniplayerWindow()
     }
 }
 
@@ -944,46 +902,6 @@ private fun runDesktopApp(args: Array<String>) {
                 }
             }
 
-        val startRoute =
-            remember {
-                when (defaultOpenTabRoot(Settings.shared.desktopDefaultOpenTab())) {
-                    "SEARCH" -> {
-                        Screen.Search
-                    }
-
-                    "LIBRARY" -> {
-                        Settings.shared.libraryFilter = LibraryFilterType.DEFAULT
-                        Screen.Library
-                    }
-
-                    else -> {
-                        Screen.Home
-                    }
-                }
-            }
-        val topLevelRoutes =
-            remember {
-                setOf(
-                    Screen.Home,
-                    Screen.Search,
-                    Screen.Library,
-                    Screen.History,
-                    Screen.Statistics,
-                    Screen.ListenTogether,
-                )
-            }
-        val navigationState =
-            rememberNavigationState(
-                startRoute,
-                topLevelRoutes,
-                initialDestination = remember { defaultOpenTabScreen(Settings.shared.desktopDefaultOpenTab()) },
-            )
-        val navigator = remember(navigationState) { Navigator(navigationState) }
-        DisposableEffect(navigator) {
-            DesktopNavigation.bind(navigator)
-            onDispose { DesktopNavigation.unbind(navigator) }
-        }
-
         fun minimizeToTrayOrClose() {
             if (Settings.shared.minimizeToTrayOnClose) {
                 ComposeTrayManager.hideWindow()
@@ -1015,18 +933,13 @@ private fun runDesktopApp(args: Array<String>) {
                     MetrolistTheme(seedColor = UiState.seedColor) {
                         WindowsWindowBackground(MaterialTheme.colorScheme.background)
                         val shell: @Composable () -> Unit = {
-                            Surface(
-                                modifier =
-                                    Modifier.fillMaxSize().drawWithContent {
-                                        drawContent()
-                                        startup.frameDrawn(backendReady = false)
-                                    },
-                            ) {
-                                Column(Modifier.padding(24.dp)) {
-                                    Text(stringResource(Res.string.app_name), style = MaterialTheme.typography.titleLarge)
-                                    HomeLoadingPlaceholder(Modifier.fillMaxSize().padding(top = 24.dp))
-                                }
-                            }
+                            // XMB Music: the XMB's sky while the app starts.
+                            XmbBackdropScreen(
+                                Modifier.fillMaxSize().drawWithContent {
+                                    drawContent()
+                                    startup.frameDrawn(backendReady = false)
+                                },
+                            ) { _, _ -> }
                         }
                         if (isLinux) {
                             LinuxWindowFrame(
@@ -1053,32 +966,6 @@ private fun runDesktopApp(args: Array<String>) {
                         }
                     if (icon != null) (window as? Frame)?.iconImage = icon
                 }
-            }
-
-            if (OsUtil.isMac) {
-                DesktopMenuBar(
-                    navigator = navigator,
-                    windowState = windowState,
-                    toggleWindowFullscreen = {
-                        val placement =
-                            if (windowState.placement == WindowPlacement.Fullscreen) {
-                                lastNormalPlacement.value
-                            } else {
-                                WindowPlacement.Fullscreen
-                            }
-                        setWindowPlacement(windowState, placement) { window.placement = it }
-                    },
-                    onRefresh = {
-                        UiState.isRefreshingApp = true
-                        LibraryContentState.fetchLibraryData(force = true)
-                        UiState.appRefreshKey++
-                        HomeState.fetchHomeData {
-                            UiState.isRefreshingApp = false
-                        }
-                    },
-                    onCloseWindow = { minimizeToTrayOrClose() },
-                    onQuit = { shutdownApp { exitProcess(0) } },
-                )
             }
 
             LaunchedEffect(Unit) {
@@ -1308,7 +1195,6 @@ private fun runDesktopApp(args: Array<String>) {
                         ) { _, contentInset, onMaximized, toggleFullscreen ->
                             CompositionLocalProvider(LocalCaptionBarInsets provides contentInset) {
                                 App(
-                                    navigator = navigator,
                                     onMaximized = { onMaximized() },
                                     toggleWindowFullscreen = toggleFullscreen,
                                     checkDarkMode = { areWeInDarkMode.value = it },

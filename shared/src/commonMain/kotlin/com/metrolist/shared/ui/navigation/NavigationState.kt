@@ -182,7 +182,14 @@ class Navigator(
     val canGoForward: Boolean
         get() = state.forwardRoutes.isNotEmpty()
 
+    /**
+     * XMB Music: a route the host shows elsewhere (in the XMB) instead; it returns true when it
+     * took the route, and nothing is pushed.
+     */
+    var redirect: ((Screen) -> Boolean)? = null
+
     fun navigate(route: Screen) {
+        if (redirect?.invoke(route) == true) return
         navigate(route, clearForwardRoutes = true)
     }
 

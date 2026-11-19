@@ -26,11 +26,14 @@ repo goes back to MetrolistGroup. The work plan is in [PLAN.md](PLAN.md).
   force pushing.
 - **Keep `origin` private.** The repo contains Sony PS3 assets (font, sounds) for personal use.
   Never make it public or share builds that include them.
-- **No GitHub Actions.** Upstream's workflows, composite actions and CI-only scripts/tests
-  (`.github/workflows/`, `.github/actions/`, `.github/scripts/`, `.github/tests/`,
-  `.github/actionlint.yaml`) are deleted: they need upstream's runners and secrets. Don't add
-  workflows back. On upstream merges, resolve modify/delete conflicts there by keeping the
-  files deleted, and delete any new files upstream adds under those paths. Run checks locally.
+- **GitHub Actions: only this project's own workflow** (`.github/workflows/build.yml`, the
+  owner's request): it builds the Android debug and release APKs, the Windows portable ZIP and the
+  Windows installer (`packaging/windows/xmb-music.iss`, Inno Setup), and publishes a release for
+  `v*` tags. Upstream's workflows, composite actions and CI-only scripts/tests
+  (`.github/actions/`, `.github/scripts/`, `.github/tests/`, `.github/actionlint.yaml`, their
+  files in `.github/workflows/`) stay deleted: they need upstream's runners and secrets. On
+  upstream merges, resolve modify/delete conflicts there by keeping them deleted, and delete any
+  new files upstream adds under those paths.
 - Metrolist's docs still describe their CI (`docs/checks.md` "CI path selection",
   `docs/releasing.md`, `docs/build-performance.md`, `docs/distribution.md`,
   `docs/desktop-native-image.md`, `docs/install/README.md`). Those parts don't apply here, nor
@@ -60,18 +63,16 @@ These come from how the code actually works, not from upstream policy:
   platform). Format changed Kotlin with `ktlint --format` so the build's lint step passes.
 
 ## Project rules
-- **The XMB is the only interface (owner's decision after M3).** Desktop shows only the XMB; the
-  stock desktop screens are deleted. What the XMB still borrows stays until an XMB version
-  replaces it: first-run onboarding, the settings overlay and its custom pages (storage, backup,
-  updates, about, devtools, MetroEQ, fonts, integrations), the sign-in, token and log dialogs, the
-  mini-player window and the tray. On Android (M7) `MetrolistApp` shows the XMB at its top-level
-  routes and keeps its setup (player connection, Listen Together, incoming links); stock screens
-  show only when the XMB opens one (sign-in, settings pages it doesn't draw) until XMB versions
-  replace them, then the unused stock Android screens go. iOS is removed. Keep Metrolist's features (playback, library, integrations, Listen
-  Together, casting, lyrics, Device Connect) even where the XMB has no screen for them yet.
-  `UPSTREAM_TOUCHPOINTS.md` lists what was deleted; on upstream merges, resolve modify/delete
-  conflicts on those paths by keeping them deleted and delete new upstream files that only serve
-  the removed screens.
+- **The XMB is the only interface (owner's decision).** Both apps show only the XMB; Metrolist's
+  stock screens, dialogs, menus, mini player and player are deleted on Android, desktop and in
+  `shared`. Google's sign-in (a web page) shows in an XMB frame (`XmbWebFrame`); first-run setup,
+  the crash screen, sign-in progress and errors are XMB notices. Don't add stock Compose screens back:
+  anything new the user sees is drawn by the XMB. Stock composables that remain in `shared` are
+  only those the settings registry and view models still reference (never shown). Keep Metrolist's
+  features (playback, library, integrations, Listen Together, casting, lyrics, Device Connect)
+  even where the XMB has no screen for them yet. `UPSTREAM_TOUCHPOINTS.md` lists what was
+  deleted; on upstream merges, resolve modify/delete conflicts on those paths by keeping them
+  deleted and delete new upstream files that only serve the removed screens.
 - **Code location:** XMB and visualizer code go in `shared`, under the packages
   `com.metrolist.shared.xmb` and `com.metrolist.shared.visualizer`; platform glue goes in the
   platform source sets. New Gradle modules only with the owner's OK.

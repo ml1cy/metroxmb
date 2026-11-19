@@ -2,6 +2,7 @@ package com.metrolist.shared.xmb.settings
 
 import androidx.compose.ui.graphics.Color
 import com.metrolist.shared.settings.Settings
+import com.metrolist.shared.visualizer.VisualizerQuality
 import com.metrolist.shared.xmb.theme.XmbBackgroundColors
 import com.metrolist.shared.xmb.theme.XmbPalette
 
@@ -30,6 +31,9 @@ data class XmbPrefs(
     val nowPlayingCard: Boolean = true,
     val trackOverlay: XmbTrackOverlay = XmbTrackOverlay.BRIEF,
     val idleVisualizerSeconds: Int = 0,
+    val visualizerQuality: VisualizerQuality = VisualizerQuality.HIGH,
+    /** Animation frames a second: 60, or 30 to save power. */
+    val frameRate: Int = 60,
 ) {
     /** The background image to show, or null for the color gradient. */
     val wallpaperPath: String? get() = wallpaper.takeIf { background == IMAGE_BACKGROUND && it.isNotBlank() }
@@ -80,6 +84,8 @@ data class XmbPrefs(
                 nowPlayingCard = settings.xmbNowPlayingCard,
                 trackOverlay = XmbTrackOverlay.entries.firstOrNull { it.id == settings.xmbTrackOverlay } ?: XmbTrackOverlay.BRIEF,
                 idleVisualizerSeconds = settings.xmbIdleVisualizer.coerceAtLeast(0),
+                visualizerQuality = VisualizerQuality.of(settings.xmbVisualizerQuality),
+                frameRate = if (settings.xmbFrameRate <= 30) 30 else 60,
             )
         }
     }

@@ -30,9 +30,11 @@ sealed interface XmbIcon {
     ) : XmbIcon
 }
 
-/** The visualizers the Visualizer column opens full screen. Valley and Gaia arrive in M5. */
+/** The visualizers the Visualizer column opens full screen. */
 enum class XmbVisualizerKind {
     WAVES,
+    VALLEY,
+    GAIA,
 }
 
 /** What fills the screen instead of the menu. */
@@ -41,6 +43,8 @@ sealed interface XmbFullScreen {
     data class Visualizer(
         val kind: XmbVisualizerKind,
         val lyrics: Boolean = false,
+        /** Auto-cycle: moves on to the next visualizer every so often. */
+        val cycle: Boolean = false,
     ) : XmbFullScreen
 
     /** The playing music video. */
@@ -80,6 +84,9 @@ sealed interface XmbItemAction {
 
     data object SignIn : XmbItemAction
 
+    /** Sign in with a pasted token or cookie, on the keyboard. */
+    data object TokenSignIn : XmbItemAction
+
     data object SwitchChannel : XmbItemAction
 
     data object SignOut : XmbItemAction
@@ -89,11 +96,23 @@ sealed interface XmbItemAction {
         val kind: XmbVisualizerKind,
     ) : XmbItemAction
 
+    /** Shows a visualizer chosen at random (not the last one). */
+    data object OpenRandomVisualizer : XmbItemAction
+
+    /** Shows the visualizers in turn. */
+    data object CycleVisualizers : XmbItemAction
+
     /** Shows the playing song's music video full screen. */
     data object WatchVideo : XmbItemAction
 
     /** Shows the playing song's lyrics full screen. */
     data object OpenLyrics : XmbItemAction
+
+    /** Sets or cancels the sleep timer. */
+    data object SleepTimer : XmbItemAction
+
+    /** Identifies the song playing nearby. */
+    data object IdentifySong : XmbItemAction
 
     /** Friends: turns Listen Together on. */
     data object EnableListenTogether : XmbItemAction
@@ -122,8 +141,8 @@ sealed interface XmbItemAction {
         val username: String,
     ) : XmbItemAction
 
-    /** A settings page the XMB doesn't draw itself; the host shows its stock screen. */
-    data class StockSettings(
+    /** A settings page outside the app (Android's link settings); the host opens it. */
+    data class ExternalSettings(
         val page: SettingsPageId,
     ) : XmbItemAction
 }

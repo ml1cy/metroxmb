@@ -34,6 +34,18 @@ class VisualizerAudio {
     var flow = 0f
         private set
 
+    /**
+     * Slow versions for scenery that moves as a whole (Valley's flight and ridges, Gaia's camera):
+     * the music's level over a couple of seconds, and a clock running at that pace. Following the
+     * quick values made the flight speed and the peaks twitch.
+     */
+    var calmBass = 0f
+        private set
+    var calmEnergy = 0f
+        private set
+    var calmFlow = 0f
+        private set
+
     /** A clock for particles: it rushes in loud passages and on beats, so they streak. */
     var particleFlow = 0f
         private set
@@ -78,6 +90,10 @@ class VisualizerAudio {
         }
         if (rise < BEAT_RISE * REARM) armed = true
         flow += dt * (1f + FLOW_BOOST * energy)
+        val calm = 1f - exp(-dt / CALM_SECONDS)
+        calmBass += (bass - calmBass) * calm
+        calmEnergy += (energy - calmEnergy) * calm
+        calmFlow += dt * (1f + FLOW_BOOST * calmEnergy)
         particleFlow += dt * (1f + PARTICLE_RUSH * energy + PARTICLE_BEAT_RUSH * beat)
     }
 
@@ -113,6 +129,9 @@ class VisualizerAudio {
         const val PARTICLE_RUSH = 5f
         const val PARTICLE_BEAT_RUSH = 4f
         const val MAX_STEP = 0.1f
+
+        /** How slowly the calm values follow the music. */
+        const val CALM_SECONDS = 1.5f
         private const val REST = 0.001f
 
         /** A band group's average meter level (−60..0 dB as 0..1); 0 without data or bands. */

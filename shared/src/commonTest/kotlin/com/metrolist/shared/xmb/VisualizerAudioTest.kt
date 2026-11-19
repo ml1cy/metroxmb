@@ -147,9 +147,18 @@ class VisualizerAudioTest {
     }
 
     @Test
-    fun onlyWavesOpensUntilTheOtherVisualizersExist() {
+    fun everyVisualizerItemOpensSomething() {
         val items = xmbCategories().single { it.id == XmbCategoryId.VISUALIZER }.items
-        assertEquals(XmbItemAction.OpenVisualizer(XmbVisualizerKind.WAVES), items.first().action)
-        assertEquals(listOf("visualizer_waves"), items.filter { it.isAvailable }.map { it.id })
+        assertEquals(
+            listOf(
+                XmbItemAction.OpenVisualizer(XmbVisualizerKind.WAVES),
+                XmbItemAction.OpenVisualizer(XmbVisualizerKind.VALLEY),
+                XmbItemAction.OpenVisualizer(XmbVisualizerKind.GAIA),
+                XmbItemAction.OpenRandomVisualizer,
+                XmbItemAction.CycleVisualizers,
+            ),
+            items.map { it.action },
+        )
+        assertTrue(items.all { it.isAvailable })
     }
 }

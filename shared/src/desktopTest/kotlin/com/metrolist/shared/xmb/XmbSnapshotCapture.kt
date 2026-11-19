@@ -34,19 +34,26 @@ import com.metrolist.shared.generated.resources.xmb_cat_users
 import com.metrolist.shared.generated.resources.xmb_cat_video
 import com.metrolist.shared.generated.resources.xmb_item_network_settings
 import com.metrolist.shared.generated.resources.xmb_item_playlist
+import com.metrolist.shared.generated.resources.xmb_item_subsetting
 import com.metrolist.shared.generated.resources.xmb_item_volume
 import com.metrolist.shared.model.AlbumTiny
 import com.metrolist.shared.model.ArtistTiny
 import com.metrolist.shared.model.HomeSection
 import com.metrolist.shared.model.LyricsEntry
 import com.metrolist.shared.model.SongItem
+import com.metrolist.shared.ui.icons.MetrolistIcons
+import com.metrolist.shared.ui.onboarding.OnboardingPage
+import com.metrolist.shared.ui.onboarding.OnboardingPageContent
 import com.metrolist.shared.ui.playback.PlaybackController
 import com.metrolist.shared.ui.playback.PlaybackUiState
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.visualizer.VisualizerAudio
+import com.metrolist.shared.visualizer.VisualizerQuality
 import com.metrolist.shared.visualizer.background.XmbWaveMotion
+import com.metrolist.shared.visualizer.gaia.GaiaVisualizer
+import com.metrolist.shared.visualizer.valley.ValleyVisualizer
 import com.metrolist.shared.visualizer.waves.WavesVisualizer
 import com.metrolist.shared.visualizer.waves.XmbBackdrop
 import com.metrolist.shared.xmb.adapters.XmbList
@@ -60,8 +67,14 @@ import com.metrolist.shared.xmb.nav.XmbKeyboard
 import com.metrolist.shared.xmb.nav.XmbLevel
 import com.metrolist.shared.xmb.nav.XmbPicker
 import com.metrolist.shared.xmb.nav.XmbVisualizerKind
+import com.metrolist.shared.xmb.screens.XmbOnboarding
+import com.metrolist.shared.xmb.screens.XmbOnboardingAction
 import com.metrolist.shared.xmb.screens.XmbTrackInfo
 import com.metrolist.shared.xmb.settings.XmbSettingsPageId
+import com.metrolist.shared.xmb.settings.XmbStorage
+import com.metrolist.shared.xmb.settings.XmbStorageUsage
+import com.metrolist.shared.xmb.settings.XmbStore
+import com.metrolist.shared.xmb.settings.XmbSystemPages
 import com.metrolist.shared.xmb.theme.XmbIcons
 import com.metrolist.shared.xmb.theme.XmbMetrics
 import com.metrolist.shared.xmb.theme.XmbPalette
@@ -77,7 +90,7 @@ import kotlin.test.Test
 /**
  * Dev capture for `scripts/xmb/snap.sh`, not a test: renders XMB screens headlessly into
  * `compare/` for side-by-side checks against reference frames. Skipped unless `XMB_SNAP_OUT` is
- * set. `XMB_SNAP` picks one screen (default: all).
+ * set. `XMB_SNAP` picks screens by name prefix, comma-separated (default: all).
  */
 class XmbSnapshotCapture {
     private val output = System.getenv("XMB_SNAP_OUT")?.let(::File)
@@ -137,6 +150,54 @@ class XmbSnapshotCapture {
                         initialLevels = listOf(playerLevel.copy(focus = 2)),
                     )
                 },
+                Screen("system-metroeq") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(systemLevel(SettingsPageId.EQUALIZER, "MetroEQ").copy(focus = 1)),
+                    )
+                },
+                Screen("system-storage") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(systemLevel(SettingsPageId.STORAGE, "Storage").copy(focus = 2)),
+                    )
+                },
+                Screen("system-about") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialCategory = XmbCategoryId.SETTINGS,
+                        initialLevels = listOf(systemLevel(SettingsPageId.ABOUT, "About")),
+                    )
+                },
+                Screen("onboarding-welcome") {
+                    XmbOnboarding(
+                        onboardingPage(
+                            OnboardingPage.WELCOME,
+                            "Welcome",
+                            "Set up privacy and system permissions before your first listen.",
+                            0,
+                        ),
+                    )
+                },
+                Screen("onboarding-finish") {
+                    XmbOnboarding(
+                        onboardingPage(
+                            OnboardingPage.FINISH,
+                            "You're all set",
+                            "Setup is complete. Start listening, or bring your account and data with you first.",
+                            3,
+                        ),
+                        actions = listOf(XmbOnboardingAction("Log in") {}, XmbOnboardingAction("Restore from backup") {}),
+                    )
+                },
                 Screen("settings-picker") {
                     XmbApp(
                         services = demoServices,
@@ -183,6 +244,27 @@ class XmbSnapshotCapture {
                         }
                     WavesVisualizer(loud, { 3f }, Modifier.fillMaxSize())
                 },
+                // Valley and Gaia at a few moments of their clocks (palettes, camera views).
+                Screen("visualizer-valley") {
+                    XmbApp(
+                        services = demoServices,
+                        time = { day },
+                        animate = false,
+                        initialFullScreen = XmbFullScreen.Visualizer(XmbVisualizerKind.VALLEY),
+                    )
+                },
+                *listOf(30f, 60f, 90f)
+                    .map { flow ->
+                        Screen(
+                            "valley-${flow.toInt()}",
+                        ) { ValleyVisualizer(audioAt(flow), { flow }, VisualizerQuality.HIGH, Modifier.fillMaxSize()) }
+                    }.toTypedArray(),
+                *listOf(0f, 40f, 80f, 120f)
+                    .map { flow ->
+                        Screen(
+                            "gaia-${flow.toInt()}",
+                        ) { GaiaVisualizer(audioAt(flow), { flow }, VisualizerQuality.HIGH, Modifier.fillMaxSize()) }
+                    }.toTypedArray(),
                 Screen("lyrics") {
                     XmbApp(services = demoServices, time = { day }, animate = false, initialFullScreen = XmbFullScreen.Lyrics)
                 },
@@ -216,6 +298,17 @@ class XmbSnapshotCapture {
                     )
                 },
                 // An upright phone (411 dp wide): the menu, and the full-screen track info stacked.
+                Screen("onboarding-phone", 1080, 2340, density = 2.625f) {
+                    XmbOnboarding(
+                        onboardingPage(
+                            OnboardingPage.FINISH,
+                            "You're all set",
+                            "Setup is complete. Start listening, or bring your account and data with you first.",
+                            3,
+                        ),
+                        actions = listOf(XmbOnboardingAction("Log in") {}, XmbOnboardingAction("Restore from backup") {}),
+                    )
+                },
                 Screen("phone-portrait", 1080, 2340, density = 2.625f) {
                     XmbApp(services = demoServices, time = { day }, animate = false, initialItem = 2)
                 },
@@ -275,7 +368,7 @@ class XmbSnapshotCapture {
                     Screen("visualizer-transition-${(step * 100).toInt()}") { TransitionFrame(step) }
                 }
         for (screen in screens) {
-            if (only != null && screen.name != only) continue
+            if (only != null && only.split(",").none { screen.name.startsWith(it.trim()) }) continue
             val density = screen.density ?: if (screen.width >= 1920) 1.5f else 1f
             val scene = ImageComposeScene(screen.width, screen.height, Density(density), content = screen.content)
             try {
@@ -400,7 +493,7 @@ class XmbSnapshotCapture {
                                 ),
                         )
                     },
-                    openStockPage = {},
+                    system = XmbSystemPages(storage = DemoStorage, backup = null),
                 ),
             account =
                 object : XmbAccount {
@@ -434,8 +527,65 @@ class XmbSnapshotCapture {
             "Waves keep time against the pier",
             "And I keep time with you",
         ).mapIndexed { index, line -> LyricsEntry(time = 72_000L + index * 6_000L, text = line) }
+
+    private fun onboardingPage(
+        page: OnboardingPage,
+        title: String,
+        description: String,
+        step: Int,
+    ) = OnboardingPageContent(
+        page = page,
+        title = title,
+        description = description,
+        icon = MetrolistIcons.Filled.Check,
+        step = step,
+        stepCount = 4,
+        primaryLabel = if (page == OnboardingPage.FINISH) "Start listening" else "Begin setup",
+        secondaryLabel = null,
+        isWorking = false,
+        error = null,
+        backLabel = "Back",
+        onPrimary = {},
+        onSecondary = null,
+        onBack = null,
+    )
+
+    private fun systemLevel(
+        page: SettingsPageId,
+        title: String,
+    ) = XmbLevel(XmbList.SettingsPage(page), title, XmbIcon.Drawable(Res.drawable.xmb_item_subsetting))
+
+    /** Storage figures for the capture: a few GB of cache and downloads. */
+    private object DemoStorage : XmbStorage {
+        override val limitChoices = mapOf(XmbStore.SONGS to listOf(0, 512, 1024, 2048, -1), XmbStore.IMAGES to listOf(0, 256, 512))
+
+        override suspend fun usage() =
+            XmbStorageUsage(
+                bytes =
+                    mapOf(
+                        XmbStore.DOWNLOADS to 3_400_000_000L,
+                        XmbStore.SONGS to 812_000_000L,
+                        XmbStore.IMAGES to 96_000_000L,
+                        XmbStore.ANIMATED_ARTWORK to 210_000_000L,
+                    ),
+                limitsMb = mapOf(XmbStore.SONGS to 1024, XmbStore.IMAGES to 512),
+                videoEntries = 14,
+                location = "C:\\Users\\Music\\XMB Music",
+            )
+
+        override suspend fun clear(store: XmbStore) = true
+
+        override suspend fun setLimit(
+            store: XmbStore,
+            megabytes: Int,
+        ) = Unit
+    }
+
     private val playerLevel =
         XmbLevel(XmbList.SettingsPage(SettingsPageId.PLAYER), "Player", XmbIcon.Drawable(Res.drawable.xmb_item_volume))
+
+    /** Visualizer audio whose flow clock has run to [flow] seconds, quietly. */
+    private fun audioAt(flow: Float) = VisualizerAudio().apply { repeat((flow * 10).toInt()) { update(null, 0.1f) } }
 
     /** One still of the move into Waves, [step] of the way, without the menu (it fades first). */
     @Composable

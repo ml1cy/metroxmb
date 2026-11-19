@@ -33,21 +33,3 @@ internal fun DesktopWebView(
     val failure by DesktopWebViewAvailability.shared.creationFailure.collectAsState()
     if (failure == null) WebView(state = state, navigator = navigator, modifier = modifier)
 }
-
-@Composable
-internal fun DesktopWebViewError() {
-    val failure by DesktopWebViewAvailability.shared.creationFailure.collectAsState()
-    var dismissed by remember { mutableStateOf(false) }
-    PopupVisibility(visible = failure != null && !dismissed) {
-        AlertDialog(
-            onDismissRequest = { dismissed = true },
-            title = { Text(stringResource(Res.string.error_title)) },
-            text = { Text(failure?.message ?: stringResource(Res.string.error_unknown)) },
-            confirmButton = {
-                TextButton(onClick = { dismissed = true }, shapes = ButtonDefaults.shapes()) {
-                    Text(stringResource(Res.string.close))
-                }
-            },
-        )
-    }
-}

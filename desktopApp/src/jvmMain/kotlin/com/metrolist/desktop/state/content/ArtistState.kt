@@ -156,7 +156,7 @@ object ArtistState {
             ?.let(CollectionPreviews::record)
         PlayerState.exitExpanded()
         if (addToHistory && selectedArtistId == id &&
-            DesktopNavigation.navigator.state.currentRoute == Screen.Artist(id)
+            DesktopNavigation.currentRoute == Screen.Artist(id)
         ) {
             return
         }

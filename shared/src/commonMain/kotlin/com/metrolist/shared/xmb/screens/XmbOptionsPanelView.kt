@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.metrolist.shared.generated.resources.Res
 import com.metrolist.shared.generated.resources.action_download
 import com.metrolist.shared.generated.resources.action_like
+import com.metrolist.shared.generated.resources.add_to_playlist
 import com.metrolist.shared.generated.resources.add_to_queue
 import com.metrolist.shared.generated.resources.play
 import com.metrolist.shared.generated.resources.play_next
@@ -57,6 +58,7 @@ val XmbOption.label: StringResource
             XmbOption.PLAY_NEXT -> Res.string.play_next
             XmbOption.ADD_TO_QUEUE -> Res.string.add_to_queue
             XmbOption.START_RADIO -> Res.string.start_radio
+            XmbOption.ADD_TO_PLAYLIST -> Res.string.add_to_playlist
             XmbOption.LIKE -> Res.string.action_like
             XmbOption.UNLIKE -> Res.string.unlike
             XmbOption.DOWNLOAD -> Res.string.action_download

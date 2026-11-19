@@ -235,7 +235,7 @@ internal fun ribbonPassColors(
     pass: Int,
     out: IntArray,
 ) {
-    val passes = RIBBON_SAMPLE_OFFSETS.size
+    val passes = ribbonSampleOffsets.size
     for (index in levels.indices) out[index] = (ribbonPassLevel(levels[index], pass, passes) shl 24) or rgb
 }
 
@@ -251,12 +251,29 @@ internal fun ribbonPassLevel(
 ): Int = (level + pass) / passes
 
 /** Sub-pixel sample positions for the ribbon's passes: the standard 8x multisampling pattern. */
-internal val RIBBON_SAMPLE_OFFSETS =
+internal val RIBBON_SAMPLE_OFFSETS_8 =
     listOf(1 to -3, -1 to 3, 5 to 1, -3 to -5, -5 to 5, -7 to -1, 3 to 7, 7 to -7)
         .map { (x, y) -> Offset(x / 16f, y / 16f) }
 
+/** 4x multisampling's rotated grid, and a single pass. */
+private val RIBBON_SAMPLE_OFFSETS_4 = listOf(-1 to -3, 3 to -1, 1 to 3, -3 to 1).map { (x, y) -> Offset(x / 8f, y / 8f) }
+private val RIBBON_SAMPLE_OFFSETS_1 = listOf(Offset.Zero)
+
+/** The passes the ribbon draws now (Visualizer quality: 8, 4 or 1); set on the UI thread. */
+internal var ribbonSampleOffsets: List<Offset> = RIBBON_SAMPLE_OFFSETS_8
+    private set
+
+internal fun setRibbonPasses(passes: Int) {
+    ribbonSampleOffsets =
+        when {
+            passes >= 8 -> RIBBON_SAMPLE_OFFSETS_8
+            passes >= 4 -> RIBBON_SAMPLE_OFFSETS_4
+            else -> RIBBON_SAMPLE_OFFSETS_1
+        }
+}
+
 /**
- * Draws the ribbon mesh added onto what's below, once per [RIBBON_SAMPLE_OFFSETS] offset with
+ * Draws the ribbon mesh added onto what's below, once per [ribbonSampleOffsets] offset with
  * [ribbonPassColors], straight from the arrays ([positions] as x, y pairs; [levels] per vertex,
  * 0..255; [rgb] the tint). Platform code: Skia on desktop, the framework canvas on Android.
  */

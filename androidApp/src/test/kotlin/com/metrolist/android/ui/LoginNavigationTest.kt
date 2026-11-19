@@ -1,7 +1,7 @@
 package com.metrolist.android.ui
 
-import com.metrolist.android.ui.screens.LoginNavigationAction
-import com.metrolist.android.ui.screens.loginNavigationAction
+import com.metrolist.android.xmb.LoginNavigationAction
+import com.metrolist.android.xmb.loginNavigationAction
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

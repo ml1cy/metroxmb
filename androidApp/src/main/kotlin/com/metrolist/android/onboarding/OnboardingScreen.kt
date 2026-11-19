@@ -29,6 +29,7 @@ import com.metrolist.shared.generated.resources.brand_google
 import com.metrolist.shared.generated.resources.brand_lastfm
 import com.metrolist.shared.generated.resources.continue_action
 import com.metrolist.shared.generated.resources.finish
+import com.metrolist.shared.generated.resources.log_in
 import com.metrolist.shared.generated.resources.no
 import com.metrolist.shared.generated.resources.onboarding_begin_setup
 import com.metrolist.shared.generated.resources.onboarding_continue_without_migration
@@ -51,6 +52,7 @@ import com.metrolist.shared.generated.resources.onboarding_notifications_descrip
 import com.metrolist.shared.generated.resources.onboarding_notifications_title
 import com.metrolist.shared.generated.resources.onboarding_playback_description
 import com.metrolist.shared.generated.resources.onboarding_welcome_description
+import com.metrolist.shared.generated.resources.restore_from_backup
 import com.metrolist.shared.generated.resources.settings_localization
 import com.metrolist.shared.generated.resources.settings_playback
 import com.metrolist.shared.generated.resources.side_menu_welcome
@@ -60,12 +62,13 @@ import com.metrolist.shared.ui.icons.MetrolistIcons
 import com.metrolist.shared.ui.icons.MetrolistIconsBrand
 import com.metrolist.shared.ui.onboarding.OnboardingPage
 import com.metrolist.shared.ui.onboarding.OnboardingPageContent
-import com.metrolist.shared.ui.onboarding.OnboardingPreferences
 import com.metrolist.shared.ui.settings.SettingsHostChoice
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsPlatform
 import com.metrolist.shared.ui.settings.SharedSettingsHost
 import com.metrolist.shared.utils.isCrashReportingAvailable
+import com.metrolist.shared.xmb.screens.XmbOnboarding
+import com.metrolist.shared.xmb.screens.XmbOnboardingAction
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -75,7 +78,6 @@ internal fun OnboardingScreen(
     onComplete: (sendCrashReports: Boolean, destination: OnboardingDestination) -> Unit,
     hasLegacyInstallationOverride: Boolean? = null,
 ) {
-    val languages = rememberAppLanguageChoices()
     val context = LocalContext.current
     val hasLegacyInstallation =
         rememberSaveable {
@@ -90,8 +92,7 @@ internal fun OnboardingScreen(
                 if (hasLegacyInstallation && !libraryStartedFresh) add(OnboardingPage.MIGRATION_COMPLETE)
                 if (isCrashReportingAvailable()) add(OnboardingPage.CRASH_REPORTS)
                 add(OnboardingPage.NOTIFICATIONS)
-                add(OnboardingPage.LANGUAGE_LYRICS)
-                add(OnboardingPage.PLAYBACK)
+                // XMB Music: language, lyrics and playback are in the XMB's Settings column.
                 add(OnboardingPage.FINISH)
             }
         }
@@ -346,39 +347,22 @@ internal fun OnboardingScreen(
         )
     }
     val content = pageContent(safePageIndex)
-    val previousContent = if (safePageIndex > 0) pageContent(safePageIndex - 1) else null
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        OnboardingContent(
-            content = content,
-            previousContent = previousContent,
-            preferences = { targetPage ->
-                OnboardingPreferences(
-                    page = targetPage,
-                    host =
-                        SharedSettingsHost(
-                            platform = SettingsPlatform.ANDROID,
-                            onClose = {},
-                            availablePages = setOf(SettingsPageId.LYRICS_AI_TRANSLATION, SettingsPageId.LYRICS_ROMANIZATION),
-                            hostChoices = mapOf(SettingsHostChoice.APP_LANGUAGE to languages),
-                            onHostChoiceSelected = { _, selected ->
-                                Settings.shared.appLanguage = selected
-                                AppLocale.applySelection(context, selected)
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) context.findActivity()?.recreate()
-                            },
-                        ),
+    // XMB Music: the pages draw the XMB way.
+    XmbOnboarding(
+        content = content,
+        actions =
+            if (page == OnboardingPage.FINISH && !working) {
+                listOf(
+                    XmbOnboardingAction(stringResource(Res.string.log_in)) { onComplete(sendCrashReports, OnboardingDestination.LOGIN) },
+                    XmbOnboardingAction(stringResource(Res.string.restore_from_backup)) {
+                        onComplete(sendCrashReports, OnboardingDestination.BACKUP_RESTORE)
+                    },
                 )
+            } else {
+                emptyList()
             },
-            accounts =
-                if (page == OnboardingPage.MIGRATION || page == OnboardingPage.MIGRATION_COMPLETE) {
-                    accounts
-                } else {
-                    emptyList()
-                },
-            onLogin = { onComplete(sendCrashReports, OnboardingDestination.LOGIN) },
-            onRestore = { onComplete(sendCrashReports, OnboardingDestination.BACKUP_RESTORE) },
-        )
-    }
+    )
 }
 
 @Composable

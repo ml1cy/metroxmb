@@ -1,7 +1,6 @@
 package com.metrolist.shared.viewmodels
 
 import com.metrolist.shared.api.lastfm.LastFM
-import com.metrolist.shared.ui.screens.artistGalleryPhotos
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -237,50 +236,6 @@ class LastFmArtistCacheTest {
                 assertEquals("https://www.last.fm/music/Artist", urls[1])
                 assertEquals("https://www.last.fm/music/Artist/+images", urls[2])
                 assertEquals(listOf(ArtistPhoto(ARTIST_PHOTO)), cache.get("id")?.photos)
-            }
-        }
-
-    @Test
-    fun publicScrapingFillsTheGalleryWithoutLastFmLoginOrApiMetadata() =
-        runTest {
-            val previousSession = LastFM.sessionKey
-            LastFM.sessionKey = null
-            try {
-                val requests = mutableListOf<HttpRequestData>()
-                var stored = """{"artist":{"data":{},"fetchedAtMillis":1,"language":"en"}}"""
-                val cache =
-                    LastFmArtistCache({ stored }, { stored = it }, { 1L }, { "en" }, dispatcher = StandardTestDispatcher(testScheduler))
-                lastFmScrapingClient(requests = requests).use { client ->
-                    cache.refresh("artist", "Artist", listOf("Song", "Album"), client)
-                    val data = cache.get("artist")!!
-                    val photos = artistGalleryPhotos("Artist", "youtube-thumbnail", data.photos)
-                    assertEquals(
-                        listOf(LastFmArtistFixtures.FIRST_PHOTO, LastFmArtistFixtures.SECOND_PHOTO),
-                        photos.take(2).map(ArtistPhoto::url),
-                    )
-                    assertEquals(3, photos.size)
-                    assertEquals("https://www.last.fm/music/Artist/+images/11111111111111111111111111111111", photos.first().pageUrl)
-                    assertEquals("Public artist biography", data.summary)
-                    assertEquals(listOf("indie pop"), data.tags)
-                    assertEquals("123", data.listeners)
-                    assertEquals("456", data.scrobbles)
-                    assertEquals(
-                        data,
-                        LastFmArtistCache({
-                            stored
-                        }, {}, contentLanguage = { "en" }, dispatcher = StandardTestDispatcher(testScheduler)).get("artist"),
-                    )
-                    assertEquals(3, requests.size)
-                    requests.forEach { request ->
-                        assertNull(request.headers[HttpHeaders.Authorization])
-                        assertNull(request.headers[HttpHeaders.Cookie])
-                        assertNull(request.url.parameters["sk"])
-                        assertNull(request.url.parameters["token"])
-                    }
-                    assertNull(LastFM.sessionKey)
-                }
-            } finally {
-                LastFM.sessionKey = previousSession
             }
         }
 
