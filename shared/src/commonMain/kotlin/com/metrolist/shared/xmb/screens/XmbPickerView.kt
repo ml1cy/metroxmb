@@ -76,7 +76,14 @@ internal fun XmbPickerView(
                 )
             }
             val taps = LocalXmbTaps.current
-            picker.labels.forEachIndexed { index, label ->
+            // Only the values that fit on screen are composed: a long list (content country,
+            // say) would otherwise lay out every label on each move.
+            // The geometry has no height: twice the larger of focusY and the width covers portrait.
+            val reach = (2f * maxOf(geometry.focusY, geometry.width) / pitch).toInt() + 2
+            val first = (picker.focus - reach).coerceAtLeast(0)
+            val last = (picker.focus + reach).coerceAtMost(picker.labels.lastIndex)
+            for (index in first..last) {
+                val label = picker.labels[index]
                 val focused = index == picker.focus
                 val y = geometry.focusY + (index - picker.focus) * pitch
                 Box(

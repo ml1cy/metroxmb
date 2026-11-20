@@ -116,8 +116,12 @@ internal fun XmbLevelView(
         return
     }
 
-    state.entries.forEachIndexed { index, entry ->
-        if (index < level.focus - ROWS_ABOVE || index > level.focus + ROWS_BELOW) return@forEachIndexed
+    // Only the rows around the focus are composed, so a list of thousands costs no more than a short one.
+    val entries = state.entries
+    val first = (level.focus - ROWS_ABOVE).coerceAtLeast(0)
+    val last = (level.focus + ROWS_BELOW).coerceAtMost(entries.lastIndex)
+    for (index in first..last) {
+        val entry = entries[index]
         key(entry.key, index) {
             val focused = index == level.focus
             val relative = { index - focus.value }

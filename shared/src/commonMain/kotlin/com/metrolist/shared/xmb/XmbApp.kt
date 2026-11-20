@@ -113,6 +113,7 @@ import com.metrolist.shared.model.RepeatMode
 import com.metrolist.shared.model.SongItem
 import com.metrolist.shared.settings.Settings
 import com.metrolist.shared.ui.components.LocalVisualWorkActive
+import com.metrolist.shared.ui.playback.PlaybackUiState
 import com.metrolist.shared.ui.settings.SettingsControl
 import com.metrolist.shared.ui.settings.SettingsPageId
 import com.metrolist.shared.ui.settings.SettingsUiRegistry
@@ -216,7 +217,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
@@ -329,27 +332,14 @@ fun XmbApp(
 
     // Live columns: settings pages from the registry, recent searches, the signed-in account.
     var settingsRevision by remember { mutableIntStateOf(0) }
-    val settingsRegistry = services?.settings?.let { rememberMetrolistSettingsRegistry(it.host(), settingsRevision) }
     // A Last.fm (true) or ListenBrainz (false) sign-in to ask for on the keyboard.
     var scrobbleSignIn by remember { mutableStateOf<Boolean?>(null) }
-    val integrationsRegistry =
-        services?.settings?.let { host ->
-            host.integrations?.let { integrations ->
-                rememberIntegrationsRegistry(integrations(), settingsRevision) { lastFm -> scrobbleSignIn = lastFm }
-            }
-        }
-    // Integrations join the settings column as one more group of pages.
-    val registry =
-        remember(settingsRegistry, integrationsRegistry) {
-            if (settingsRegistry == null || integrationsRegistry == null) {
-                settingsRegistry
-            } else {
-                SettingsUiRegistry(
-                    settingsRegistry.pages + integrationsRegistry.pages,
-                    settingsRegistry.rootGroups + integrationsRegistry.rootGroups,
-                )
-            }
-        }
+    // The registries are built by their own composable (XmbRegistries), which reruns only when a
+    // setting changes: building every settings page on each key press made menus lag.
+    var registry by remember { mutableStateOf<SettingsUiRegistry?>(null) }
+    services?.settings?.let { host ->
+        XmbRegistries(host, settingsRevision, onLogin = { lastFm -> scrobbleSignIn = lastFm }) { registry = it }
+    }
     val systemPages = services?.settings?.system
     val drawnPages = systemPages?.drawn.orEmpty()
     val labels =
@@ -365,12 +355,22 @@ fun XmbApp(
     val signOutQuestion = stringResource(Res.string.xmb_users_sign_out_confirm)
     val together = services?.listenTogether
     val friends = together?.let { rememberXmbFriendsInfo(it) }
-    val playbackState =
+    // Without the position, which moves several times a second while music plays: nothing here
+    // shows it (the track info and lyrics read it themselves), and every change would rebuild the
+    // whole XMB, a long queue's rows included.
+    val playbackState by remember(services) {
         services
             ?.playback
             ?.state
-            ?.collectAsState()
+            ?.map(PlaybackUiState::withoutPosition)
+            ?.distinctUntilChanged() ?: flowOf(null)
+    }.collectAsState(
+        services
+            ?.playback
+            ?.state
             ?.value
+            ?.withoutPosition(),
+    )
     val text = rememberXmbM6Text()
     val deviceConnectLabel = stringResource(Res.string.device_connect_title)
     val scrobbleUsername = stringResource(Res.string.username)
@@ -402,30 +402,28 @@ fun XmbApp(
     val playlistAdded = stringResource(Res.string.xmb_playlist_added)
     val playlistFailed = stringResource(Res.string.xmb_playlist_failed)
     val shortcutText = rememberXmbShortcutText()
+    val externalPages =
+        services
+            ?.settings
+            ?.host
+            ?.invoke()
+            ?.externalPages
+            .orEmpty()
+    val canRecognize = services?.recognition != null
     val categories =
-        xmbCategories(
-            users = xmbUserItems(account),
-            settings =
-                xmbOwnSettingsItems() +
-                    registry
-                        ?.let {
-                            xmbSettingsItems(
-                                it,
-                                drawnPages,
-                                hidden = XMB_HIDDEN_SETTINGS_PAGES,
-                                external =
-                                    services
-                                        ?.settings
-                                        ?.host
-                                        ?.invoke()
-                                        ?.externalPages
-                                        .orEmpty(),
-                            )
-                        }.orEmpty(),
-            search = xmbSearchItems(history),
-            friends = xmbFriendItems(friends),
-            canRecognize = services?.recognition != null,
-        )
+        remember(account, registry, drawnPages, externalPages, history, friends, canRecognize) {
+            xmbCategories(
+                users = xmbUserItems(account),
+                settings =
+                    xmbOwnSettingsItems() +
+                        registry
+                            ?.let { xmbSettingsItems(it, drawnPages, hidden = XMB_HIDDEN_SETTINGS_PAGES, external = externalPages) }
+                            .orEmpty(),
+                search = xmbSearchItems(history),
+                friends = xmbFriendItems(friends),
+                canRecognize = canRecognize,
+            )
+        }
     val itemCounts = categories.map { it.items.size }
     val itemTitles = categories.map { category -> category.items.map { it.title.resolve() } }
 
@@ -491,13 +489,6 @@ fun XmbApp(
                         toastUntil = seconds.floatValue + TOAST_SECONDS
                     },
                 )
-            val externalPages =
-                services
-                    ?.settings
-                    ?.host
-                    ?.invoke()
-                    ?.externalPages
-                    .orEmpty()
             // Rows the registry draws with its own widgets become XMB rows (or are left out), and
             // rows leading to pages that only set up the stock screens are left out.
             val page =
@@ -516,7 +507,7 @@ fun XmbApp(
 
                                                     // Rows to custom pages the XMB doesn't draw (and that aren't outside the app).
                                                     item.destination?.let { destination ->
-                                                        registry[destination]?.custom == true && destination !in drawnPages &&
+                                                        registry?.get(destination)?.custom == true && destination !in drawnPages &&
                                                             destination !in externalPages
                                                     } == true -> {
                                                         emptyList()
@@ -549,15 +540,18 @@ fun XmbApp(
                     }
                 }
             }
-            XmbListState.loaded(page?.toXmbEntries(labels, sliderLabels).orEmpty())
+            // Until the registry is first built (one frame), the page is loading, not empty.
+            if (registry == null) XmbListState() else XmbListState.loaded(page?.toXmbEntries(labels, sliderLabels).orEmpty())
         } else if (level?.list == XmbList.Queue) {
             val queue = playbackState?.queue.orEmpty()
             val current = playbackState?.currentQueueIndex ?: -1
-            XmbListState.loaded(
-                queue.mapIndexed { index, song ->
-                    song.toXmbEntry().copy(key = "queue:$index:${song.id}", value = queuePlaying.takeIf { index == current })
-                },
-            )
+            remember(queue, current, queuePlaying) {
+                XmbListState.loaded(
+                    queue.mapIndexed { index, song ->
+                        song.toXmbEntry().copy(key = "queue:$index:${song.id}", value = queuePlaying.takeIf { index == current })
+                    },
+                )
+            }
         } else if (level?.list == XmbList.CastDevices) {
             val casts =
                 castEntries(playbackState?.castDevices.orEmpty(), playbackState?.castState ?: CastState(), text.connected, text.connecting)
@@ -2040,4 +2034,37 @@ private class XmbTouchPlaces {
         stepX = geometry.categorySpacing
         stepY = geometry.itemSpacing
     }
+}
+
+/** The playback state without what moves while music plays (the position), for what doesn't show it. */
+private fun PlaybackUiState.withoutPosition(): PlaybackUiState = copy(positionMs = 0, bufferedPositionMs = 0)
+
+/**
+ * The settings and integrations registries, built apart from the rest of the XMB so they rerun
+ * only when a setting they read changes (or after [revision] moves), not on every key press;
+ * [publish] gets each new one.
+ */
+@Composable
+private fun XmbRegistries(
+    settings: XmbSettingsHost,
+    revision: Int,
+    onLogin: (lastFm: Boolean) -> Unit,
+    publish: (SettingsUiRegistry?) -> Unit,
+) {
+    val settingsRegistry = rememberMetrolistSettingsRegistry(settings.host(), revision)
+    val integrationsRegistry =
+        settings.integrations?.let { integrations ->
+            rememberIntegrationsRegistry(integrations(), revision, onLogin)
+        }
+    // Integrations join the settings column as one more group of pages.
+    val merged =
+        if (integrationsRegistry == null) {
+            settingsRegistry
+        } else {
+            SettingsUiRegistry(
+                settingsRegistry.pages + integrationsRegistry.pages,
+                settingsRegistry.rootGroups + integrationsRegistry.rootGroups,
+            )
+        }
+    SideEffect { publish(merged) }
 }

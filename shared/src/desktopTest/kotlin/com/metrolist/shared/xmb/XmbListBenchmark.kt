@@ -39,7 +39,8 @@ class XmbListBenchmark {
 
     private fun playback(queue: List<SongItem>) =
         object : PlaybackController {
-            override val state = MutableStateFlow(PlaybackUiState(currentSong = queue.first(), isPlaying = true, durationMs = 200_000, queue = queue))
+            override val state =
+                MutableStateFlow(PlaybackUiState(currentSong = queue.first(), isPlaying = true, durationMs = 200_000, queue = queue))
 
             override fun play(
                 song: SongItem,

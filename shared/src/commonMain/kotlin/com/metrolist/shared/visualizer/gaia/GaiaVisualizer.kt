@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import com.metrolist.shared.generated.resources.Res
+import com.metrolist.shared.ui.utils.pixelsToImageBitmap
 import com.metrolist.shared.visualizer.VisualizerAudio
 import com.metrolist.shared.visualizer.VisualizerQuality
 import com.metrolist.shared.visualizer.shader.XmbShader
@@ -176,8 +177,8 @@ internal class GaiaMaps(
     private val dayLow: ImageBitmap,
     private val clouds: ImageBitmap,
     private val cloudsLow: ImageBitmap,
-    private val water: ImageBitmap,
-    private val lights: ImageBitmap,
+    /** The water mask in red and the city lights in green, at 2048 × 1024. */
+    private val masks: ImageBitmap,
 ) {
     val width: Float get() = day.width.toFloat()
 
@@ -186,14 +187,13 @@ internal class GaiaMaps(
         shader.setImage("dayLo", dayLow)
         shader.setImage("cloudsHi", clouds)
         shader.setImage("cloudsLo", cloudsLow)
-        shader.setImage("water", water)
-        shader.setImage("lights", lights)
+        shader.setImage("surfaceMasks", masks)
     }
 
     fun sizes(shader: XmbShader) {
         shader.set("hiSize", day.width.toFloat(), day.height.toFloat())
         shader.set("loSize", dayLow.width.toFloat(), dayLow.height.toFloat())
-        shader.set("smallSize", water.width.toFloat(), water.height.toFloat())
+        shader.set("smallSize", masks.width.toFloat(), masks.height.toFloat())
     }
 }
 
@@ -238,9 +238,22 @@ internal suspend fun loadGaiaMaps(): GaiaMaps =
             fun read(name: String) = suspend { Res.readBytes("files/xmb/gaia/$name").decodeToImageBitmap() }
             val day = read("day.jpg")()
             val clouds = read("clouds.jpg")()
-            GaiaMaps(day, quarter(day), clouds, quarter(clouds), read("water.jpg")(), read("lights.jpg")())
+            GaiaMaps(day, quarter(day), clouds, quarter(clouds), surfaceMasks(read("water.jpg")(), read("lights.jpg")()))
         }.also { gaiaMaps = it }
     }
+
+/** The water mask and city lights (same size, grayscale) as one image: water in red, lights in green. */
+internal fun surfaceMasks(
+    water: ImageBitmap,
+    lights: ImageBitmap,
+): ImageBitmap {
+    require(water.width == lights.width && water.height == lights.height) { "Gaia's water and lights maps differ in size" }
+    val count = water.width * water.height
+    val sea = IntArray(count).also { water.readPixels(it) }
+    val city = IntArray(count).also { lights.readPixels(it) }
+    val packed = IntArray(count) { index -> (0xFF shl 24) or ((sea[index] shr 16 and 0xFF) shl 16) or ((city[index] shr 8 and 0xFF) shl 8) }
+    return pixelsToImageBitmap(packed, water.width, water.height)
+}
 
 /** [image] at a quarter of its size, filtered smoothly: the far views' maps. */
 private fun quarter(image: ImageBitmap): ImageBitmap =
@@ -368,8 +381,7 @@ uniform shader dayHi;
 uniform shader dayLo;
 uniform shader cloudsHi;
 uniform shader cloudsLo;
-uniform shader water;
-uniform shader lights;
+uniform shader surfaceMasks;
 uniform float2 hiSize;
 uniform float2 loSize;
 uniform float2 smallSize;
@@ -418,11 +430,22 @@ half4 main(float2 fragCoord) {
         float3 q = float3(n.x * cos(turn) + n.z * sin(turn), n.y, -n.x * sin(turn) + n.z * cos(turn));
         q = float3(q.x, q.y * cos(tilt) - q.z * sin(tilt), q.y * sin(tilt) + q.z * cos(tilt));
         float2 uv = float2(atan(q.x, q.z) / 6.2831853 + 0.5, 0.5 - asin(clamp(q.y, -1.0, 1.0)) / 3.1415927);
-        float3 day = mix(dayHi.eval(uv * hiSize).rgb, dayLo.eval(uv * loSize).rgb, lod);
         float2 cloudUv = float2(fract(uv.x + iTime * 0.0004), uv.y);
-        float cloud = mix(cloudsHi.eval(cloudUv * hiSize).r, cloudsLo.eval(cloudUv * loSize).r, lod);
-        float sea = water.eval(uv * smallSize).r;
-        float city = lights.eval(uv * smallSize).r;
+        // Only the map sizes the view blends between are read (lod is 0 or 1 most of the time).
+        float3 day = float3(0.0);
+        float cloud = 0.0;
+        if (lod < 0.999) {
+            day += dayHi.eval(uv * hiSize).rgb * (1.0 - lod);
+            cloud += cloudsHi.eval(cloudUv * hiSize).r * (1.0 - lod);
+        }
+        if (lod > 0.001) {
+            day += dayLo.eval(uv * loSize).rgb * lod;
+            cloud += cloudsLo.eval(cloudUv * loSize).r * lod;
+        }
+        // Water in red, city lights in green: one read for both.
+        float2 masks = surfaceMasks.eval(uv * smallSize).rg;
+        float sea = masks.r;
+        float city = masks.g;
 
         float sunAngle = dot(n, light);
         float lit = smoothstep(-0.08, 0.35, sunAngle) * clamp(sunAngle * 0.9 + 0.25, 0.0, 1.0);

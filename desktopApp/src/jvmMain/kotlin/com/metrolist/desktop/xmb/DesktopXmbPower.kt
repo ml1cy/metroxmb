@@ -13,8 +13,10 @@ import com.sun.jna.win32.W32APIOptions
  * Keeps the XMB smooth while its window is behind others on Windows. Windows 11 power-throttles
  * processes without the foreground window (EcoQoS: slower CPU scheduling, coarse timers), which
  * made the animation, and possibly playback, stutter when tabbed out. This opts the process out,
- * as media players do, and asks for 1 ms timers. Both are best effort: older Windows versions
- * don't know the throttling setting, and nothing changes there.
+ * as media players do, and asks for 1 ms timers. A window without focus also loses the foreground
+ * priority boost, so the render thread waits behind other programs and heavy views (Gaia) drop
+ * frames; the process runs at above-normal priority instead, like media players. All of this is
+ * best effort: older Windows versions don't know the throttling setting, and nothing changes there.
  */
 internal object DesktopXmbPower {
     private var applied = false
@@ -36,6 +38,11 @@ internal object DesktopXmbPower {
         }.onFailure { AppLogger.warning(TAG, "Could not turn off background power throttling", it) }
         runCatching { WinMm.INSTANCE.timeBeginPeriod(1) }
             .onFailure { AppLogger.warning(TAG, "Could not request 1 ms timers", it) }
+        runCatching {
+            val kernel = Kernel32Power.INSTANCE
+            val done = kernel.SetPriorityClass(kernel.GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)
+            AppLogger.info(TAG, "Process priority ${if (done) "above normal" else "unchanged"}")
+        }.onFailure { AppLogger.warning(TAG, "Could not raise the process priority", it) }
     }
 
     @Suppress("FunctionName")
@@ -47,6 +54,11 @@ internal object DesktopXmbPower {
             informationClass: Int,
             information: Pointer,
             size: Int,
+        ): Boolean
+
+        fun SetPriorityClass(
+            process: WinNT.HANDLE,
+            priorityClass: Int,
         ): Boolean
 
         companion object {
@@ -71,4 +83,5 @@ internal object DesktopXmbPower {
     private const val POWER_THROTTLING_EXECUTION_SPEED = 0x1
     private const val POWER_THROTTLING_IGNORE_TIMER_RESOLUTION = 0x4
     private const val STATE_SIZE = 12L
+    private const val ABOVE_NORMAL_PRIORITY_CLASS = 0x8000
 }
