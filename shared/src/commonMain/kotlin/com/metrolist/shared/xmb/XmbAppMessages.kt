@@ -18,6 +18,7 @@ import com.metrolist.shared.listentogether.ListenTogetherEvent
 import com.metrolist.shared.listentogether.ListenTogetherManager
 import com.metrolist.shared.listentogether.ListenTogetherText
 import com.metrolist.shared.settings.HiddenHomeItems
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -53,7 +54,14 @@ fun XmbAppMessages(
             if (result == SnackbarResult.ActionPerformed) {
                 scope.launch {
                     YouTubeSyncState.succeeded(failure.operation)
-                    failure.retry()
+                    // A retry that throws (offline again) must not take the app down.
+                    try {
+                        failure.retry()
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        Unit
+                    }
                 }
             }
         }

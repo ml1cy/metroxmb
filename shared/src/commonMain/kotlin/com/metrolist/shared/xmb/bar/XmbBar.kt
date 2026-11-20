@@ -123,8 +123,11 @@ internal fun XmbBar(
                     },
                 ),
         )
-    categories.forEachIndexed { index, category ->
-        if (abs(index - navigation.category) > geometry.visibleCategories) return@forEachIndexed
+    // Only the categories in view are composed (no early returns between keyed groups).
+    val firstCategory = (navigation.category - geometry.visibleCategories).coerceAtLeast(0)
+    val lastCategory = (navigation.category + geometry.visibleCategories).coerceAtMost(categories.lastIndex)
+    for (index in firstCategory..lastCategory) {
+        val category = categories[index]
         key(category.id) {
             val distance = { abs(index - categoryPosition.value) }
             // Only what's in view takes taps: the icons and the focused column, at the top level (an
@@ -205,8 +208,10 @@ private fun ItemColumn(
 ) {
     val styles = rememberXmbRowStyles(metrics, fontFamily)
     val taps = LocalXmbTaps.current
-    category.items.forEachIndexed { index, item ->
-        if (index < focusedItem - ITEMS_ABOVE || index > focusedItem + ITEMS_BELOW) return@forEachIndexed
+    val firstItem = (focusedItem - ITEMS_ABOVE).coerceAtLeast(0)
+    val lastItem = (focusedItem + ITEMS_BELOW).coerceAtMost(category.items.lastIndex)
+    for (index in firstItem..lastItem) {
+        val item = category.items[index]
         key(item.id) {
             val focused = isFocusedCategory && index == focusedItem
             val relative = { index - itemPosition() }

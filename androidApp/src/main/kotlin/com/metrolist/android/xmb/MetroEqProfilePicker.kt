@@ -29,9 +29,12 @@ internal fun rememberMetroEqProfilePicker(onPicked: (fileName: String, content: 
                         val resolver = context.contentResolver
                         val columns = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
                         val (name, size) =
-                            resolver.query(uri, columns, null, null, null)?.use {
-                                if (it.moveToFirst()) it.getString(0).orEmpty() to it.getLong(1) else null
-                            } ?: (uri.lastPathSegment.orEmpty() to 0L)
+                            // A provider can refuse the query (permission revoked, file gone).
+                            runCatching {
+                                resolver.query(uri, columns, null, null, null)?.use {
+                                    if (it.moveToFirst()) it.getString(0).orEmpty() to it.getLong(1) else null
+                                }
+                            }.getOrNull() ?: (uri.lastPathSegment.orEmpty() to 0L)
                         val content =
                             size.takeIf { it <= 1_000_000 }?.let {
                                 runCatching { resolver.openInputStream(uri)?.use { it.readBoundedText(1_000_000) } }.getOrNull()
